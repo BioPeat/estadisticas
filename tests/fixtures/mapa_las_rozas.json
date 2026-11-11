@@ -1,0 +1,8 @@
+{
+  "court": "half",
+  "header": {"topTeam":"C.B. LAS ROZAS","topScore":36,"bottomTeam":"BUEN CONSEJO","bottomScore":64},
+  "ownIdentification": {"team":"BUEN CONSEJO","headerPosition":"bottom","side":"right","color":"red","playersColumn":"right","checksAgree":true,"conflict":"","confidence":0.99},
+  "opponentIdentification": {"team":"C.B. LAS ROZAS","headerPosition":"top","side":"left","color":"blue","playersColumn":"left","checksAgree":true,"conflict":"","confidence":0.99},
+  "ownShots": [{"x":0.35,"y":0.22},{"x":0.62,"y":0.48}],
+  "opponentShots": [{"x":0.48,"y":0.19},{"x":0.21,"y":0.67}]
+}

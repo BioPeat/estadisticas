@@ -1,0 +1,8 @@
+{
+  "court": "half",
+  "header": {"topTeam":"BUEN CONSEJO","topScore":61,"bottomTeam":"OLIMPICO 64","bottomScore":48},
+  "ownIdentification": {"team":"BUEN CONSEJO","headerPosition":"top","side":"left","color":"red","playersColumn":"left","checksAgree":true,"conflict":"","confidence":0.99},
+  "opponentIdentification": {"team":"OLIMPICO 64","headerPosition":"bottom","side":"right","color":"gray","playersColumn":"right","checksAgree":true,"conflict":"","confidence":0.99},
+  "ownShots": [{"x":0.42,"y":0.18},{"x":0.51,"y":0.23}],
+  "opponentShots": [{"x":0.46,"y":0.16},{"x":0.72,"y":0.51}]
+}

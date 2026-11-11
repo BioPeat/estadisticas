@@ -1,0 +1,11 @@
+name = "estadisticas"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "estadisticas"
+database_id = "PEGA_AQUI_EL_ID_DE_D1"
+
+# Crea SETUP_SECRET como secreto, no lo escribas aquí:
+# npx wrangler secret put SETUP_SECRET
