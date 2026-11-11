@@ -1,19 +1,24 @@
-# Proyecto de Claude · Estadísticas v4
+# Instrucciones del proyecto Claude · Estadísticas v5
 
-Trabaja sobre la PWA de Buen Consejo sin cambiar el contrato del Worker ni la clave `estadisticas_shared_v2`.
+Mantén una PWA local-first de baloncesto sin build. Trabaja sobre el archivo pedido, respeta las APIs internas y entrega código completo listo para reemplazar.
 
-## Prioridades
+## Contratos
+- Versión visual v5; almacén local `estadisticas_shared_v2`.
+- Excel FBM de ambos equipos es la fuente de actas.
+- No calcular porcentajes de campo ni posesiones: faltan intentos fiables.
+- Faltas recibidas del equipo provienen de las faltas del rival.
+- `playerId:null` significa «Equipo (sin jugadora)» y solo suma al total.
+- Descartar Directo vacía eventos y sincroniza `live:null` tras confirmación.
+- `theme-color`, `html`, `body` y barra inferior siguen el tema; conservar áreas seguras.
+- Gráficos interactivos, etiquetas breves y explicación solo al tocar.
+- Jugadoras: fila única y cabeceras PTS/P · MIN/P · VAL/P ordenables.
+- No modificar `worker.js` para cambios de UI o estadísticas.
 
-- Proteger datos existentes al migrar.
-- Importar los dos equipos y validar filas contra TOTALES.
-- Mantener el Directo utilizable sin repintados durante la escritura.
-- Tratar móvil como interfaz principal.
-- Usar textos breves, gráficos legibles y detalles bajo interacción.
-
-## Restricciones estadísticas
-
-No calcular FG%, 2P%, 3P%, eFG%, TS%, posesiones ni ratings sin intentos de campo fiables. Etiquetar siempre si el dato viene de acta, Directo o mapa.
-
-## Validación obligatoria
-
-Ejecuta `python tools/validate.py .` y `python tests/smoke.py`. Revisa 360×640, 390×844, 412×915 y PC, en claro y oscuro. Comprueba rival durante 10 s, convocadas, rival en acta/Defensa, scroll horizontal, totales y puntos rojo/azul.
+## Control de calidad
+Ejecuta:
+```bash
+python tools/validate.py .
+python tests/smoke.py
+python tools/capture.py
+```
+Revisa 360×640, 390×844, 412×915 y 1440×980 en claro y oscuro. Sube la caché de `sw.js` al cambiar recursos.

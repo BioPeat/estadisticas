@@ -1,22 +1,16 @@
-# Contexto funcional · v4
+# Contexto · Estadísticas v5
 
-- Equipo: Buen Consejo, temporada 26/27.
-- Fuente principal: Excel de estadísticas descargado de Afición FBM.
-- Fuentes complementarias: Directo y mapas de tiro.
-- Almacenamiento local: `estadisticas_shared_v2`.
-- Sincronización: eventos mediante el Worker existente; la v4 evita repintar si no cambian datos y nunca repinta mientras se edita un campo.
+Aplicación PWA de Buen Consejo, temporada 26/27. Importa actas FBM de ambos equipos, registra cuatro eventos durante el partido y permite añadir mapas de canastas anotadas.
 
-## Migración v3 → v4
+## v5
+- Tema claro y oscuro coordinado con `theme-color`, fondo de `html/body`, área segura y barra inferior.
+- Directo: evento sin jugadora, deshacer, descartar sincronizado con confirmación y finalizar.
+- Equipo: marcador sin relleno, etiquetas y acceso al partido; reparto real por puntos totales; top 3; margen por partido; minutos; comparación ataque/defensa; faltas recibidas desde las faltas rivales; mapas por cuatro zonas.
+- Jugadoras: una fila por jugadora, PTS/P · MIN/P · VAL/P visibles y cabeceras ordenables.
+- Acta: FR individual se oculta si el Excel lo trae a cero; eventos sin jugadora aparecen solo en TOTALES.
 
-`sanitise` mantiene IDs, fechas, eventos y mapas. Un partido FBM sin rival o sin totales queda marcado con `needsReimport`. Al reimportar, se busca primero rival + marcador y se sustituye el acta dentro del mismo partido.
+## Límites honestos
+Los Excel FBM aportan canastas anotadas e intentos de TL, pero no intentos de 2P/3P fiables. Los mapas contienen canastas, no fallos. Robos, pérdidas y rebotes de Directo solo son completos si se apuntan durante todo el partido.
 
-## Límites de datos
-
-Las actas contienen aciertos de 2 y 3, pero no intentos fiables de campo. Por eso solo es válido el porcentaje de TL. Rebotes, asistencias, robos y pérdidas de la FBM pueden estar a cero si la competición no los publica; las columnas completamente vacías se ocultan en el acta.
-
-## Vistas
-
-- Equipo: marcador, composición de puntos, comparación, concentración e indicadores.
-- Jugadoras: medias por partido y por 40; evolución seleccionable por partido con media de equipo.
-- Partidos: acta completa de ambos equipos y mapa.
-- Directo: cuatro eventos manuales y unión posterior al acta.
+## Sincronización
+La operación de descarte es `live-upsert` con `live:null`; los demás dispositivos eliminan el Directo activo al recibirla. No se ha cambiado `worker.js` ni la configuración de Cloudflare.

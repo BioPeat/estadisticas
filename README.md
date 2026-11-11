@@ -1,39 +1,31 @@
-# Estadísticas v4 · Buen Consejo 26/27
+# Estadísticas v5 · Buen Consejo 26/27
 
-Aplicación PWA local-first para actas FBM, Directo y mapas de tiro.
+PWA local-first para importar actas FBM, consultar equipo y jugadoras, apuntar eventos durante un partido y añadir mapas de canastas.
 
-## Actualizar
+## Publicar
+1. Copia el contenido de esta carpeta a la raíz del repositorio.
+2. Commit y Push en GitHub.
+3. Espera a GitHub Pages y recarga la app.
+4. Si la franja inferior conserva el color antiguo, desinstala y vuelve a instalar la PWA una vez: Android puede conservar el color del `manifest.json` de la instalación anterior.
 
-1. Sustituye en GitHub todo el contenido por esta carpeta.
-2. Conserva la configuración existente del Worker de Cloudflare: `worker.js` no ha cambiado.
-3. Abre la app y vuelve a importar las tres actas FBM. La v4 actualiza los mismos partidos y conserva fecha, eventos de Directo y mapas.
-4. Si Android mantiene colores antiguos en las barras del sistema, desinstala la PWA y vuelve a instalarla una vez.
+No reemplaces el Worker de Cloudflare: `worker.js` no ha cambiado en v5.
 
-La clave local sigue siendo `estadisticas_shared_v2`; la actualización no borra datos.
-
-## Datos válidos
-
-- Acta FBM: marcador, minutos, puntos, canastas anotadas de 2 y 3, tiros libres, faltas, valoración, +/- y las columnas que la FBM publique.
-- Directo: robos, pérdidas y rebotes ofensivos propios/rivales.
-- Mapa: ubicaciones de canastas propias y rivales.
-
-No se calculan FG%, 2P%, 3P%, eFG%, TS%, posesiones ni ratings: el Excel solo aporta canastas anotadas, no intentos de campo fiables.
-
-## Comprobaciones
-
+## Probar
 ```bash
 python tools/validate.py .
 python tests/smoke.py
 python tools/capture.py
 ```
 
-`tests/smoke.py` necesita Playwright y Chromium. CI los instala automáticamente.
+Requisitos para las pruebas visuales: Python 3.12, Playwright y Chromium.
 
-## Estructura
+## Datos
+- La app guarda primero en `localStorage` (`estadisticas_shared_v2`).
+- Con URL y token del Worker, envía operaciones a Cloudflare D1.
+- Descartar un Directo emite `live:null` y lo elimina en todos los dispositivos sincronizados.
+- «Equipo (sin jugadora)» suma el evento al total y a TOTALES, no a una jugadora.
 
-- `app.js`: estado, migración, importación, sincronización, vistas, gráficos y Directo.
-- `styles.css`: diseño responsive, temas, áreas seguras y acta desplazable.
-- `worker.js`: contrato de Cloudflare, sin cambios en v4.
-- `tests/fixtures/real_3_partidos.json`: fixture derivado de las tres actas reales.
-- `tools/validate.py`: validación estática.
-- `tools/capture.py`: capturas claras/oscuras de móvil y PC.
+## Métricas
+Son válidas: marcador, margen, origen de puntos anotados, TL%, intentos de TL, faltas cometidas/recibidas, casa/fuera, reparto de puntos/minutos, +/- del acta, rebote ofensivo, rachas, eventos de Directo y zonas de canastas.
+
+No se muestran FG%, 2P%, 3P%, eFG%, TS%, posesiones ni ratings porque el origen no permite calcularlos con rigor.

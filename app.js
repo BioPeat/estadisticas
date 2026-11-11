@@ -1,7 +1,7 @@
-/* Estadísticas v4 · Buen Consejo 26/27 · local-first */
+/* Estadísticas v5 · Buen Consejo 26/27 · local-first */
 'use strict';
 
-const APP_VERSION = 'v4';
+const APP_VERSION = 'v5';
 const STORE = 'estadisticas_shared_v2';
 const TEAM = 'BUEN CONSEJO';
 const $ = (s, r = document) => r.querySelector(s);
@@ -23,7 +23,7 @@ const deepSignature = x => JSON.stringify(x);
 
 function blank() {
   return {
-    version: 4,
+    version: 5,
     team: {name:'Buen Consejo', season:'26/27'},
     roster: [], games: [], live: null,
     liveDraft: {rival:'', date:today(), selected:[]},
@@ -41,6 +41,8 @@ let toastTimer;
 let syncing = false;
 let syncTimer;
 let renderAfterEdit = false;
+let playerSort = 'pts';
+let playerSortDir = -1;
 
 function load() {
   try {
@@ -86,7 +88,7 @@ function hasLegacyFields(g) {
 
 function sanitise(s) {
   const base = blank();
-  const out = {...base, ...s, version:4, team:{...base.team, ...(s.team || {})}, settings:{...base.settings, ...(s.settings || {})}};
+  const out = {...base, ...s, version:5, team:{...base.team, ...(s.team || {})}, settings:{...base.settings, ...(s.settings || {})}};
   out.roster = (s.roster || []).filter(p => p?.name).map(p => ({...p, id:p.id || uid(), number:String(p.number || '')}));
   out.games = (s.games || []).filter(g => g && !g.demo && !g.isDemo && !['DEMO','EJEMPLO'].some(x => norm(g.opponent).includes(x))).map(g => {
     const pair = splitLegacyShots(g);
@@ -117,7 +119,7 @@ function migrateV1(old) {
   return sanitise(out);
 }
 
-function save() { state.version = 4; localStorage.setItem(STORE, JSON.stringify(state)); }
+function save() { state.version = 5; localStorage.setItem(STORE, JSON.stringify(state)); }
 function record(type, payload) { state.ops.push({id:uid(), at:new Date().toISOString(), type, payload}); save(); paintSync(); scheduleSync(); }
 function toast(message) { const t = $('#toast'); t.textContent = message; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
 function setView(next) { view = next; $$('[data-go]').forEach(b => b.setAttribute('aria-current', b.dataset.go === next ? 'page' : 'false')); render(); window.scrollTo(0, 0); }
@@ -325,9 +327,11 @@ function teamStats() {
   const ownPts = sum(games, g => g.us), oppPts = sum(games, g => g.them);
   const ftm = agg(own, 'ftm'), fta = agg(own, 'fta'), oftm = agg(opp, 'ftm'), ofta = agg(opp, 'fta');
   const p2 = agg(own, 'p2m'), p3 = agg(own, 'p3m'), op2 = agg(opp, 'p2m'), op3 = agg(opp, 'p3m');
-  const playerTotals = playerAgg().filter(p => p.gp);
-  const hhi = ownPts ? playerTotals.reduce((a, p) => a + Math.pow(p.pts / ownPts, 2), 0) * 100 : null;
-  const topShare = ownPts && playerTotals[0] ? playerTotals[0].pts / ownPts * 100 : null;
+  const playerTotals = playerAgg().filter(p => p.gp).sort((a, b) => b.pts - a.pts);
+  const topScorer = playerTotals[0] || null;
+  const topShare = ownPts && topScorer ? topScorer.pts / ownPts * 100 : null;
+  const topThreePts = sum(playerTotals.slice(0, 3), p => p.pts);
+  const topThreeShare = ownPts ? topThreePts / ownPts * 100 : null;
   const minuteSplit = games.map(g => {
     const ordered = [...(g.players || [])].sort((a, b) => b.min - a.min), first = ordered.slice(0, 5), rest = ordered.slice(5);
     return {first:sum(first, p => p.pts), rest:sum(rest, p => p.pts)};
@@ -337,10 +341,10 @@ function teamStats() {
     games, own, opp, played, wins, losses:played - wins, ownPts, oppPts,
     ppg:played ? ownPts / played : null, papg:played ? oppPts / played : null, margin:played ? (ownPts - oppPts) / played : null,
     p2, p3, ftm, fta, ftp:fta ? ftm / fta * 100 : null, op2, op3, oftm, ofta, oftp:ofta ? oftm / ofta * 100 : null,
-    fouls:agg(own, 'fouls'), foulsDrawn:agg(own, 'foulsDrawn'), oppFouls:agg(opp, 'fouls'), oppFoulsDrawn:agg(opp, 'foulsDrawn'),
+    fouls:agg(own, 'fouls'), foulsDrawn:agg(opp, 'fouls'), oppFouls:agg(opp, 'fouls'), oppFoulsDrawn:agg(own, 'fouls'),
     ast:agg(own, 'ast'), rec:agg(own, 'rec'), per:agg(own, 'per'), rebOff:agg(own, 'rebOff'), oppRebOff:agg(opp, 'rebOff'),
     shotRate:(p2 + p3) ? fta / (p2 + p3) : null, oppShotRate:(op2 + op3) ? ofta / (op2 + op3) : null,
-    topShare, hhi, firstFivePts:sum(minuteSplit, x => x.first), restPts:sum(minuteSplit, x => x.rest),
+    playerTotals, topScorer, topShare, topThreePts, topThreeShare, firstFivePts:sum(minuteSplit, x => x.first), restPts:sum(minuteSplit, x => x.rest),
     shotsFor:games.flatMap(g => g.shotsFor || []), shotsAgainst:games.flatMap(g => g.shotsAgainst || []),
     manualGames:manualGames.length,
     steals:ev.filter(e => e.type === 'steal').length, turnovers:ev.filter(e => e.type === 'turnover').length,
@@ -367,13 +371,31 @@ function sparkline(values, tone = 'team', width = 150, height = 42) {
 
 function scoreChart(games) {
   if (!games.length) return '';
-  const all = games.flatMap(g => [+g.us, +g.them]), max = Math.max(...all, 1), min = Math.min(...all, 0), w = 720, h = 180, x = i => games.length === 1 ? w / 2 : 28 + i * (w - 56) / (games.length - 1), y = v => h - 25 - (v - min) / (max - min || 1) * (h - 50);
-  const line = key => games.map((g, i) => `${x(i)},${y(+g[key])}`).join(' ');
+  const ordered = [...games].sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  const all = ordered.flatMap(g => [+g.us, +g.them]), max = Math.max(...all, 1), min = Math.min(...all, 0), w = 720, h = 220, x = i => ordered.length === 1 ? w / 2 : 50 + i * (w - 100) / (ordered.length - 1), y = v => h - 52 - (v - min) / (max - min || 1) * (h - 94);
+  const line = key => ordered.map((g, i) => `${x(i)},${y(+g[key])}`).join(' ');
   return `<div class="chart-wrap"><svg class="score-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Evolución del marcador">
-    <line class="grid-line" x1="20" y1="${h-25}" x2="${w-20}" y2="${h-25}"/>
+    <line class="grid-line" x1="24" y1="${h-52}" x2="${w-24}" y2="${h-52}"/>
     <polyline class="score-us" points="${line('us')}"/><polyline class="score-them" points="${line('them')}"/>
-    ${games.map((g, i) => `<g data-detail="game:${g.id}" tabindex="0" role="button"><circle class="score-us" cx="${x(i)}" cy="${y(+g.us)}" r="5"/><circle class="score-them" cx="${x(i)}" cy="${y(+g.them)}" r="5"/><title>${esc(g.opponent)}: ${g.us}–${g.them}</title></g>`).join('')}
+    ${ordered.map((g, i) => `<g data-detail="game:${g.id}" tabindex="0" role="button"><circle class="score-us" cx="${x(i)}" cy="${y(+g.us)}" r="6"/><circle class="score-them" cx="${x(i)}" cy="${y(+g.them)}" r="6"/><text class="score-label us" x="${x(i)}" y="${Math.max(16,y(+g.us)-12)}" text-anchor="middle">${g.us}</text><text class="score-label them" x="${x(i)}" y="${Math.min(h-58,y(+g.them)+20)}" text-anchor="middle">${g.them}</text><text class="game-label" x="${x(i)}" y="${h-27}" text-anchor="middle">${esc(String(g.opponent||'Rival').split(' ')[0].slice(0,10))}</text><text class="date-label" x="${x(i)}" y="${h-11}" text-anchor="middle">${esc(String(g.date||'').slice(5))}</text><title>${esc(g.opponent)}: ${g.us}–${g.them}</title></g>`).join('')}
   </svg><div class="chart-legend"><span class="us">Buen Consejo</span><span class="them">Rival</span></div></div>`;
+}
+
+function marginChart(games) {
+  const ordered = [...games].sort((a,b) => String(a.date).localeCompare(String(b.date))), max = Math.max(1, ...ordered.map(g => Math.abs(g.us-g.them))), w=720, h=185, zero=h/2;
+  const slot=w/Math.max(ordered.length,1), bw=Math.min(76,slot*.46);
+  return `<svg class="margin-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Margen por partido"><line x1="20" y1="${zero}" x2="${w-20}" y2="${zero}"/>${ordered.map((g,i)=>{const m=g.us-g.them,x=slot*i+slot/2,bar=Math.abs(m)/max*(h/2-28),y=m>=0?zero-bar:zero;return `<g data-detail="game:${g.id}" tabindex="0" role="button"><rect class="${m>=0?'positive':'negative'}" x="${x-bw/2}" y="${y}" width="${bw}" height="${Math.max(2,bar)}" rx="7"/><text x="${x}" y="${m>=0?Math.max(14,y-7):Math.min(h-8,y+bar+17)}" text-anchor="middle">${m>0?'+':''}${m}</text><title>${esc(g.opponent)} · margen ${m>0?'+':''}${m}</title></g>`}).join('')}</svg>`;
+}
+
+function pointShareChart(players, ownPts) {
+  const shown=players.slice(0,5), rest=Math.max(0,ownPts-sum(shown,p=>p.pts)), max=Math.max(1,...shown.map(p=>p.pts),rest);
+  const rows=[...shown.map(p=>({name:shortName(p.name),value:p.pts,key:norm(p.name)})),...(rest?[{name:'Resto',value:rest}]:[])];
+  return `<div class="share-bars">${rows.map(r=>`<button ${r.key?`data-detail="player:${encodeURIComponent(r.key)}"`:''}><span>${esc(r.name)}</span><i><b style="width:${r.value/max*100}%"></b></i><strong>${r.value} · ${pct(ownPts?r.value/ownPts*100:0)}</strong></button>`).join('')}</div>`;
+}
+
+function minuteBars(players) {
+  const rows=[...players].sort((a,b)=>b.min-a.min).slice(0,8),max=Math.max(1,...rows.map(p=>p.min));
+  return `<div class="minute-bars">${rows.map(p=>`<button data-detail="player:${encodeURIComponent(norm(p.name))}"><span>${esc(shortName(p.name))}</span><i><b style="width:${p.min/max*100}%"></b></i><strong>${formatMinutes(p.min)}</strong></button>`).join('')}</div>`;
 }
 
 function stackedBar(items, label) {
@@ -413,27 +435,29 @@ function renderTeam() {
   const current = currentStreak(t.games);
   return head('team-page', 'Equipo', `<button class="btn" data-action="import-games">Importar acta</button>`, `${t.played} partidos · ${state.team.season}`) + reimportBanner() + `
     <div class="summary-grid">
-      <article class="score-summary card"><div><span>Balance</span><strong>${t.wins}–${t.losses}</strong><em>${pct(t.wins / t.played * 100)}</em></div><div><span>Anotación</span><strong>${num(t.ppg)}</strong><em>por partido</em></div><div><span>Recibidos</span><strong>${num(t.papg)}</strong><em>por partido</em></div><div><span>Margen</span><strong>${signed(t.margin)}</strong><em>${current}</em></div></article>
-      <article class="card score-evolution"><div class="card-title"><h2>Marcador</h2><span>${t.games.length} partidos</span></div>${scoreChart(t.games)}</article>
+      <article class="score-summary card"><div><span>Balance</span><strong>${t.wins}–${t.losses}</strong><em>${pct(t.wins / t.played * 100)}</em></div><div><span>Anotación</span><strong>${num(t.ppg)}</strong><em>por partido</em></div><div><span>Recibidos</span><strong>${num(t.papg)}</strong><em>por partido</em></div><div><span>Margen</span><strong>${signed(t.margin)}</strong><em>Racha ${current}</em></div></article>
+      <article class="card score-evolution"><div class="card-title"><h2>Marcador</h2><span>Toca un partido</span></div>${scoreChart(t.games)}</article>
     </div>
     <div class="section-title"><h2>Ataque y defensa</h2></div>
     <div class="analysis-grid">
       <button class="card visual-card" data-detail="adv:scoring-mix"><div class="card-title"><h3>Anotación</h3><span>Buen Consejo</span></div>${stackedBar(ownParts, 'Reparto de puntos de Buen Consejo')}</button>
       <button class="card visual-card" data-detail="adv:opp-scoring-mix"><div class="card-title"><h3>Anotación rival</h3><span>Rivales</span></div>${stackedBar(oppParts, 'Reparto de puntos rival')}</button>
       <button class="card visual-card compare-card" data-detail="adv:compare"><div class="card-title"><h3>Comparativa</h3><span>BC / Rival</span></div>
-        ${compareBar('Puntos', t.ppg, t.papg)}${compareBar('TL', t.ftp, t.oftp, pct)}${compareBar('TL int.', t.fta / t.played, t.ofta / t.played)}${compareBar('Faltas', t.fouls / t.played, t.oppFouls / t.played)}
+        ${compareBar('Puntos', t.ppg, t.papg)}${compareBar('TL', t.ftp, t.oftp, pct)}${compareBar('TL int.', t.fta / t.played, t.ofta / t.played)}${compareBar('Faltas BC / recibidas', t.fouls / t.played, t.foulsDrawn / t.played)}
       </button>
-      <article class="card visual-card concentration"><div class="card-title"><h3>Reparto</h3><span>Temporada</span></div><div class="donut-row">${donut(t.topShare, 'Máxima anotadora', 'player')}${donut(t.restPts + t.firstFivePts ? t.restPts / (t.restPts + t.firstFivePts) * 100 : 0, 'Resto tras top 5 min', 'game')}</div></article>
+      <article class="card visual-card point-share"><div class="card-title"><h3>Reparto de puntos</h3><span>${t.topScorer ? `${esc(shortName(t.topScorer.name))} · ${t.topScorer.pts}` : 'Temporada'}</span></div>${pointShareChart(t.playerTotals,t.ownPts)}</article>
+      <button class="card visual-card" data-detail="adv:margins"><div class="card-title"><h3>Margen</h3><span>Por partido</span></div>${marginChart(t.games)}</button>
+      <article class="card visual-card minutes-card"><div class="card-title"><h3>Minutos</h3><span>Temporada</span></div>${minuteBars(t.playerTotals)}</article>
     </div>
     <div class="section-title"><h2>Indicadores</h2></div>
     <div class="metric-grid">
       ${metricCard('TL', pct(t.ftp), `${t.ftm}/${t.fta}`, 'free-throws', 'attack', sparkline(t.games.map((g, i) => t.own[i].fta ? t.own[i].ftm / t.own[i].fta * 100 : 0), 'team'))}
       ${metricCard('TL intentados', num(t.fta / t.played), 'por partido', 'fta', 'attack', sparkline(t.own.map(x => x.fta), 'team'))}
       ${metricCard('Ratio TL', num(t.shotRate, 2), 'intentos / canasta', 'ft-rate', 'attack')}
-      ${metricCard('Faltas recibidas', num(t.foulsDrawn / t.played), 'por partido', 'fouls-drawn', 'attack')}
+      ${metricCard('Faltas recibidas', num(t.foulsDrawn / t.played), 'faltas del rival', 'fouls-drawn', 'attack')}
       ${metricCard('Casa / fuera', `${home.length ? num(mean(home, g => g.us)) : '—'} / ${away.length ? num(mean(away, g => g.us)) : '—'}`, 'puntos', 'home-away', 'attack')}
       ${metricCard('Mejor margen', signed(Math.max(...margins)), `Peor ${signed(Math.min(...margins))}`, 'margins', 'attack')}
-      ${metricCard('Concentración', num(t.hhi, 1), 'índice de reparto', 'concentration', 'attack')}
+      ${metricCard('Top 3 anotadoras', pct(t.topThreeShare), `${t.topThreePts} puntos`, 'point-share', 'attack')}
       ${metricCard('Cinco con más min.', pct(t.firstFivePts + t.restPts ? t.firstFivePts / (t.firstFivePts + t.restPts) * 100 : null), 'de los puntos', 'minute-split', 'attack')}
       ${metricCard('Faltas', num(t.fouls / t.played), 'por partido', 'fouls', 'defense')}
       ${metricCard('Faltas rivales', num(t.oppFouls / t.played), 'por partido', 'opp-fouls', 'defense')}
@@ -460,9 +484,12 @@ function currentStreak(games) {
 function renderPlayers() {
   const players = playerAgg();
   if (!players.length) return head('players-page', 'Jugadoras', `<button class="btn primary" data-action="import-roster">Importar plantilla</button>`) + `<div class="empty card"><h2>Sin jugadoras</h2></div></section>`;
-  return head('players-page', 'Jugadoras', `<button class="btn" data-action="import-roster">Actualizar plantilla</button>`, `${players.length} jugadoras`) + reimportBanner() + `<div class="player-table-head"><span>Jugadora</span><span>PTS/P</span><span>MIN/P</span><span>VAL/P</span></div><div class="player-ranking">${players.map(p => {
+  const value=(p,key)=>p.gp ? (+p[key]||0)/p.gp : -Infinity;
+  players.sort((a,b)=>(value(a,playerSort)-value(b,playerSort))*playerSortDir || namePretty(a.name).localeCompare(namePretty(b.name),'es'));
+  const sortHead=(key,label)=>`<button data-action="sort-players" data-key="${key}" aria-sort="${playerSort===key?(playerSortDir===-1?'descending':'ascending'):'none'}">${label}${playerSort===key?(playerSortDir===-1?' ↓':' ↑'):''}</button>`;
+  return head('players-page', 'Jugadoras', `<button class="btn" data-action="import-roster">Actualizar plantilla</button>`, `${players.length} jugadoras`) + reimportBanner() + `<div class="player-table-head"><span></span><span>Jugadora</span><span></span>${sortHead('pts','PTS/P')}${sortHead('min','MIN/P')}${sortHead('val','VAL/P')}<span></span></div><div class="player-ranking">${players.map(p => {
     const points = p.games.map(x => x.p.pts), ppg = p.gp ? p.pts / p.gp : null;
-    return `<button class="player-rank" data-detail="player:${encodeURIComponent(norm(p.name))}"><span class="player-number">${esc(p.number || '—')}</span><span class="player-id"><b>${esc(namePretty(p.name))}</b><small>${p.gp ? `${p.gp} partidos` : 'Sin acta'}</small></span><span class="player-spark">${sparkline(points, 'player', 100, 30)}</span><span class="rank-metric"><b>${p.gp ? num(ppg) : '—'}</b></span><span class="rank-metric"><b>${p.gp ? num(p.min / p.gp) : '—'}</b></span><span class="rank-metric"><b>${p.gp ? num(p.val / p.gp) : '—'}</b></span><span class="rank-arrow">›</span></button>`;
+    return `<button class="player-rank" data-detail="player:${encodeURIComponent(norm(p.name))}"><span class="player-number">${esc(p.number || '—')}</span><span class="player-id"><b>${esc(namePretty(p.name))}</b><small>${p.gp ? `${p.gp} partidos` : 'Sin acta'}</small></span><span class="player-spark">${sparkline(points, 'player', 100, 30)}</span><span class="rank-metric" title="Puntos por partido"><b>${p.gp ? num(ppg) : '—'}</b><small>PTS/P</small></span><span class="rank-metric" title="Minutos por partido"><b>${p.gp ? num(p.min / p.gp) : '—'}</b><small>MIN/P</small></span><span class="rank-metric" title="Valoración por partido"><b>${p.gp ? num(p.val / p.gp) : '—'}</b><small>VAL/P</small></span><span class="rank-arrow">›</span></button>`;
   }).join('')}</div></section>`;
 }
 
@@ -487,7 +514,7 @@ function renderLive() {
     return head('live-page', 'Directo', '', '') + `<div class="card live-setup"><div class="setup-fields"><label class="field">Rival<input id="rival" value="${esc(d.rival)}" placeholder="Nombre del rival" autocomplete="off"></label><label class="field">Fecha<input id="liveDate" type="date" value="${esc(d.date || today())}"></label></div><div class="roster-heading"><b>Convocadas</b><span id="selectedCount">${d.selected.length} convocadas</span></div>${state.roster.length ? `<div class="roster-grid">${state.roster.map(p => { const checked = d.selected.includes(p.id); return `<label class="roster-card ${checked ? 'selected' : ''}"><input type="checkbox" value="${p.id}" ${checked ? 'checked' : ''}><span class="check">${checked ? '✓' : ''}</span><strong>${esc(p.number || '—')}</strong><span class="roster-name">${esc(shortName(p.name))}</span></label>`; }).join('')}</div>` : `<div class="empty-inline">Importa la plantilla.</div>`}<div class="sticky-start"><button class="btn direct" data-action="start-live" ${state.settings.role === 'viewer' || !state.roster.length ? 'disabled' : ''}>Empezar</button><button class="btn" data-action="import-roster">Importar plantilla</button></div></div></section>`;
   }
   const count = type => L.events.filter(e => e.type === type && !e.undone).length;
-  return `<section class="live-page"><div class="live-board"><div class="live-meta"><div><h1>${esc(L.opponent)}</h1><p>${L.players.length} convocadas · ${L.date}</p></div><span class="quarter-badge">Q${L.quarter}</span></div><div class="quarter" aria-label="Cuarto">${[1,2,3,4].map(q => `<button class="${q === L.quarter ? 'active' : ''}" data-action="quarter" data-q="${q}">${q}º</button>`).join('')}</div><div class="live-actions">${liveButton('steal','↗','Robo',count('steal'))}${liveButton('turnover','↘','Pérdida',count('turnover'))}${liveButton('orbFor','◎','Rebote ofensivo',count('orbFor'))}${liveButton('orbAgainst','◌','Rebote rival',count('orbAgainst'))}</div><div class="live-footer"><button class="btn" data-action="undo-live" ${L.events.some(e => !e.undone) ? '' : 'disabled'}>Deshacer</button><button class="btn direct" data-action="finish-live">Finalizar</button></div></div></section>`;
+  return `<section class="live-page"><div class="live-board"><div class="live-meta"><div><h1>${esc(L.opponent)}</h1><p>${L.players.length} convocadas · ${L.date}</p></div><span class="quarter-badge">Q${L.quarter}</span></div><div class="quarter" aria-label="Cuarto">${[1,2,3,4].map(q => `<button class="${q === L.quarter ? 'active' : ''}" data-action="quarter" data-q="${q}">${q}º</button>`).join('')}</div><div class="live-actions">${liveButton('steal','↗','Robo',count('steal'))}${liveButton('turnover','↘','Pérdida',count('turnover'))}${liveButton('orbFor','◎','Rebote ofensivo',count('orbFor'))}${liveButton('orbAgainst','◌','Rebote rival',count('orbAgainst'))}</div><div class="live-footer"><button class="btn" data-action="undo-live" ${L.events.some(e => !e.undone) ? '' : 'disabled'}>Deshacer</button><button class="btn danger" data-action="discard-live">Descartar</button><button class="btn direct" data-action="finish-live">Finalizar</button></div></div></section>`;
 }
 
 function liveButton(type, symbol, label, count) { return `<button class="live-action" data-action="add-live" data-type="${type}"><span class="symbol">${symbol}</span><b>${label}</b><strong>${count}</strong></button>`; }
@@ -563,6 +590,7 @@ const BOX_GROUPS = [
 function visibleBoxGroups(rows, total, own) {
   return BOX_GROUPS.map(group => ({...group, cols:group.cols.filter(([k]) => {
     if (group.live && !own) return false;
+    if (k === 'foulsDrawn' && !rows.some(r => +r[k])) return false;
     if (!group.optional && !group.live) return true;
     return rows.some(r => +r[k]) || +total[k];
   })})).filter(g => g.cols.length);
@@ -604,7 +632,7 @@ function renderGameDetail() {
 const ADV_INFO = {
   'scoring-mix':['Anotación','Puntos de 2, de 3 y tiros libres por partido.'], 'opp-scoring-mix':['Anotación rival','Reparto equivalente del rival.'], compare:['Comparativa','Buen Consejo y rival por partido.'],
   'free-throws':['Tiros libres','Aciertos e intentos.'], fta:['TL intentados','Intentos por partido.'], 'ft-rate':['Ratio TL','Intentos de TL por canasta anotada.'],
-  'fouls-drawn':['Faltas recibidas','Datos del acta.'], 'home-away':['Casa y fuera','Anotación y margen.'], margins:['Márgenes','Diferencial por partido.'], concentration:['Concentración','Reparto de puntos entre jugadoras.'],
+  'fouls-drawn':['Faltas recibidas','Faltas cometidas por el rival; el acta FBM deja FR individual a cero.'], 'home-away':['Casa y fuera','Anotación y margen.'], margins:['Márgenes','Diferencial por partido.'], 'point-share':['Top 3 anotadoras','Porcentaje de los puntos del equipo anotado por las tres máximas anotadoras.'],
   'minute-split':['Cinco con más minutos','Comparación con el resto; no implica titularidad.'], fouls:['Faltas','Buen Consejo por partido.'], 'opp-fouls':['Faltas rivales','Rival por partido.'], orb:['Rebote ofensivo','Acta de ambos equipos.'],
   streak:['Racha','Resultados ordenados por fecha.'], 'steal-turnover':['Robos y pérdidas','Solo partidos con Directo.'], 'live-orb':['Rebote ofensivo en Directo','Buen Consejo y rival.']
 };
@@ -613,7 +641,7 @@ function gameMetric(key, g) {
   const own = effectiveTotals(g,'own'), opp = effectiveTotals(g,'opp');
   const map = {
     'free-throws':own.fta ? `${own.ftm}/${own.fta} · ${pct(own.ftm/own.fta*100)}` : '—', fta:own.fta,
-    'ft-rate':(own.p2m + own.p3m) ? num(own.fta/(own.p2m+own.p3m),2) : '—', 'fouls-drawn':own.foulsDrawn,
+    'ft-rate':(own.p2m + own.p3m) ? num(own.fta/(own.p2m+own.p3m),2) : '—', 'fouls-drawn':opp.fouls,
     'home-away':g.us, margins:signed(g.us-g.them), fouls:own.fouls, 'opp-fouls':opp.fouls,
     orb:`${own.rebOff} / ${opp.rebOff}`, streak:g.us>g.them?'V':'D', 'steal-turnover':`${eventCounts(g).steals} / ${eventCounts(g).turnovers}`,
     'live-orb':`${eventCounts(g).orb} / ${eventCounts(g).rivalOrb}`
@@ -624,8 +652,8 @@ function gameMetric(key, g) {
 function openAdvancedDetail(key) {
   const [titleText, explain] = ADV_INFO[key] || ['Indicador',''];
   const games = validGames(), players = playerAgg().filter(p => p.gp);
-  const playerKeys = new Set(['concentration','minute-split']);
-  const content = playerKeys.has(key) ? `<div class="breakdown-bars">${players.map(p => { const max = Math.max(...players.map(x => x.pts),1); return `<button data-detail="player:${encodeURIComponent(norm(p.name))}"><span>${esc(shortName(p.name))}</span><i><b style="width:${p.pts/max*100}%"></b></i><strong>${num(p.pts/p.gp)} PTS/P</strong></button>`; }).join('')}</div>` : `<div class="player-games">${games.map(g => `<button data-detail="game:${g.id}"><span><b>${esc(g.opponent)}</b><small>${g.date || 'Sin fecha'} · ${g.home ? 'Casa' : 'Fuera'}</small></span><strong>${gameMetric(key,g)}</strong><em>${g.us}–${g.them}</em></button>`).join('')}</div>`;
+  const playerKeys = new Set(['point-share','minute-split']);
+  const content = playerKeys.has(key) ? `<div class="breakdown-bars">${players.sort((a,b)=>b.pts-a.pts).map(p => { const max = Math.max(...players.map(x => x.pts),1); return `<button data-detail="player:${encodeURIComponent(norm(p.name))}"><span>${esc(shortName(p.name))}</span><i><b style="width:${p.pts/max*100}%"></b></i><strong>${p.pts} PTS</strong></button>`; }).join('')}</div>` : `<div class="player-games">${games.map(g => `<button data-detail="game:${g.id}"><span><b>${esc(g.opponent)}</b><small>${g.date || 'Sin fecha'} · ${g.home ? 'Casa' : 'Fuera'}</small></span><strong>${gameMetric(key,g)}</strong><em>${g.us}–${g.them}</em></button>`).join('')}</div>`;
   modalContext = {type:'advanced', key}; openModal('Indicador', titleText, `<p class="metric-explain">${explain}</p>${content}`);
 }
 
@@ -674,9 +702,11 @@ function repaintShotCourt(){const wrap=$('#shotCourt');if(!wrap)return;wrap.inne
 function bindShotCourt(){const c=$('#shotCourt .court');if(!c)return;let dragging=null,moved=false;c.addEventListener('pointerdown',e=>{const dot=e.target.closest('.shot-svg');if(dot){dragging={kind:dot.dataset.kind,index:+dot.dataset.index};modalContext.selected=`${dragging.kind}:${dragging.index}`;moved=false;dot.setPointerCapture(e.pointerId);e.preventDefault();}});c.addEventListener('pointermove',e=>{if(!dragging)return;moved=true;const r=c.getBoundingClientRect(),arr=dragging.kind==='for'?modalContext.shotsFor:modalContext.shotsAgainst,p=arr[dragging.index];p.x=clamp((e.clientX-r.left)/r.width);p.y=clamp((e.clientY-r.top)/r.height);const dot=e.target.closest('.shot-svg');if(dot){dot.setAttribute('cx',p.x*1500);dot.setAttribute('cy',p.y*1400);}});c.addEventListener('pointerup',()=>{if(dragging){dragging=null;repaintShotCourt();}});c.addEventListener('click',e=>{const dot=e.target.closest('.shot-svg');if(dot){modalContext.selected=`${dot.dataset.kind}:${dot.dataset.index}`;return repaintShotCourt();}if(moved)return;const r=c.getBoundingClientRect(),p={id:uid(),x:clamp((e.clientX-r.left)/r.width),y:clamp((e.clientY-r.top)/r.height),source:'manual'},arr=modalContext.kind==='for'?modalContext.shotsFor:modalContext.shotsAgainst;arr.push(p);modalContext.selected=`${modalContext.kind}:${arr.length-1}`;repaintShotCourt();});}
 
 function startLive(){const rival=(state.liveDraft.rival||'').trim();if(!rival)return toast('Escribe el rival');const ids=state.liveDraft.selected;if(!ids.length)return toast('Selecciona al menos una jugadora');state.live={id:uid(),opponent:rival,date:state.liveDraft.date||today(),quarter:1,players:state.roster.filter(p=>ids.includes(p.id)),events:[],startedAt:new Date().toISOString()};save();record('live-upsert',{live:state.live});render();}
-function addLive(type){if(type==='orbAgainst')return commitLiveEvent(type,null);const label=type==='steal'?'Robo':type==='turnover'?'Pérdida':'Rebote ofensivo';openModal('Directo',label,`<div class="player-grid">${state.live.players.map(p=>`<button class="player-choice" data-action="pick-live-player" data-id="${p.id}" data-type="${type}"><strong>${esc(p.number||'—')}</strong><span>${esc(namePretty(p.name))}</span></button>`).join('')}</div>`);}
+function addLive(type){if(type==='orbAgainst')return commitLiveEvent(type,null);const label=type==='steal'?'Robo':type==='turnover'?'Pérdida':'Rebote ofensivo';openModal('Directo',label,`<button class="team-choice" data-action="pick-live-player" data-id="" data-type="${type}"><strong>Equipo</strong><span>Sin jugadora</span></button><div class="player-grid">${state.live.players.map(p=>`<button class="player-choice" data-action="pick-live-player" data-id="${p.id}" data-type="${type}"><strong>${esc(p.number||'—')}</strong><span>${esc(namePretty(p.name))}</span></button>`).join('')}</div>`);}
 function commitLiveEvent(type,playerId){const p=state.live.players.find(x=>x.id===playerId),event={id:uid(),type,quarter:state.live.quarter,playerId:playerId||null,playerName:p?.name||null,at:new Date().toISOString(),provenance:'recorded'};state.live.events.push(event);save();record('live-event',{liveId:state.live.id,event});closeModal();render();toast('Apuntado');}
 function undoLive(){const event=[...state.live.events].reverse().find(x=>!x.undone);if(!event)return;event.undone=true;save();record('live-undo',{liveId:state.live.id,eventId:event.id});render();}
+function requestDiscardLive(){openModal('Directo','Descartar partido','<p class="metric-explain">Se borrarán los eventos de este Directo en todos los dispositivos sincronizados. No se guardará ningún dato del partido.</p><div class="confirm-actions"><button class="btn" data-action="close-modal">Seguir apuntando</button><button class="btn danger" data-action="confirm-discard-live">Descartar partido</button></div>');}
+function discardLive(){if(!state.live)return;state.live.events=[];state.live=null;save();record('live-upsert',{live:null,discarded:true});closeModal();render();toast('Partido descartado');}
 function bestGameMatch(L){const words=new Set(norm(L.opponent).split(' '));let best=null,score=0;state.games.forEach(g=>{const w=norm(g.opponent).split(' '),s=w.filter(x=>words.has(x)).length/Math.max(words.size,w.length)+(g.date===L.date?.5:0);if(s>score){score=s;best=g;}});return score>.35?best:null;}
 function finishLive(){const L=state.live,match=bestGameMatch(L);if(match){match.events=[...(match.events||[]),...L.events.filter(e=>!e.undone)];match.availability={...(match.availability||{}),manual:true};record('replace-game',{game:match});state.live=null;save();record('live-upsert',{live:null});toast('Directo unido al acta');setView('games');}else openModal('Directo','Guardar pendiente','<p>Se unirá al importar el acta.</p><button class="btn primary" data-action="keep-live-pending">Guardar</button>');}
 function keepLivePending(){state.games.push({id:uid(),opponent:state.live.opponent,date:state.live.date,home:true,us:null,them:null,players:[],opponentPlayers:[],events:state.live.events.filter(e=>!e.undone),shotsFor:[],shotsAgainst:[],source:'live-pending',availability:{manual:true,boxscore:false,opponentBoxscore:false,shotMap:false}});record('replace-game',{game:state.games.at(-1)});state.live=null;save();record('live-upsert',{live:null});closeModal();setView('games');}
@@ -702,11 +732,12 @@ document.addEventListener('click',async e=>{
   const go=e.target.closest('[data-go]');if(go)return setView(go.dataset.go);
   const d=e.target.closest('[data-detail]');if(d)return detail(d.dataset.detail);
   const a=e.target.closest('[data-action]');if(!a)return;const act=a.dataset.action;
-  const write=new Set(['import-games','import-roster','confirm-import','start-live','quarter','add-live','pick-live-player','undo-live','finish-live','keep-live-pending','open-shot','shot-for-game','shot-kind','swap-shot-teams','delete-selected-shot','clear-shots','apply-shot-json','save-shots']);
+  const write=new Set(['import-games','import-roster','confirm-import','start-live','quarter','add-live','pick-live-player','undo-live','discard-live','confirm-discard-live','finish-live','keep-live-pending','open-shot','shot-for-game','shot-kind','swap-shot-teams','delete-selected-shot','clear-shots','apply-shot-json','save-shots']);
   if(state.settings.role==='viewer'&&write.has(act))return toast('Enlace de solo lectura');
   if(act==='close-modal')return closeModal();if(act==='toggle-theme'){const th=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(th);localStorage.setItem('estadisticas_theme',th);return;}if(act==='install')return install();if(act==='open-settings'||act==='open-sync')return openSettings();if(act==='save-settings')return saveSettings();if(act==='export-json')return exportJSON();if(act==='create-invite')return createInvite(a.dataset.role);if(act==='copy-invite')return copyText($('#inviteLink').value);
   if(act==='import-games'||act==='import-roster'){fileMode=act==='import-roster'?'roster':'games';$('#fileInput').value='';return $('#fileInput').click();}if(act==='confirm-import')return commitImport();
-  if(act==='start-live')return startLive();if(act==='quarter'){state.live.quarter=+a.dataset.q;record('live-upsert',{live:state.live});return render();}if(act==='add-live')return addLive(a.dataset.type);if(act==='pick-live-player')return commitLiveEvent(a.dataset.type,a.dataset.id);if(act==='undo-live')return undoLive();if(act==='finish-live')return finishLive();if(act==='keep-live-pending')return keepLivePending();
+  if(act==='start-live')return startLive();if(act==='quarter'){state.live.quarter=+a.dataset.q;record('live-upsert',{live:state.live});return render();}if(act==='add-live')return addLive(a.dataset.type);if(act==='pick-live-player')return commitLiveEvent(a.dataset.type,a.dataset.id||null);if(act==='undo-live')return undoLive();if(act==='discard-live')return requestDiscardLive();if(act==='confirm-discard-live')return discardLive();if(act==='finish-live')return finishLive();if(act==='keep-live-pending')return keepLivePending();
+  if(act==='sort-players'){const key=a.dataset.key;if(playerSort===key)playerSortDir*=-1;else{playerSort=key;playerSortDir=-1;}return render();}
   if(act==='trend-game')return openGameDetail(a.dataset.id);if(act==='game-team'){modalContext.side=a.dataset.side;return renderGameDetail();}if(act==='sort-box'){const k=a.dataset.key;if(modalContext.sort===k)modalContext.dir*=-1;else{modalContext.sort=k;modalContext.dir=k==='number'?1:-1;}return renderGameDetail();}if(act==='game-map'){modalContext.map=a.dataset.mode;return renderGameDetail();}
   if(act==='heat-mode')return openHeatAnalysis(`heat-${a.dataset.mode==='both'?'compare':a.dataset.mode}`);
   if(act==='open-shot')return openShotDetail();if(act==='shot-for-game')return openShotDetail(a.dataset.id);if(act==='copy-shot-prompt'){state.settings.shotSide=$('#shotSide').value;state.settings.shotColor=$('#shotColor').value;state.settings.rivalColor=$('#rivalColor').value;save();return copyText(shotPrompt());}if(act==='show-shot-json'){return $('#shotJsonWrap').hidden=false;}if(act==='shot-kind'){modalContext.kind=a.dataset.kind;$$('.shot-kind button').forEach(b=>b.classList.toggle('active',b===a));return;}if(act==='swap-shot-teams'){[modalContext.shotsFor,modalContext.shotsAgainst]=[modalContext.shotsAgainst,modalContext.shotsFor];modalContext.selected='';repaintShotCourt();return;}if(act==='delete-selected-shot'){if(!modalContext.selected)return toast('Selecciona un punto');const[k,i]=modalContext.selected.split(':'),arr=k==='for'?modalContext.shotsFor:modalContext.shotsAgainst;arr.splice(+i,1);modalContext.selected='';repaintShotCourt();return;}if(act==='clear-shots'){modalContext.shotsFor=[];modalContext.shotsAgainst=[];modalContext.selected='';repaintShotCourt();return;}

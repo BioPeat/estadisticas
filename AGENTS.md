@@ -1,24 +1,20 @@
-# AGENTS.md · Estadísticas v4
+# AGENTS.md · Estadísticas v5
 
-## Reglas que no se pueden romper
-
-- Mantener `STORE = 'estadisticas_shared_v2'`.
-- No modificar `worker.js` sin documentar el cambio y migrar su contrato.
-- No borrar fechas, Directo ni mapas al reimportar un acta.
-- Una acta debe conservar por separado `players`, `opponentPlayers`, `teamTotals` y `opponentTotals`.
-- No fusionar rivales por nombre de jugadora ni normalizar dos filas distintas en una.
-- No calcular porcentajes de tiro de campo ni eficiencia basada en posesiones con datos incompletos.
-- Tema claro y oscuro deben cubrir `html`, `body`, barra inferior y áreas seguras.
+## Contrato
+- App web local-first, sin compilación. Entrada: `index.html`; lógica: `app.js`; estilos: `styles.css`.
+- Conserva el almacén `estadisticas_shared_v2`: la versión de interfaz es v5, no se cambia la clave local.
+- No inventes estadísticas. No calcules FG%, 2P%, 3P%, eFG%, TS%, posesiones ni ratings: el Excel FBM no contiene los intentos de campo completos.
+- Las faltas recibidas del equipo son las faltas cometidas por el rival (`opponentTotals.fouls`). FR individual permanece oculto cuando todo es 0.
+- Los eventos de Directo con `playerId:null` cuentan para el equipo y TOTALES, nunca para una jugadora.
+- Descartar Directo debe emitir `live-upsert` con `live:null` y exigir confirmación.
+- `worker.js` es el contrato de Cloudflare. No modificarlo para cambios visuales o estadísticos.
 
 ## Antes de entregar
+1. `python tools/validate.py .`
+2. `python tests/smoke.py`
+3. `python tools/capture.py`
+4. Revisar 360×640, 390×844, 412×915 y 1440×980; claro y oscuro.
+5. Subir versión de caché en `sw.js` si cambia un recurso cacheado.
 
-1. `node --check app.js`.
-2. `python tools/validate.py .`.
-3. `python tests/smoke.py` en 390×844.
-4. Repetir inspección en 360×640, 412×915 y escritorio.
-5. Verificar rival escrito durante 10 s, acta desplazable, totales, pestaña rival y puntos rojo/azul.
-6. Generar capturas con `python tools/capture.py`.
-
-## Criterio de interfaz
-
-Textos breves y neutros. No añadir eslóganes, frases de ánimo ni explicaciones permanentes. Las definiciones aparecen al abrir un indicador. Priorizar gráficos, comparación y desglose accionable.
+## Datos de prueba
+`tests/fixtures/real_3_partidos.json` se creó desde las tres actas reales adjuntas. No incluye Excel ni datos inventados.

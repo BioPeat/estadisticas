@@ -1,35 +1,20 @@
-# Mapa del código · v4
+# Mapa del código · v5
 
-## Estado y migración
-
-- `blank`, `load`, `sanitise`, `migrateV1`, `legacyPlayer`
-- Contrato local: `estadisticas_shared_v2`
-- Señal de reparación: `needsReimport`
-
-## Excel
-
-- `readXlsx`: lector OOXML con JSZip.
-- `parseRoster`: plantilla.
-- `parseGame`, `parseBoxRow`: dos equipos completos.
-- `validateTotals`: compara filas con TOTALES.
-- `commitImport`, `findImportMatch`: actualización sin perder Directo/mapas.
-
-## Cálculo
-
-- `sumBox`, `effectiveTotals`, `teamStats`, `playerAgg`, `eventCounts`.
-- `PLAYER_METRICS`: métricas permitidas en evolución.
-- `zoneOf`, `zoneCounts`: cuatro zonas del mapa.
-
-## Interfaz
-
-- `renderTeam`, `renderPlayers`, `renderGames`, `renderLive`.
-- `openPlayerDetail`, `playerTrendSVG`.
-- `openGameDetail`, `renderGameDetail`.
-- `scoreChart`, `stackedBar`, `compareBar`, `donut`, `sparkline`.
-
-## Directo y sincronización
-
-- Borrador: `state.liveDraft` + `updateDraftFromInput`.
-- Partido: `startLive`, `commitLiveEvent`, `finishLive`.
-- Red: `record`, `syncNow`, `applyRemote`.
-- `syncNow` compara firmas y respeta el foco activo.
+- `index.html`: estructura, metadatos PWA, navegación, modal y carga de JSZip.
+- `styles.css`: temas, área segura, responsive, tarjetas, gráficos, Directo, actas y mapas.
+- `app.js`
+  - 24–122: estado, migración y persistencia.
+  - 149–283: lectura/importación de Excel FBM.
+  - 286–351: totales, agregados de jugadoras y equipo.
+  - 361–430: gráficos reutilizables (marcador, margen, reparto, minutos).
+  - `renderTeam`: panel de equipo.
+  - `renderPlayers`: ranking de una línea y ordenación.
+  - `renderLive`: configuración y partido en directo.
+  - `renderGameDetail`: acta propia/rival y TOTALES de Directo.
+  - `addLive`, `discardLive`, `finishLive`: ciclo del Directo.
+  - `applyRemote`, `syncNow`: sincronización.
+- `worker.js`: API Cloudflare/D1 sin cambios en v5.
+- `sw.js`: caché `estadisticas-v5-20261111`.
+- `tests/smoke.py`: pruebas funcionales y visuales en 3 móviles + PC.
+- `tools/validate.py`: contratos estáticos, fixture real y sintaxis.
+- `tools/capture.py`: capturas finales claro/oscuro.
