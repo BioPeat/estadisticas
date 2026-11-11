@@ -1,19 +1,21 @@
-# Changelog
+# Cambios
 
-## v6 · definitiva · 11-11-2026
-- Logo definitivo fijo en app, iconos 192/512 y maskable; documentación lo bloquea.
-- Equipo rediseñado: ocho métricas BC/rival con media, total, evolución, reparto y acceso al partido.
-- Margen eliminado como tarjeta; diferencia integrada en Marcador.
-- Minutos con temporada, media por partido, partido concreto, mapa jugadora×partido, evolución y cuota.
-- Detalle individual con referencia del equipo en cada partido y referencia de temporada.
-- TL% sin intentos es nulo/«sin tiros» y queda fuera de medias y líneas.
-- Estadísticas FBM no publicadas se ocultan; Directo aparece solo con datos reales.
-- Directo ocupa todo el alto disponible en móvil y PC.
-- Área segura inferior, html/body, navegación y theme-color sincronizados; manifest standalone neutro azul noche.
-- `actualizar.html` convertido en herramienta de cambios con IA y comprobación local.
-- Código seccionado, CSS v5 duplicado retirado, pruebas y documentación renovadas.
-- Importación verificada con las tres actas XLSX reales y el fixture completo.
-- `worker.js` sin cambios; almacén `estadisticas_shared_v2` conservado.
+## v7 · 12 de noviembre de 2026
+- Reparto de puntos y minutos abren la plantilla completa de 14 jugadoras.
+- Mapa de minutos envuelto en un contenedor horizontal táctil; deja ver todos los partidos y columnas.
+- Faltas: mejor = menor; detalle de equipo y jugadoras con FAL/40, además de FAL/P.
+- Valoración renombrada y presentada como media por partido; rival disponible en detalle, no forzado en portada.
+- Cada tarjeta principal muestra solo lecturas útiles; detalle conserva total, media, evolución, mejor/peor, jugadoras y partidos cuando procede.
+- Directo añade robos BC frente a pérdidas BC y REB O BC frente a REB O rival; excluye partidos sin registro y no los llama posesiones.
+- Flujo de mapa recupera textarea JSON visible, copia de instrucciones, validación, colocación, edición y guardado de ataque/defensa.
+- Asignación de mapa: cabecera arriba=izquierda, abajo=derecha; cruce de cabecera, color y lista.
+- Navegación y guardia móvil usan `#10233f` para fundirse con la barra Android observada en ambos temas.
+- `actualizar.html` cambia a parches JSON BUSCAR/CAMBIAR POR únicos; Gem y Claude alineados.
+- Pruebas, capturas, guía, documentos, versión y caché actualizados.
+- Clave `estadisticas_shared_v2`, iconos y Worker w2 conservados.
+
+## v6
+Panel gráfico, comparativas BC/rival, minutos, doble referencia individual, TL% nulo, Directo y área segura.
 
 ## v5
-Directo descartable, Equipo sin jugadora, primeras comparativas y corrección de faltas recibidas.
+Directo descartable, Equipo sin jugadora, primeras comparativas y faltas recibidas.

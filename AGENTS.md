@@ -1,24 +1,33 @@
-# AGENTS.md · Estadísticas v6
+# AGENTS.md · Estadísticas v7
 
-## Orden de trabajo
+## Propósito
+Mantener una PWA local-first, sin build, para Buen Consejo 26/27. Hacer cambios pequeños, verificables y compatibles con datos existentes.
+
+## Antes de editar
 1. Lee `CONTEXTO_ESTADISTICAS.md` y `MAPA_DEL_CODIGO.md`.
-2. Cambia el menor número posible de archivos; usa `actualizar.html` para un cambio enfocado.
-3. Conserva contratos de datos y funciones públicas.
-4. Ejecuta `python tools/validate.py .` y `python tests/smoke.py`.
-5. Revisa 360×640, 390×844, 412×915 y 1440×980, claro y oscuro.
+2. Identifica la fuente del dato: acta FBM, Directo o mapa.
+3. Ejecuta `python tools/validate.py .` y `python tests/smoke.py` tras el cambio.
 
 ## Contratos que no se rompen
 - PWA sin build: `index.html`, `styles.css`, `app.js` y JSZip local.
-- Almacén: `estadisticas_shared_v2`; la migración admite versiones anteriores.
-- Excel FBM de los dos equipos es la fuente de actas. No inventar estadísticas.
-- No calcular FG%, 2P%, 3P%, eFG%, TS%, posesiones ni ratings.
+- Almacén: `estadisticas_shared_v2`; v7 migra el estado anterior sin borrar plantilla, partidos, Directo, mapas, permisos ni sincronización.
+- Excel FBM de ambos equipos es la fuente de actas. No inventar datos.
+- No calcular FG%, 2P%, 3P%, eFG%, TS%, posesiones ni ratings: los intentos de campo del acta no son fiables.
 - TL% con 0 intentos es `null`/«sin tiros» y no entra en medias.
-- `playerId:null` es Equipo (sin jugadora). Descartar Directo sincroniza `live:null`.
-- Acta, mapas, roles, sincronización y unión Directo↔acta deben seguir funcionando.
-- `worker.js` no se modifica para cambios de interfaz o métricas.
+- Un partido sin registro manual no aporta ceros a métricas de Directo.
+- Robos/pérdidas compara nuestros robos con nuestras pérdidas; no representa estadísticas completas del rival.
+- Rebote ofensivo de Directo compara `orbFor` con `orbAgainst`; no usar los ceros vacíos del acta.
+- `playerId:null` significa «Equipo (sin jugadora)».
+- El logo y los iconos son fijos. No cambiar el SVG ni `#10233f #18365f #ed304c #7455dc #18a985`.
+- `worker.js` conserva el protocolo `w2`; no tocarlo por cambios de interfaz.
 
-## Logo definitivo: bloqueado
-No modificar nunca el SVG de `index.html`, `assets/icon-192.png`, `assets/icon-512.png` ni `assets/icon-maskable-512.png`. Colores fijos: `#10233f`, `#18365f`, `#ed304c`, `#7455dc`, `#18a985`. El logo es idéntico en claro y oscuro.
+## Estadísticas y UX
+- La portada muestra una o dos vistas útiles por tarjeta; el detalle reúne total, media, evolución, partido y desglose cuando existe.
+- Faltas: menos es mejor; mostrar FAL/P y FAL/40.
+- Valoración: principal de Buen Consejo por partido; la comparación con rival queda en el detalle.
+- Minutos y reparto de puntos deben permitir abrir las 14 jugadoras.
+- La tabla de minutos debe desplazarse lateralmente con tacto y ratón.
+- Mapa de tiro: textarea JSON visible, validación, edición manual y guardado de ataque/defensa. Cabecera arriba = mitad izquierda; abajo = derecha; confirmar cabecera, color y lista.
 
-## Definición de terminado
-Datos propios y rivales visibles; tarjeta de Margen ausente; minutos con temporada/media/partido y detalle; referencias individuales de partido y temporada; TL nulo sin intentos; Directo sin scroll con objetivos grandes; área segura igual al tema; caché de `sw.js` nueva si cambian recursos.
+## Cambios asistidos por IA
+`actualizar.html` usa JSON de bloques exactos `find`/`replace`, nunca archivos completos. Cada `find` debe ser único en el estado intermedio.

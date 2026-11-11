@@ -1,21 +1,24 @@
-# Contexto de Estadísticas v6
+# Contexto funcional · Estadísticas v7
 
-PWA local-first para Buen Consejo, temporada 26/27. Importa plantilla y actas XLSX de la FBM, muestra estadísticas de equipo/jugadoras, registra eventos en Directo y mantiene mapas de canastas.
+## Fuentes
+- Acta FBM: marcador, minutos, puntos, canastas anotadas, tiros libres, faltas, valoración y datos de ambos equipos publicados en el Excel.
+- Directo: robos, pérdidas, rebotes ofensivos BC y rebotes ofensivos del rival. Solo los partidos con eventos manuales entran en estas medias.
+- Mapa: canastas detectadas por IA o colocadas manualmente; no son intentos ni porcentajes.
 
-## Fuentes y límites
-- Acta FBM: puntos, minutos, 2P/3P anotados, TL anotados e intentados, faltas, valoración y +/- de ambos equipos.
-- Rebotes, asistencias, robos y pérdidas de la hoja suelen venir a cero/no publicados: solo se muestran como Directo cuando existen eventos reales.
-- No hay intentos fiables de 2P/3P; están prohibidos los porcentajes de campo y métricas derivadas de posesiones.
-- Faltas recibidas de equipo = faltas del rival. No atribuirlas individualmente.
-- TL% sin intentos = dato ausente, nunca 0%.
+## Criterios de presentación
+- Puntos, 2P, 3P, TL, TLI, TL% y faltas: comparación BC/rival útil en portada y completa en detalle.
+- Valoración: media BC por partido en portada; total, rival, evolución y partidos dentro.
+- Faltas: menor valor = mejor; detalle con FAL/40 para equipo y jugadoras.
+- Robos/pérdidas: dos hechos de Buen Consejo, no un duelo completo contra el rival y no una métrica de posesiones.
+- Rebote ofensivo: BC frente al rival, únicamente desde Directo.
+- Minutos y reparto de puntos: vista rápida más modal con la plantilla completa.
+- TL% agregado usa sumas de anotados/intentos; 0 intentos queda ausente.
 
-## Experiencia v6
-- Equipo compara siempre Buen Consejo y rival; cada métrica abre total, media, evolución, reparto y partidos.
-- El margen solo aparece como diferencia dentro de Marcador.
-- Minutos permite temporada, media y partido; el detalle incluye mapa jugadora×partido, evolución y cuota.
-- Jugadora compara con media del equipo en cada partido y con referencia de temporada.
-- Directo ocupa todo el espacio disponible y conserva Equipo, Deshacer, Descartar y Finalizar.
-- Tema: `html`, `body`, navegación, guardia de área segura y `theme-color` cambian juntos.
+## Mapa de tiro
+La asignación se decide por cabecera: arriba corresponde a mitad izquierda; abajo a derecha. La IA debe cruzar cabecera, color y lista. Si declara conflicto, la app no coloca puntos. El usuario puede revisar, mover, intercambiar, borrar, vaciar y guardar ataque/defensa.
 
-## Persistencia
-La clave local sigue siendo `estadisticas_shared_v2`. La nube sincroniza operaciones, no reemplaza el modelo local. `worker.js` conserva el contrato w2 y no cambió en v6.
+## Persistencia y nube
+La clave local sigue siendo `estadisticas_shared_v2`. `worker.js` conserva el contrato w2. Reimportar un acta conserva Directo y mapas. Roles admin/editor/viewer continúan.
+
+## Área inferior Android
+El manifest usa azul noche fijo. En móvil, navegación y guardia inferior usan el mismo `#10233f` en ambos temas para que la barra del sistema observada se funda visualmente con la app. La emulación verifica superficies web; el color final de botones/gestos lo controla Android y requiere comprobación física.

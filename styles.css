@@ -436,7 +436,7 @@ body[data-view=live].live-running main{padding-bottom:calc(var(--bottom) + env(s
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}
 }
 
-/* v6 · panel gráfico, logo definitivo y área segura */
+/* v6 base · panel gráfico, logo definitivo y área segura */
 html,body{min-height:100%;min-height:100dvh;background:var(--bg)!important}
 body{padding-bottom:env(safe-area-inset-bottom);background-clip:border-box}
 .brand-mark,.brand-mark svg{color:initial!important;filter:none!important}
@@ -535,3 +535,17 @@ body[data-role=viewer] [data-action="discard-live"],body[data-role=viewer] [data
  .live-board{height:calc(100dvh - 50px - var(--bottom) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 15px)}.live-meta h1{font-size:18px}.live-meta p{display:none}.live-action{padding:6px}.live-action b{font-size:10px}.live-action strong{font-size:23px}.live-footer button{min-height:33px;font-size:9px}
  .stat-card{min-height:184px}.stat-values strong{font-size:20px}
 }
+
+
+/* v7 · listas completas, detalle táctil, métricas con criterio y barra Android */
+.stat-values.own-only{grid-template-columns:auto 1fr;align-items:end}.stat-values.own-only strong{font-size:31px;text-align:left;color:var(--purple)}.stat-values.own-only span{color:var(--muted);font-size:10px;padding-bottom:2px}.single-trend{display:grid;align-items:center}.single-trend .spark{height:70px;--tone:var(--purple)}
+.live-data-block{grid-column:1/-1;min-width:0}.live-data-block .section-title{margin-top:0}.live-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));max-width:760px}.live-card-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:9px}.quarter-breakdown{display:grid;gap:10px}.breakdown-static{display:grid;grid-template-columns:130px 1fr 80px;align-items:center;gap:9px;padding:5px}.breakdown-static span{font-size:10px;font-weight:800}.breakdown-static i{display:block}.full-roster{max-width:760px}
+.metric-summary.per40-summary{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:-4px}.metric-summary.per40-summary strong{color:var(--orange)}
+.minutes-scroll{width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;touch-action:pan-x pan-y;padding-bottom:7px;scrollbar-gutter:stable}.minutes-scroll:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 55%,transparent);outline-offset:3px}.minutes-heatmap{width:max-content;min-width:max(100%,560px);max-width:none;overflow:visible}.heat-row{width:auto}
+.shot-ai-workflow{display:grid;grid-template-columns:minmax(230px,.8fr) minmax(300px,1.2fr);gap:12px;margin:13px 0}.shot-ai-workflow>div{border:1px solid var(--line);border-radius:13px;background:var(--paper-2);padding:14px}.shot-ai-workflow h3{margin:0 0 5px;font-size:13px}.shot-ai-workflow p{margin:0 0 10px;color:var(--muted);font-size:10px}.shot-ai-workflow textarea{min-height:132px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px}.shot-assignment{min-height:18px;margin-top:8px;color:var(--green);font-size:10px;font-weight:800}.rim-svg{stroke:var(--line-strong)}
+@media(max-width:920px){
+ .bottom-nav,.safe-area-guard{background:#10233f!important;border-color:#29476f}.bottom-nav{box-shadow:0 -8px 28px rgba(7,18,33,.2)}.bottom-nav button{color:#aebdd0}.bottom-nav button[aria-current=page]{color:#fff}.bottom-nav button:nth-child(1)[aria-current=page]{color:#ff7b85}.bottom-nav button:nth-child(2)[aria-current=page]{color:#74dfb3}.bottom-nav button:nth-child(3)[aria-current=page]{color:#cab8ff}.bottom-nav button:nth-child(4)[aria-current=page]{color:#86c4ff}
+ .modal-sheet{touch-action:pan-y}.minutes-scroll{touch-action:pan-x pan-y}
+}
+@media(max-width:700px){.shot-ai-workflow{grid-template-columns:1fr}.breakdown-static{grid-template-columns:90px 1fr 65px}.live-stats-grid{grid-template-columns:1fr 1fr}.live-stat-card{min-height:190px}}
+@media(max-width:430px){.live-stats-grid{grid-template-columns:1fr}.live-stat-card{min-height:184px}.metric-summary.per40-summary{grid-template-columns:1fr 1fr}}

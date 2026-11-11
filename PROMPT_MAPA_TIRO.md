@@ -1,10 +1,12 @@
-# Mapa de tiro v6 · regla confirmada
+# Prompt del mapa de tiro
 
-Analiza una captura de Afición FBM. Identifica BUEN CONSEJO por tres comprobaciones: cabecera, color y lista de jugadoras.
+Analiza una captura del mapa de tiro de Afición FBM del partido de BUEN CONSEJO.
 
-Regla confirmada: el equipo de arriba en la captura tira en la mitad izquierda; el de abajo, en la derecha. Si las comprobaciones discrepan, no adivines: explica el conflicto en `conflict` y usa `checksAgree:false`.
+1. Identifica equipos por la cabecera: arriba = mitad izquierda; abajo = mitad derecha.
+2. Cruza nombre de cabecera, color y lista de jugadoras. Si discrepan, `checksAgree:false` y explica `conflict`.
+3. Separa `ownShots` (BUEN CONSEJO) y `opponentShots` (rival).
+4. Convierte cada mitad a media pista con `x` e `y` entre 0 y 1 y canasta arriba.
+5. No inventes puntos ni porcentajes.
+6. Devuelve solo JSON válido con `court`, `ownIdentification`, `opponentIdentification`, `ownShots` y `opponentShots`.
 
-Convierte cada mitad a una media pista con canasta arriba y coordenadas `x`,`y` entre 0 y 1. Devuelve solo JSON:
-```json
-{"court":"half","ownIdentification":{"team":"BUEN CONSEJO","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"opponentIdentification":{"team":"RIVAL","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"ownShots":[{"x":0.42,"y":0.18}],"opponentShots":[{"x":0.55,"y":0.22}]}
-```
+La app rechaza coordenadas fuera de 0–1 y conflictos declarados. Después se revisa visualmente, se puede editar y solo entonces se guarda.

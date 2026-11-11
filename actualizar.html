@@ -3,51 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Herramienta de cambios · Estadísticas v6</title>
+  <title>Herramienta de cambios · Estadísticas v7</title>
   <style>
-    :root{font-family:Arial,sans-serif;color:#10233f;background:#f3f5f8;--red:#ed304c;--green:#16805a;--line:#d7dee8}*{box-sizing:border-box}body{margin:0}.wrap{max-width:980px;margin:auto;padding:28px 16px 64px}h1{font-size:clamp(30px,5vw,46px);letter-spacing:-.045em;margin:8px 0}p{line-height:1.55;color:#526173}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{background:white;border:1px solid var(--line);border-radius:16px;padding:18px;margin:12px 0}h2{font-size:17px}.step{display:inline-grid;place-items:center;width:29px;height:29px;border-radius:9px;background:#10233f;color:white;margin-right:8px}label{display:block;font-size:11px;font-weight:800;margin:11px 0 5px}input,select,textarea{width:100%;border:1px solid #aeb9c7;border-radius:9px;background:white;padding:10px;font:inherit}textarea{min-height:210px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.45;resize:vertical}button{border:1px solid #10233f;border-radius:9px;background:#10233f;color:white;padding:10px 13px;font-weight:800;cursor:pointer;margin:5px 5px 0 0}button.alt{background:white;color:#10233f}button:disabled{opacity:.45;cursor:not-allowed}.status{padding:10px;border-radius:9px;background:#eef2f6;font-size:12px}.ok{color:var(--green);background:#e6f5ee}.bad{color:#b42331;background:#fff0f1}.rules{font-size:11px;color:#526173}.actions{display:flex;flex-wrap:wrap;gap:4px}code{background:#eef2f6;padding:2px 5px;border-radius:4px}@media(max-width:760px){.grid{grid-template-columns:1fr}}
+    :root{font-family:Arial,sans-serif;color:#10233f;background:#f3f5f8;--green:#16805a;--line:#d7dee8}*{box-sizing:border-box}body{margin:0}.wrap{max-width:1020px;margin:auto;padding:28px 16px 64px}h1{font-size:clamp(30px,5vw,46px);letter-spacing:-.045em;margin:8px 0}p{line-height:1.55;color:#526173}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin:12px 0}h2{font-size:17px}.step{display:inline-grid;place-items:center;width:29px;height:29px;border-radius:9px;background:#10233f;color:#fff;margin-right:8px}label{display:block;font-size:11px;font-weight:800;margin:11px 0 5px}input,textarea{width:100%;border:1px solid #aeb9c7;border-radius:9px;background:#fff;padding:10px;font:inherit}textarea{min-height:210px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.45;resize:vertical}button{border:1px solid #10233f;border-radius:9px;background:#10233f;color:#fff;padding:10px 13px;font-weight:800;cursor:pointer;margin:5px 5px 0 0}button.alt{background:#fff;color:#10233f}button:disabled{opacity:.45;cursor:not-allowed}.status{padding:10px;border-radius:9px;background:#eef2f6;font-size:12px;white-space:pre-wrap}.ok{color:var(--green);background:#e6f5ee}.bad{color:#b42331;background:#fff0f1}.rules{font-size:11px;color:#526173}.actions{display:flex;flex-wrap:wrap;gap:4px}code{background:#eef2f6;padding:2px 5px;border-radius:4px}@media(max-width:760px){.grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
 <main class="wrap">
-  <small>ESTADÍSTICAS v6 · CAMBIOS SEGUROS CON IA</small>
-  <h1>Cambiar un archivo cada vez</h1>
-  <p>Esta herramienta conserva una copia, prepara un encargo corto para Gemini o Claude, valida la respuesta y descarga el archivo listo para reemplazar. No toca GitHub directamente.</p>
-
-  <section class="card">
-    <h2><span class="step">0</span>Copia de los datos de la app</h2>
-    <p>Antes de publicar cualquier cambio, guarda el estado local de la app.</p>
-    <button id="backupData">Descargar copia local</button><span id="dataFound" class="rules"></span>
-  </section>
-
+  <small>ESTADÍSTICAS v7 · CAMBIOS SEGUROS POR BLOQUES</small>
+  <h1>Cambiar sin devolver archivos gigantes</h1>
+  <p>La IA devuelve solo pares exactos <b>BUSCAR / CAMBIAR POR</b>. Esta herramienta comprueba que cada búsqueda sea única, aplica los bloques en orden y valida el archivo resultante. No toca GitHub directamente.</p>
+  <section class="card"><h2><span class="step">0</span>Copia de los datos</h2><p>Antes de publicar, guarda el estado local.</p><button id="backupData">Descargar copia local</button><span id="dataFound" class="rules"></span></section>
   <div class="grid">
-    <section class="card">
-      <h2><span class="step">1</span>Archivo enfocado</h2>
-      <label>Selecciona el archivo actual</label>
-      <input id="sourceFile" type="file" accept=".js,.css,.html,.json,.md,.txt,.yml,.yaml,.py">
-      <label>Contenido actual</label>
-      <textarea id="source" spellcheck="false" placeholder="El archivo aparecerá aquí"></textarea>
-      <div class="actions"><button class="alt" id="backupFile" disabled>Descargar copia del archivo</button><button id="makePrompt" disabled>Preparar encargo</button></div>
-    </section>
-
-    <section class="card">
-      <h2><span class="step">2</span>Encargo para la IA</h2>
-      <label>Describe un solo cambio</label>
-      <textarea id="request" style="min-height:95px" placeholder="Ejemplo: añade una etiqueta clara a…"></textarea>
-      <label>Prompt corto generado</label>
-      <textarea id="prompt" spellcheck="false" readonly></textarea>
-      <button class="alt" id="copyPrompt" disabled>Copiar prompt</button>
-    </section>
+    <section class="card"><h2><span class="step">1</span>Archivo actual</h2><label for="sourceFile">Selecciona el archivo</label><input id="sourceFile" type="file" accept=".js,.css,.html,.json,.md,.txt,.yml,.yaml,.py"><label for="source">Contenido actual</label><textarea id="source" spellcheck="false" placeholder="El archivo aparecerá aquí"></textarea><div class="actions"><button class="alt" id="backupFile" disabled>Descargar copia</button><button id="makePrompt" disabled>Preparar encargo</button></div></section>
+    <section class="card"><h2><span class="step">2</span>Encargo</h2><label for="request">Describe el cambio</label><textarea id="request" style="min-height:95px" placeholder="Ejemplo: añade una etiqueta clara a…"></textarea><label for="prompt">Prompt generado</label><textarea id="prompt" spellcheck="false" readonly></textarea><button class="alt" id="copyPrompt" disabled>Copiar prompt</button></section>
   </div>
-
-  <section class="card">
-    <h2><span class="step">3</span>Pegar, aplicar y comprobar</h2>
-    <p>Pega el archivo completo devuelto por la IA. Se eliminan automáticamente las cercas <code>```</code>.</p>
-    <textarea id="answer" spellcheck="false" placeholder="Pega aquí la respuesta completa"></textarea>
-    <div class="actions"><button id="check" disabled>Aplicar y comprobar</button><button class="alt" id="download" disabled>Descargar archivo comprobado</button></div>
-    <p id="status" class="status">Elige primero un archivo.</p>
-    <ul class="rules"><li>El logo definitivo y sus cinco colores no se modifican.</li><li>La clave <code>estadisticas_shared_v2</code> y el formato de datos no se cambian.</li><li><code>worker.js</code> solo se modifica por un encargo explícito de Cloudflare.</li><li>Tras reemplazar el archivo, ejecuta <code>python tools/validate.py .</code> y <code>python tests/smoke.py</code>.</li></ul>
-  </section>
+  <section class="card"><h2><span class="step">3</span>Pegar bloques y comprobar</h2><p>Pega un JSON con esta forma: <code>{"file":"app.js","changes":[{"find":"texto exacto","replace":"texto nuevo"}]}</code>. No pegues el archivo entero.</p><textarea id="answer" spellcheck="false" placeholder='{"file":"…","changes":[{"find":"…","replace":"…"}]}'></textarea><div class="actions"><button id="check" disabled>Aplicar y comprobar</button><button class="alt" id="download" disabled>Descargar archivo comprobado</button></div><p id="status" class="status">Elige primero un archivo.</p><ul class="rules"><li>Cada bloque <code>find</code> debe existir exactamente una vez en el estado resultante del archivo.</li><li>Se conservan <code>estadisticas_shared_v2</code>, migraciones, datos, roles, Excel, Directo y mapas.</li><li>El logo y sus cinco colores no se modifican.</li><li><code>worker.js</code> solo cambia por un encargo explícito de Cloudflare.</li><li>Después: <code>python tools/validate.py .</code> y <code>python tests/smoke.py</code>.</li></ul></section>
 </main>
 <script>
 const $=id=>document.getElementById(id);let fileName='',validated='';
@@ -55,20 +26,21 @@ const keys=['estadisticas_shared_v2','estadisticas_v1','estadisticas_app_v1','ba
 const present=keys.filter(key=>localStorage.getItem(key));$('dataFound').textContent=present.length?` · encontrada: ${present.join(', ')}`:' · sin datos en este navegador';
 function download(name,text,type='text/plain'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),0)}
 $('backupData').onclick=()=>{const items={};keys.forEach(key=>{if(localStorage.getItem(key))items[key]=localStorage.getItem(key)});download(`estadisticas-copia-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify({exportedAt:new Date().toISOString(),items},null,2),'application/json')};
-$('sourceFile').onchange=async event=>{const file=event.target.files[0];if(!file)return;fileName=file.name;$('source').value=await file.text();$('backupFile').disabled=false;$('makePrompt').disabled=false;$('check').disabled=false;$('status').className='status';$('status').textContent=`${fileName} cargado. Describe el cambio.`};
-$('backupFile').onclick=()=>download(`${fileName}.antes-v6.txt`,$('source').value);
+$('sourceFile').onchange=async event=>{const file=event.target.files[0];if(!file)return;fileName=file.name;$('source').value=await file.text();$('backupFile').disabled=false;$('makePrompt').disabled=false;$('check').disabled=false;$('download').disabled=true;$('status').className='status';$('status').textContent=`${fileName} cargado. Describe el cambio.`};
+$('backupFile').onclick=()=>download(`${fileName}.antes-v7.txt`,$('source').value);
 $('makePrompt').onclick=()=>{const request=$('request').value.trim();if(!request)return $('status').textContent='Escribe el cambio que necesitas.';const context={
-'app.js':'Conserva la API window.__ESTADISTICAS__, las migraciones y estadisticas_shared_v2.',
-'styles.css':'Mantén responsive 360×640, áreas seguras y los dos temas.',
-'index.html':'No cambies el SVG del logo: #10233f #18365f #ed304c #7455dc #18a985.',
-'sw.js':'Si cambian recursos, conserva la estrategia y sube el nombre de caché.',
+'app.js':'Conserva window.__ESTADISTICAS__, todas las migraciones y estadisticas_shared_v2. No inventes métricas.',
+'styles.css':'Mantén 360×640, 390×844, 412×915, PC, ambos temas, área segura y desplazamiento táctil.',
+'index.html':'No cambies el SVG del logo ni #10233f #18365f #ed304c #7455dc #18a985.',
+'sw.js':'Conserva la estrategia y sube el nombre de caché si cambian recursos.',
 'worker.js':'No cambies contratos HTTP, D1, tokens ni roles.',
-'manifest.json':'Mantén standalone, fondo #10233f y los tres iconos.'
-}[fileName]||'Conserva los contratos documentados en AGENTS.md.';$('prompt').value=`Edita únicamente ${fileName}. Cambio: ${request}\n${context}\nDevuelve solo el archivo completo, sin explicación ni cercas de código. No inventes métricas ni datos.`;$('copyPrompt').disabled=false};
+'manifest.json':'Mantén standalone y los tres iconos fijos.'
+}[fileName]||'Conserva los contratos de AGENTS.md.';$('prompt').value=`Edita únicamente ${fileName}. Cambio solicitado: ${request}\n${context}\nNo devuelvas el archivo completo. Devuelve solo JSON válido, sin Markdown, con este formato exacto: {"file":"${fileName}","changes":[{"find":"fragmento literal único del archivo actual","replace":"fragmento completo que lo sustituye"}]}. Cada find debe ser literal, incluir contexto suficiente para ser único y respetar saltos de línea. Divide cambios separados en bloques separados. No uses puntos suspensivos.`;$('copyPrompt').disabled=false};
 $('copyPrompt').onclick=async()=>{await navigator.clipboard.writeText($('prompt').value);$('status').textContent='Prompt copiado.'};
-function clean(text){return text.trim().replace(/^```[a-z0-9_-]*\s*/i,'').replace(/\s*```$/,'')+'\n'}
-function validate(name,text){const errors=[];if(!text.trim())errors.push('La respuesta está vacía.');if(name.endsWith('.json')){try{JSON.parse(text)}catch(error){errors.push('JSON no válido: '+error.message)}}if(name.endsWith('.js')){try{new Function(text)}catch(error){errors.push('JavaScript no válido: '+error.message)}}if(name.endsWith('.css')){let balance=0;for(const char of text){if(char==='{')balance++;if(char==='}')balance--;}if(balance)errors.push('Las llaves CSS no están equilibradas.')}if(name.endsWith('.html')){const doc=new DOMParser().parseFromString(text,'text/html');if(!doc.documentElement||!doc.body)errors.push('HTML incompleto.')}if(name==='app.js'&&!text.includes("estadisticas_shared_v2"))errors.push('Se ha perdido la clave de datos.');if(name==='index.html'&&['#10233f','#18365f','#ed304c','#7455dc','#18a985'].some(color=>!text.includes(color)))errors.push('El logo definitivo ha cambiado.');if(name==='manifest.json'&&!text.includes('icon-maskable-512.png'))errors.push('Falta el icono maskable.');return errors}
-$('check').onclick=()=>{validated=clean($('answer').value);const errors=validate(fileName,validated);$('download').disabled=!!errors.length;$('status').className='status '+(errors.length?'bad':'ok');$('status').textContent=errors.length?errors.join(' '):'✓ Comprobación básica superada. Descarga el archivo, reemplázalo y ejecuta las pruebas completas.'};
+function parsePatch(text){const clean=text.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');const patch=JSON.parse(clean);if(patch.file!==fileName)throw Error(`La respuesta es para ${patch.file||'otro archivo'}, no para ${fileName}.`);if(!Array.isArray(patch.changes)||!patch.changes.length)throw Error('No hay bloques changes.');return patch}
+function applyPatch(source,patch){let out=source;patch.changes.forEach((change,index)=>{if(typeof change.find!=='string'||typeof change.replace!=='string'||!change.find)throw Error(`Bloque ${index+1}: find/replace no válidos.`);const count=out.split(change.find).length-1;if(count!==1)throw Error(`Bloque ${index+1}: BUSCAR aparece ${count} veces; debe aparecer exactamente 1.`);out=out.replace(change.find,change.replace)});return out}
+function validate(name,text){const errors=[];if(!text.trim())errors.push('El resultado está vacío.');if(name.endsWith('.json')){try{JSON.parse(text)}catch(error){errors.push('JSON no válido: '+error.message)}}if(name.endsWith('.js')){try{new Function(text)}catch(error){errors.push('JavaScript no válido: '+error.message)}}if(name.endsWith('.css')){let balance=0;for(const char of text){if(char==='{')balance++;if(char==='}')balance--}if(balance)errors.push('Las llaves CSS no están equilibradas.')}if(name.endsWith('.html')){const doc=new DOMParser().parseFromString(text,'text/html');if(!doc.documentElement||!doc.body)errors.push('HTML incompleto.')}if(name==='app.js'&&!text.includes("estadisticas_shared_v2"))errors.push('Se ha perdido la clave de datos.');if(name==='index.html'&&['#10233f','#18365f','#ed304c','#7455dc','#18a985'].some(color=>!text.includes(color)))errors.push('El logo fijo ha cambiado.');if(name==='manifest.json'&&!text.includes('icon-maskable-512.png'))errors.push('Falta el icono maskable.');return errors}
+$('check').onclick=()=>{try{const patch=parsePatch($('answer').value);validated=applyPatch($('source').value,patch);const errors=validate(fileName,validated);if(errors.length)throw Error(errors.join(' '));$('download').disabled=false;$('status').className='status ok';$('status').textContent=`✓ ${patch.changes.length} bloque(s) aplicados y comprobación básica superada. Descarga, reemplaza y ejecuta las pruebas completas.`}catch(error){validated='';$('download').disabled=true;$('status').className='status bad';$('status').textContent=error.message}};
 $('download').onclick=()=>download(fileName,validated,fileName.endsWith('.json')?'application/json':'text/plain');
 </script>
 </body>

@@ -1,7 +1,7 @@
 {
   "name": "Estadísticas · Buen Consejo",
   "short_name": "Estadísticas",
-  "description": "Temporada 26/27 de Buen Consejo",
+  "description": "Estadísticas v7 · Temporada 26/27 de Buen Consejo",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

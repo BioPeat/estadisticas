@@ -1,7 +1,7 @@
-/* Estadísticas v6 · Buen Consejo 26/27 · local-first */
+/* Estadísticas v7 · Buen Consejo 26/27 · local-first */
 'use strict';
 
-const APP_VERSION = 'v6';
+const APP_VERSION = 'v7';
 const STORE = 'estadisticas_shared_v2';
 const TEAM = 'BUEN CONSEJO';
 const $ = (s, r = document) => r.querySelector(s);
@@ -24,7 +24,7 @@ const deepSignature = x => JSON.stringify(x);
 /* ── State, migration and persistence ───────────────────────────── */
 function blank() {
   return {
-    version: 6,
+    version: 7,
     team: {name:'Buen Consejo', season:'26/27'},
     roster: [], games: [], live: null,
     liveDraft: {rival:'', date:today(), selected:[]},
@@ -90,7 +90,7 @@ function hasLegacyFields(g) {
 
 function sanitise(s) {
   const base = blank();
-  const out = {...base, ...s, version:6, team:{...base.team, ...(s.team || {})}, settings:{...base.settings, ...(s.settings || {})}};
+  const out = {...base, ...s, version:7, team:{...base.team, ...(s.team || {})}, settings:{...base.settings, ...(s.settings || {})}};
   out.roster = (s.roster || []).filter(p => p?.name).map(p => ({...p, id:p.id || uid(), number:String(p.number || '')}));
   out.games = (s.games || []).filter(g => g && !g.demo && !g.isDemo && !['DEMO','EJEMPLO'].some(x => norm(g.opponent).includes(x))).map(g => {
     const pair = splitLegacyShots(g);
@@ -121,7 +121,7 @@ function migrateV1(old) {
   return sanitise(out);
 }
 
-function save() { state.version = 6; localStorage.setItem(STORE, JSON.stringify(state)); }
+function save() { state.version = 7; localStorage.setItem(STORE, JSON.stringify(state)); }
 function record(type, payload) { state.ops.push({id:uid(), at:new Date().toISOString(), type, payload}); save(); paintSync(); scheduleSync(); }
 function toast(message) { const t = $('#toast'); t.textContent = message; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
 function setView(next) { view = next; $$('[data-go]').forEach(b => b.setAttribute('aria-current', b.dataset.go === next ? 'page' : 'false')); render(); window.scrollTo(0, 0); }
@@ -461,14 +461,14 @@ function donut(value, label, tone = 'team') {
 }
 
 const TEAM_METRICS = {
-  points:{label:'Puntos', short:'PTS', player:'pts', value:(game, totals, side) => side === 'own' ? +game.us : +game.them, note:'Marcador oficial.'},
-  p2m:{label:'Canastas de 2', short:'2P', player:'p2m', value:(game, totals) => +totals.p2m || 0, note:'Canastas anotadas; no porcentaje.'},
-  p3m:{label:'Canastas de 3', short:'3P', player:'p3m', value:(game, totals) => +totals.p3m || 0, note:'Triples anotados; no porcentaje.'},
-  ftm:{label:'Tiros libres', short:'TL', player:'ftm', value:(game, totals) => +totals.ftm || 0, note:'Tiros libres anotados.'},
-  fta:{label:'TL intentados', short:'TLI', player:'fta', value:(game, totals) => +totals.fta || 0, note:'Intentos de tiro libre.'},
-  ftp:{label:'Porcentaje TL', short:'TL%', player:'ftp', percent:true, value:(game, totals) => totals.fta ? totals.ftm/totals.fta*100 : null, note:'Los partidos sin intentos no cuentan como 0%.'},
-  fouls:{label:'Faltas', short:'FAL', player:'fouls', value:(game, totals) => +totals.fouls || 0, note:'Faltas cometidas; las del rival equivalen a faltas recibidas de equipo.'},
-  val:{label:'Valoración acta', short:'VAL', player:'val', value:(game, totals) => +totals.val || 0, note:'Valoración publicada en el acta.'}
+  points:{label:'Puntos', short:'PTS', player:'pts', compare:true, higherBetter:true, value:(game, totals, side) => side === 'own' ? +game.us : +game.them, note:'Marcador oficial.'},
+  p2m:{label:'Canastas de 2', short:'2P', player:'p2m', compare:true, higherBetter:true, value:(game, totals) => +totals.p2m || 0, note:'Canastas anotadas; no porcentaje porque el acta no ofrece intentos de campo fiables.'},
+  p3m:{label:'Canastas de 3', short:'3P', player:'p3m', compare:true, higherBetter:true, value:(game, totals) => +totals.p3m || 0, note:'Triples anotados; no porcentaje porque el acta no ofrece intentos de campo fiables.'},
+  ftm:{label:'Tiros libres', short:'TL', player:'ftm', compare:true, higherBetter:true, value:(game, totals) => +totals.ftm || 0, note:'Tiros libres anotados.'},
+  fta:{label:'TL intentados', short:'TLI', player:'fta', compare:true, higherBetter:true, value:(game, totals) => +totals.fta || 0, note:'Intentos de tiro libre.'},
+  ftp:{label:'Porcentaje TL', short:'TL%', player:'ftp', compare:true, percent:true, higherBetter:true, value:(game, totals) => totals.fta ? totals.ftm/totals.fta*100 : null, note:'Los partidos sin intentos quedan ausentes: no cuentan como 0% ni entran en la media.'},
+  fouls:{label:'Faltas', short:'FAL', player:'fouls', compare:true, lowerBetter:true, per40:true, value:(game, totals) => +totals.fouls || 0, note:'Faltas cometidas. Menos es mejor; las faltas del rival equivalen a faltas recibidas por Buen Consejo.'},
+  val:{label:'Valoración por partido', short:'VAL/P', player:'val', compare:false, higherBetter:true, value:(game, totals) => +totals.val || 0, note:'Valoración publicada en el acta. La tarjeta principal se centra en Buen Consejo; el detalle conserva la comparación con el rival.'}
 };
 
 function teamMetricRows(key) {
@@ -517,7 +517,8 @@ function dualTrendSVG(rows, key, compact = false) {
   const x=index => rows.length===1?w/2:left+index*(w-left*2)/(rows.length-1);
   const y=value => h-bottom-(value-min)/(max-min||1)*(h-bottom-(compact?10:30));
   const lines = side => lineSegments(rows,side,x,y).map(points => `<polyline class="${side}" points="${points.join(' ')}"/>`).join('');
-  return `<svg class="dual-trend ${compact?'compact':''}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Evolución de ${esc(TEAM_METRICS[key].label)}">
+  const label=(TEAM_METRICS[key]||LIVE_METRICS[key]||{}).label||key;
+  return `<svg class="dual-trend ${compact?'compact':''}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Evolución de ${esc(label)}">
     ${compact?'':`<line class="trend-axis" x1="${left-12}" y1="${h-bottom}" x2="${w-left+12}" y2="${h-bottom}"/>`}${lines('own')}${lines('opp')}
     ${rows.map((row,index) => `<g ${compact?'':`data-detail="game:${row.game.id}" tabindex="0" role="button"`}>
       ${row.own===null?'':`<circle class="own" cx="${x(index)}" cy="${y(row.own)}" r="${compact?4:7}"/>`}${row.opp===null?'':`<circle class="opp" cx="${x(index)}" cy="${y(row.opp)}" r="${compact?4:7}"/>`}
@@ -548,8 +549,10 @@ function teamMetricCard(key) {
   const metric=TEAM_METRICS[key], rows=teamMetricRows(key);
   const ownAverage=aggregateMetric(key,rows,'own'), oppAverage=aggregateMetric(key,rows,'opp');
   const ownTotal=aggregateMetric(key,rows,'own','total'), oppTotal=aggregateMetric(key,rows,'opp','total');
-  const detail = key === 'ftp' ? `Temporada ${metricValue(key,ownTotal)} / ${metricValue(key,oppTotal)}` : `Total ${metricValue(key,ownTotal,0)} / ${metricValue(key,oppTotal,0)}`;
-  return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>BC / Rival</small></header><div class="stat-values"><strong>${metricValue(key,ownAverage)}</strong><strong>${metricValue(key,oppAverage)}</strong></div>${metricMiniVisual(key,rows)}<footer>${detail}<b>Ver detalle →</b></footer></button>`;
+  const detail = key === 'ftp' ? `Temporada ${metricValue(key,ownTotal)} / ${metricValue(key,oppTotal)}` : metric.compare ? `Total ${metricValue(key,ownTotal,0)} / ${metricValue(key,oppTotal,0)}` : `Total BC ${metricValue(key,ownTotal,0)}`;
+  if (!metric.compare) return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>Buen Consejo</small></header><div class="stat-values own-only"><strong>${metricValue(key,ownAverage)}</strong><span>media por partido</span></div><div class="single-trend">${sparkline(rows.map(row=>row.own),'team',260,70)}</div><footer>${detail}<b>Ver todo →</b></footer></button>`;
+  const hint=metric.lowerBetter?'BC / Rival · menos':'BC / Rival';
+  return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${hint}</small></header><div class="stat-values"><strong>${metricValue(key,ownAverage)}</strong><strong>${metricValue(key,oppAverage)}</strong></div>${metricMiniVisual(key,rows)}<footer>${detail}<b>Ver todo →</b></footer></button>`;
 }
 
 function head(cls, title, actions = '', meta = '') {
@@ -564,12 +567,35 @@ function reimportBanner() {
 function renderMinutesCard(stats) {
   const options = [`<option value="season" ${minutesScope==='season'?'selected':''}>Temporada</option>`, `<option value="average" ${minutesScope==='average'?'selected':''}>Media por partido</option>`, ...stats.games.map((game,index)=>`<option value="game:${game.id}" ${minutesScope===`game:${game.id}`?'selected':''}>P${index+1} · ${esc(game.opponent)}</option>`)].join('');
   const label = minutesScope === 'season' ? 'Minutos totales' : minutesScope === 'average' ? 'Media por partido' : 'Partido concreto';
-  return `<article class="card visual-card minutes-card"><div class="card-title"><div><h3>Minutos</h3><span>${label}</span></div><select id="minutesScope" aria-label="Vista de minutos">${options}</select></div><div class="minutes-open">${minuteBars(stats.playerTotals,minutesScope)}</div><button class="text-link" data-detail="minutes">Mapa por partido, evolución y cuota →</button></article>`;
+  return `<article class="card visual-card minutes-card"><div class="card-title"><div><h3>Minutos</h3><span>${label}</span></div><select id="minutesScope" aria-label="Vista de minutos">${options}</select></div><div class="minutes-open">${minuteBars(stats.playerTotals,minutesScope)}</div><button class="text-link" data-detail="minutes">Ver las ${playerAgg().length} jugadoras, mapa y evolución →</button></article>`;
 }
 
-function renderLiveMetrics(stats) {
-  if (!stats.manualGames) return '';
-  return `<section class="live-data card"><header><div><h3>Datos de Directo</h3><span>${stats.manualGames} partido${stats.manualGames===1?'':'s'}</span></div><small>Solo registro manual</small></header><div>${compareBar('Robos / pérdidas',stats.steals/stats.manualGames,stats.turnovers/stats.manualGames)}${compareBar('REB O BC / rival',stats.orbLive/stats.manualGames,stats.oppOrbLive/stats.manualGames)}</div></section>`;
+const LIVE_METRICS = {
+  ball:{label:'Robos y pérdidas', ownLabel:'Robos BC', oppLabel:'Pérdidas BC', types:['steal','turnover'], note:'Compara nuestros robos con nuestras pérdidas. No es una estadística completa del rival ni una estimación de posesiones.'},
+  orb:{label:'Rebote ofensivo', ownLabel:'REB O BC', oppLabel:'REB O rival', types:['orbFor','orbAgainst'], note:'Solo usa los rebotes ofensivos apuntados en Directo: los que cogemos frente a los que nos coge el rival.'}
+};
+
+function recordedLiveGames() {
+  return validGames().filter(game=>(game.events||[]).some(event=>!event.undone));
+}
+
+function liveMetricRows(key) {
+  const metric=LIVE_METRICS[key];
+  return recordedLiveGames().sort((a,b)=>String(a.date).localeCompare(String(b.date))).map(game=>{
+    const events=(game.events||[]).filter(event=>!event.undone);
+    return {game,own:events.filter(event=>event.type===metric.types[0]).length,opp:events.filter(event=>event.type===metric.types[1]).length};
+  });
+}
+
+function liveMetricCard(key) {
+  const metric=LIVE_METRICS[key],rows=liveMetricRows(key),own=mean(rows,row=>row.own),opp=mean(rows,row=>row.opp),max=Math.max(1,...rows.flatMap(row=>[row.own,row.opp]));
+  return `<button class="stat-card live-stat-card" data-detail="live:${key}"><header><span>${metric.label}</span><small>Directo · por partido</small></header><div class="stat-values"><strong>${num(own)}</strong><strong>${num(opp)}</strong></div><div class="live-card-labels"><span>${metric.ownLabel}</span><span>${metric.oppLabel}</span></div><div class="mini-columns">${rows.map(row=>`<span><i class="own" style="height:${row.own/max*100}%"></i><i class="opp" style="height:${row.opp/max*100}%"></i></span>`).join('')}</div><footer>${rows.length} partido${rows.length===1?'':'s'} con registro<b>Ver todo →</b></footer></button>`;
+}
+
+function renderLiveMetrics() {
+  const games=recordedLiveGames();
+  if (!games.length) return '';
+  return `<section class="live-data-block"><div class="section-title"><div><h2>Datos de Directo</h2><p>Solo partidos con registro manual; los demás no entran como ceros.</p></div></div><div class="stats-grid live-stats-grid">${liveMetricCard('ball')}${liveMetricCard('orb')}</div></section>`;
 }
 
 function renderTeam() {
@@ -586,9 +612,9 @@ function renderTeam() {
     <div class="section-title"><div><h2>Cómo anota el equipo</h2><p>Datos publicados por la FBM; sin porcentajes de campo.</p></div></div>
     <div class="analysis-grid feature-grid">
       <button class="card visual-card mix-card" data-detail="scoring-mix"><div class="card-title"><div><h3>Origen de los puntos</h3><span>2P · 3P · TL</span></div><small>BC / Rival</small></div>${scoringMixCompare(ownTotals,oppTotals)}</button>
-      <article class="card visual-card point-share"><div class="card-title"><div><h3>Reparto de puntos</h3><span>Contribución de las jugadoras</span></div><small>Toca una fila</small></div>${pointShareChart(stats.playerTotals,stats.ownPts)}</article>
+      <article class="card visual-card point-share"><div class="card-title"><div><h3>Reparto de puntos</h3><span>Contribución de las jugadoras</span></div><small>Vista rápida</small></div>${pointShareChart(stats.playerTotals,stats.ownPts)}<button class="text-link" data-detail="point-share">Ver las ${playerAgg().length} jugadoras →</button></article>
       ${renderMinutesCard(stats)}
-      ${renderLiveMetrics(stats)}
+      ${renderLiveMetrics()}
     </div>
     <div class="section-title"><div><h2>Todas las estadísticas</h2><p>La cifra grande es la media por partido. Cada detalle incluye total, media y evolución BC–rival.</p></div></div>
     <div class="stats-grid">${Object.keys(TEAM_METRICS).map(teamMetricCard).join('')}</div>
@@ -668,8 +694,9 @@ const PLAYER_METRICS = {
   p3m:{label:'Canastas de 3', value:player=>player.p3m, team:game=>mean(game.players||[],player=>player.p3m)},
   ftm:{label:'Tiros libres', value:player=>player.ftm, team:game=>mean(game.players||[],player=>player.ftm)},
   ftp:{label:'Porcentaje TL', value:player=>player.fta ? player.ftm/player.fta*100 : null, team:game=>{const total=effectiveTotals(game,'own');return total.fta?total.ftm/total.fta*100:null;}},
-  fouls:{label:'Faltas', value:player=>player.fouls, team:game=>mean(game.players||[],player=>player.fouls)},
-  val:{label:'Valoración', value:player=>player.val, team:game=>mean(game.players||[],player=>player.val)},
+  fouls:{label:'Faltas por partido', value:player=>player.fouls, team:game=>mean(game.players||[],player=>player.fouls)},
+  fouls40:{label:'Faltas por 40 min', value:player=>player.min ? player.fouls/player.min*40 : null, team:game=>{const players=game.players||[],mins=sum(players,p=>p.min),fouls=sum(players,p=>p.fouls);return mins?fouls/mins*40:null;}},
+  val:{label:'Valoración por partido', value:player=>player.val, team:game=>mean(game.players||[],player=>player.val)},
   pm:{label:'+/-', value:player=>player.pm, team:game=>mean(game.players||[],player=>player.pm)},
   liveSteals:{label:'Robos · Directo', live:true, value:(player,game)=>eventCounts(game,player).steals, team:game=>mean(game.players||[],player=>eventCounts(game,player).steals)},
   liveTurnovers:{label:'Pérdidas · Directo', live:true, value:(player,game)=>eventCounts(game,player).turnovers, team:game=>mean(game.players||[],player=>eventCounts(game,player).turnovers)},
@@ -723,7 +750,7 @@ function openPlayerDetail(key,metricKey='pts') {
   const eligible=player.games.filter(({g,p})=>metric.value(p,g)!==null);
   const best=eligible.length?[...eligible].sort((a,b)=>(metric.value(b.p,b.g)||0)-(metric.value(a.p,a.g)||0))[0]:null;
   const teamPts=sum(validGames(),game=>game.us), teamMinutes=validGames().length*200;
-  const averages=[['PTS/P',player.gp?num(player.pts/player.gp):'—'],['PTS/40',player.min?num(player.pts/player.min*40):'—'],['MIN/P',player.gp?num(player.min/player.gp):'—'],['VAL/P',player.gp?num(player.val/player.gp):'—'],['FAL/P',player.gp?num(player.fouls/player.gp):'—'],['+/- /P',player.gp?signed(player.pm/player.gp):'—'],['2P/P',player.gp?num(player.p2m/player.gp):'—'],['3P/P',player.gp?num(player.p3m/player.gp):'—'],['TL/P',player.gp?num(player.ftm/player.gp):'—'],['TL%',player.fta?pct(player.ftm/player.fta*100):'Sin tiros']];
+  const averages=[['PTS/P',player.gp?num(player.pts/player.gp):'—'],['PTS/40',player.min?num(player.pts/player.min*40):'—'],['MIN/P',player.gp?num(player.min/player.gp):'—'],['VAL/P',player.gp?num(player.val/player.gp):'—'],['FAL/P',player.gp?num(player.fouls/player.gp):'—'],['FAL/40',player.min?num(player.fouls/player.min*40):'—'],['+/- /P',player.gp?signed(player.pm/player.gp):'—'],['2P/P',player.gp?num(player.p2m/player.gp):'—'],['3P/P',player.gp?num(player.p3m/player.gp):'—'],['TL/P',player.gp?num(player.ftm/player.gp):'—'],['TL%',player.fta?pct(player.ftm/player.fta*100):'Sin tiros']];
   const options=availablePlayerMetrics().map(([metricId,item])=>`<option value="${metricId}" ${metricId===metricKey?'selected':''}>${item.label}</option>`).join('');
   openModal('Jugadora',namePretty(player.name),`<div class="player-summary"><div class="player-number large">${esc(player.number||'—')}</div><div><b>${player.gp} partidos</b><span>${best?`Mejor ${metric.label}: ${esc(best.g.opponent)}`:'Sin dato válido'}</span></div></div><div class="player-overview"><div class="detail-stats">${averages.map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}</div><div class="share-donuts">${donut(teamPts?player.pts/teamPts*100:0,'Cuota de puntos','player')}${donut(teamMinutes?player.min/teamMinutes*100:0,'Cuota de minutos','game')}</div></div><section class="trend-section"><div class="trend-head"><div><h3>Evolución</h3><p>Dos referencias: equipo en cada partido y temporada.</p></div><select id="playerMetric">${options}</select></div><div id="playerTrend">${playerTrendSVG(player,metricKey)}</div></section><section><h3>Partidos</h3><div class="player-games">${player.games.map(({g,p})=>`<button data-detail="game:${g.id}"><span><b>${esc(g.opponent)}</b><small>${g.date||'Sin fecha'} · ${formatMinutes(p.min)}</small></span><strong>${p.pts} PTS</strong><em>${signed(p.pm)}</em></button>`).join('')}</div></section>`);
 }
@@ -795,17 +822,48 @@ function openScoringMixDetail() {
 function metricPlayerBreakdown(key) {
   const metric=TEAM_METRICS[key], players=playerAgg().filter(player=>player.gp);
   if (!metric?.player || key==='ftp') return '';
-  const value=player=>+player[metric.player]||0, max=Math.max(1,...players.map(value));
-  return `<section class="detail-block"><h3>Reparto por jugadora</h3><div class="breakdown-bars">${[...players].sort((a,b)=>value(b)-value(a)).map(player=>`<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><i><b style="width:${value(player)/max*100}%"></b></i><strong>${metricValue(key,value(player),0)}</strong></button>`).join('')}</div></section>`;
+  const total=player=>+player[metric.player]||0;
+  if (key==='fouls') {
+    const rate=player=>player.min?player.fouls/player.min*40:0,max=Math.max(1,...players.map(rate));
+    return `<section class="detail-block"><h3>Faltas por jugadora</h3><p class="metric-explain">FAL/40 permite comparar cargas distintas de minutos. Menos es mejor.</p><div class="breakdown-bars">${[...players].sort((a,b)=>rate(a)-rate(b)).map(player=>`<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><i><b style="width:${rate(player)/max*100}%"></b></i><strong>${num(rate(player))} /40 · ${total(player)} total</strong></button>`).join('')}</div></section>`;
+  }
+  const max=Math.max(1,...players.map(total));
+  return `<section class="detail-block"><h3>Reparto por jugadora</h3><div class="breakdown-bars">${[...players].sort((a,b)=>total(b)-total(a)).map(player=>`<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><i><b style="width:${total(player)/max*100}%"></b></i><strong>${metricValue(key,total(player),0)}</strong></button>`).join('')}</div></section>`;
 }
 
 function openTeamMetricDetail(key) {
   const metric=TEAM_METRICS[key]; if(!metric)return;
   const rows=teamMetricRows(key), ownTotal=aggregateMetric(key,rows,'own','total'), oppTotal=aggregateMetric(key,rows,'opp','total'), ownAvg=aggregateMetric(key,rows,'own'), oppAvg=aggregateMetric(key,rows,'opp');
-  const ownValid=rows.filter(row=>row.own!==null), best=ownValid.length?[...ownValid].sort((a,b)=>b.own-a.own)[0]:null, worst=ownValid.length?[...ownValid].sort((a,b)=>a.own-b.own)[0]:null;
+  const ownValid=rows.filter(row=>row.own!==null&&Number.isFinite(+row.own));
+  const ordered=[...ownValid].sort((a,b)=>metric.lowerBetter?a.own-b.own:b.own-a.own),best=ordered[0]||null,worst=ordered.at(-1)||null;
   const ftpExtra=key==='ftp'?`<div class="attempt-summary"><b>Buen Consejo</b><span>${sum(rows,row=>effectiveTotals(row.game,'own').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'own').fta)} TL</span><b>Rival</b><span>${sum(rows,row=>effectiveTotals(row.game,'opp').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'opp').fta)} TL</span></div>`:'';
+  const per40=metric.per40?(()=>{const ownMinutes=sum(rows,row=>effectiveTotals(row.game,'own').min),oppMinutes=sum(rows,row=>effectiveTotals(row.game,'opp').min);return `<div class="metric-summary per40-summary"><div><span>Faltas BC / 40 min</span><strong>${ownMinutes?num(ownTotal/ownMinutes*40):'—'}</strong></div><div><span>Faltas rival / 40 min</span><strong>${oppMinutes?num(oppTotal/oppMinutes*40):'—'}</strong></div></div>`;})():'';
   modalContext={type:'metric',key};
-  openModal('Estadística',metric.label,`<p class="metric-explain">${metric.note} Rojo: Buen Consejo. Azul: rival.</p><div class="metric-summary"><div><span>Total BC</span><strong>${metricValue(key,ownTotal,0)}</strong></div><div><span>Total rival</span><strong>${metricValue(key,oppTotal,0)}</strong></div><div><span>Media BC</span><strong>${metricValue(key,ownAvg)}</strong></div><div><span>Media rival</span><strong>${metricValue(key,oppAvg)}</strong></div></div>${ftpExtra}<section class="detail-block"><div class="card-title"><div><h3>Evolución por partido</h3><span>Toca un punto para abrir el acta</span></div></div>${dualTrendSVG(rows,key,false)}<div class="chart-legend"><span class="us">Buen Consejo</span><span class="them">Rival</span></div></section><div class="best-worst"><div><span>Mejor BC</span><b>${best?metricValue(key,best.own):'—'}</b><small>${best?esc(best.game.opponent):''}</small></div><div><span>Menor BC</span><b>${worst?metricValue(key,worst.own):'—'}</b><small>${worst?esc(worst.game.opponent):''}</small></div></div>${metricPlayerBreakdown(key)}<section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${metricValue(key,row.own)} / ${metricValue(key,row.opp)}</strong><em>${row.game.us}–${row.game.them}</em></button>`).join('')}</div></section>`);
+  openModal('Estadística',metric.label,`<p class="metric-explain">${metric.note} En el detalle, rojo es Buen Consejo y azul el rival.</p><div class="metric-summary"><div><span>Total BC</span><strong>${metricValue(key,ownTotal,0)}</strong></div><div><span>Total rival</span><strong>${metricValue(key,oppTotal,0)}</strong></div><div><span>Media BC / partido</span><strong>${metricValue(key,ownAvg)}</strong></div><div><span>Media rival / partido</span><strong>${metricValue(key,oppAvg)}</strong></div></div>${per40}${ftpExtra}<section class="detail-block"><div class="card-title"><div><h3>Evolución por partido</h3><span>Toca un punto para abrir el acta</span></div></div>${dualTrendSVG(rows,key,false)}<div class="chart-legend"><span class="us">Buen Consejo</span><span class="them">Rival</span></div></section><div class="best-worst"><div><span>${metric.lowerBetter?'Mejor BC · menos':'Mejor BC'}</span><b>${best?metricValue(key,best.own):'—'}</b><small>${best?esc(best.game.opponent):''}</small></div><div><span>${metric.lowerBetter?'Peor BC · más':'Menor BC'}</span><b>${worst?metricValue(key,worst.own):'—'}</b><small>${worst?esc(worst.game.opponent):''}</small></div></div>${metricPlayerBreakdown(key)}<section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${metricValue(key,row.own)} / ${metricValue(key,row.opp)}</strong><em>${row.game.us}–${row.game.them}</em></button>`).join('')}</div></section>`);
+}
+
+function openPointShareDetail() {
+  const players=playerAgg().sort((a,b)=>(b.pts||0)-(a.pts||0)||namePretty(a.name).localeCompare(namePretty(b.name),'es'));
+  const total=sum(validGames(),game=>game.us),max=Math.max(1,...players.map(player=>player.pts||0));
+  modalContext={type:'point-share'};
+  openModal('Puntos','Reparto completo',`<p class="metric-explain">Las ${players.length} jugadoras de la plantilla. Una jugadora sin acta aparece con 0, no se elimina de la lista.</p><div class="breakdown-bars full-roster">${players.map(player=>`<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><i><b style="width:${(+player.pts||0)/max*100}%"></b></i><strong>${+player.pts||0} · ${pct(total?(+player.pts||0)/total*100:0)}</strong></button>`).join('')}</div>`);
+}
+
+function liveEventPlayerName(event) {
+  if (event.playerName) return event.playerName;
+  const roster=state.roster.find(player=>player.id===event.playerId);
+  return roster?.name||'Equipo (sin jugadora)';
+}
+
+function openLiveMetricDetail(key) {
+  const metric=LIVE_METRICS[key]; if(!metric)return;
+  const rows=liveMetricRows(key),ownTotal=sum(rows,row=>row.own),oppTotal=sum(rows,row=>row.opp),ownAvg=mean(rows,row=>row.own),oppAvg=mean(rows,row=>row.opp),games=recordedLiveGames();
+  const quarters=[1,2,3,4].map(quarter=>{const events=games.flatMap(game=>(game.events||[]).filter(event=>!event.undone&&(+event.quarter||1)===quarter));return {quarter,own:events.filter(event=>event.type===metric.types[0]).length,opp:events.filter(event=>event.type===metric.types[1]).length};});
+  const people=new Map();
+  games.flatMap(game=>(game.events||[]).filter(event=>!event.undone&&event.type===metric.types[0])).forEach(event=>{const name=liveEventPlayerName(event);people.set(name,(people.get(name)||0)+1)});
+  const playerRows=[...people.entries()].sort((a,b)=>b[1]-a[1]);
+  modalContext={type:'live-metric',key};
+  openModal('Directo',metric.label,`<p class="metric-explain">${metric.note} Los partidos sin registro manual quedan fuera de las medias.</p><div class="metric-summary"><div><span>Total · ${metric.ownLabel}</span><strong>${ownTotal}</strong></div><div><span>Total · ${metric.oppLabel}</span><strong>${oppTotal}</strong></div><div><span>Media · ${metric.ownLabel}</span><strong>${num(ownAvg)}</strong></div><div><span>Media · ${metric.oppLabel}</span><strong>${num(oppAvg)}</strong></div></div><section class="detail-block"><h3>Evolución por partido</h3>${dualTrendSVG(rows,key,false)}<div class="chart-legend"><span class="us">${metric.ownLabel}</span><span class="them">${metric.oppLabel}</span></div></section><section class="detail-block"><h3>Por cuarto</h3><div class="quarter-breakdown">${quarters.map(row=>compareBar(`Q${row.quarter}`,row.own,row.opp,value=>num(value,0))).join('')}</div></section><section class="detail-block"><h3>${key==='orb'?'REB O BC por jugadora':'Primer dato por jugadora'}</h3>${playerRows.length?`<div class="breakdown-bars">${playerRows.map(([name,value])=>`<div class="breakdown-static"><span>${esc(name==='Equipo (sin jugadora)'?name:shortName(name))}</span><i><b style="width:${value/Math.max(1,...playerRows.map(row=>row[1]))*100}%"></b></i><strong>${value}</strong></div>`).join('')}</div>`:'<div class="empty-inline">Sin asignaciones individuales.</div>'}</section><section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${row.own} / ${row.opp}</strong><em>${metric.ownLabel} / ${metric.oppLabel}</em></button>`).join('')}</div></section>`);
 }
 
 function minutesHeatmap(players,games) {
@@ -814,16 +872,18 @@ function minutesHeatmap(players,games) {
 }
 
 function openMinutesDetail() {
-  const games=validGames().sort((a,b)=>String(a.date).localeCompare(String(b.date))), players=playerAgg().filter(player=>player.gp).sort((a,b)=>b.min-a.min);
+  const games=validGames().sort((a,b)=>String(a.date).localeCompare(String(b.date))), players=playerAgg().sort((a,b)=>(b.min||0)-(a.min||0)||namePretty(a.name).localeCompare(namePretty(b.name),'es'));
   const appearances=sum(players,player=>player.gp), teamPlayerAverage=appearances?sum(players,player=>player.min)/appearances:0;
   modalContext={type:'minutes'};
-  openModal('Minutos','Carga y evolución',`<p class="metric-explain">Minutos de acta. La cuota compara los minutos de cada jugadora con los ${games.length*200} minutos de equipo disponibles.</p><div class="metric-summary three"><div><span>Partidos</span><strong>${games.length}</strong></div><div><span>Minutos equipo</span><strong>${formatMinutes(games.length*200)}</strong></div><div><span>Media jugadora-acta</span><strong>${formatMinutes(teamPlayerAverage)}</strong></div></div><section class="detail-block"><div class="card-title"><div><h3>Mapa de minutos</h3><span>Jugadora × partido · toca una fila</span></div></div>${minutesHeatmap(players,games)}</section><section class="detail-block"><div class="card-title"><div><h3>Evolución individual</h3><span>Mini gráfico, media y cuota de temporada</span></div></div><div class="minutes-evolution">${players.map(player=>{const series=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null),avg=player.gp?player.min/player.gp:0,share=games.length?player.min/(games.length*200)*100:0;return `<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span>${sparkline(series,'player',180,40)}<b>${formatMinutes(avg)} /P</b><strong>${num(share,0)}%</strong></button>`;}).join('')}</div></section>`);
+  openModal('Minutos','Carga y evolución',`<p class="metric-explain">Minutos de acta. La cuota compara los minutos de cada jugadora con los ${games.length*200} minutos de equipo disponibles.</p><div class="metric-summary three"><div><span>Partidos</span><strong>${games.length}</strong></div><div><span>Minutos equipo</span><strong>${formatMinutes(games.length*200)}</strong></div><div><span>Media jugadora-acta</span><strong>${formatMinutes(teamPlayerAverage)}</strong></div></div><section class="detail-block"><div class="card-title"><div><h3>Mapa de minutos</h3><span>Desliza lateralmente · toca una fila</span></div></div><div class="minutes-scroll" tabindex="0" aria-label="Tabla de minutos; desliza a derecha e izquierda">${minutesHeatmap(players,games)}</div></section><section class="detail-block"><div class="card-title"><div><h3>Evolución individual</h3><span>Mini gráfico, media y cuota de temporada</span></div></div><div class="minutes-evolution">${players.map(player=>{const series=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null),avg=player.gp?player.min/player.gp:0,share=games.length?player.min/(games.length*200)*100:0;return `<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span>${sparkline(series,'player',180,40)}<b>${formatMinutes(avg)} /P</b><strong>${num(share,0)}%</strong></button>`;}).join('')}</div></section>`);
 }
 
 function detail(id) {
   if (id==='heat-attack'||id==='heat-defense'||id==='heat-compare') return openHeatAnalysis(id);
   if (id==='minutes') return openMinutesDetail();
+  if (id==='point-share') return openPointShareDetail();
   if (id==='scoring-mix') return openScoringMixDetail();
+  if (id.startsWith('live:')) return openLiveMetricDetail(id.slice(5));
   if (id.startsWith('metric:')) return openTeamMetricDetail(id.slice(7));
   if (id.startsWith('player:')) return openPlayerDetail(decodeURIComponent(id.slice(7)));
   if (id.startsWith('game:')) return openGameDetail(id.slice(5));
@@ -857,12 +917,11 @@ function renderHeatFiltered() {
 function openShotDetail(gameId='') {
   const games=validGames(); if(!games.length) return openModal('Mapa','Sin partido','<p>Importa un acta.</p>');
   const g=games.find(x=>x.id===gameId)||games[0]; modalContext={type:'shot',gameId:g.id,shotsFor:[...(g.shotsFor||[])],shotsAgainst:[...(g.shotsAgainst||[])],kind:'for',selected:''};
-  openModal('Mapa', 'Editar', `<label class="field">Partido<select id="shotGame">${games.map(x=>`<option value="${x.id}" ${x.id===g.id?'selected':''}>${esc(x.opponent)}</option>`).join('')}</select></label><div class="shot-fields"><label class="field">Buen Consejo<select id="shotSide"><option value="left" ${state.settings.shotSide==='left'?'selected':''}>Mitad izquierda</option><option value="right" ${state.settings.shotSide==='right'?'selected':''}>Mitad derecha</option><option value="auto" ${state.settings.shotSide==='auto'?'selected':''}>Detectar</option></select></label><label class="field">Color BC<input id="shotColor" value="${esc(state.settings.shotColor)}"></label><label class="field">Color rival<input id="rivalColor" value="${esc(state.settings.rivalColor)}"></label></div><div class="action-row"><button class="btn" data-action="copy-shot-prompt">Copiar instrucciones</button><button class="btn" data-action="show-shot-json">Pegar JSON</button></div><div id="shotAssignment"></div><div class="court-wrap"><div id="shotCourt">${courtHTML(modalContext.shotsFor,modalContext.shotsAgainst,false,modalContext.selected)}</div><div><div class="shot-kind"><button class="active" data-action="shot-kind" data-kind="for">Ataque</button><button data-action="shot-kind" data-kind="against">Defensa</button></div><p class="muted">Toca para añadir. Arrastra para mover.</p><div class="action-row"><button class="btn" data-action="swap-shot-teams">Intercambiar</button><button class="btn danger" data-action="delete-selected-shot">Borrar punto</button><button class="btn danger" data-action="clear-shots">Vaciar</button></div><button class="btn primary wide" data-action="save-shots">Guardar</button><div id="shotJsonWrap" hidden><label class="field">JSON<textarea id="shotJson" rows="7"></textarea></label><button class="btn" data-action="apply-shot-json">Aplicar</button></div></div></div>`); bindShotCourt();
+  openModal('Mapa', 'Editar', `<label class="field">Partido<select id="shotGame">${games.map(x=>`<option value="${x.id}" ${x.id===g.id?'selected':''}>${esc(x.opponent)}</option>`).join('')}</select></label><section class="shot-ai-workflow"><div><h3>1 · Lleva la captura a la IA</h3><p>La cabecera manda: equipo de arriba = mitad izquierda; equipo de abajo = mitad derecha. La IA debe confirmar cabecera, color y lista.</p><button class="btn" data-action="copy-shot-prompt">Copiar instrucciones para la IA</button></div><div><h3>2 · Pega aquí su respuesta</h3><label class="field" for="shotJson">JSON de la IA<textarea id="shotJson" rows="7" placeholder='Pega el bloque que empieza por { y termina por }'></textarea></label><button class="btn primary" data-action="apply-shot-json">Leer y colocar puntos</button><div id="shotAssignment" class="shot-assignment" aria-live="polite"></div></div></section><div class="court-wrap"><div id="shotCourt">${courtHTML(modalContext.shotsFor,modalContext.shotsAgainst,false,modalContext.selected)}</div><div><div class="shot-kind"><button class="active" data-action="shot-kind" data-kind="for">Ataque</button><button data-action="shot-kind" data-kind="against">Defensa</button></div><p class="muted">Toca para añadir. Arrastra para mover.</p><div class="action-row"><button class="btn" data-action="swap-shot-teams">Intercambiar</button><button class="btn danger" data-action="delete-selected-shot">Borrar punto</button><button class="btn danger" data-action="clear-shots">Vaciar</button></div><button class="btn primary wide" data-action="save-shots">Guardar mapa</button></div></div>`); bindShotCourt();
 }
 
 function shotPrompt() {
-  const side=$('#shotSide')?.value||'auto', color=$('#shotColor')?.value||'por confirmar', rival=$('#rivalColor')?.value||'por confirmar';
-  return `Analiza una captura del mapa de tiro de Afición FBM del partido de BUEN CONSEJO. Localiza BUEN CONSEJO en la cabecera. El equipo de arriba tira en la mitad izquierda y el de abajo en la derecha. Separa ownShots y opponentShots; comprueba cabecera, color y lista. Preferencias: lado=${side}; color Buen Consejo=${color}; color rival=${rival}. Convierte ambas mitades a una media pista con x e y entre 0 y 1 y la canasta arriba. Responde solo JSON válido: {"court":"half","ownIdentification":{"team":"BUEN CONSEJO","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"opponentIdentification":{"team":"RIVAL","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"ownShots":[{"x":0.42,"y":0.18}],"opponentShots":[{"x":0.55,"y":0.22}]}.`;
+  return `Analiza una captura del mapa de tiro de Afición FBM del partido de BUEN CONSEJO. Identifica los equipos por la cabecera: el equipo de arriba corresponde siempre a la mitad izquierda y el de abajo a la mitad derecha. Antes de asignar puntos, cruza tres señales: nombre en cabecera, color y lista de jugadoras; si no coinciden, pon checksAgree=false y explica conflict. Separa ownShots (BUEN CONSEJO) y opponentShots (rival). Convierte ambas mitades a una media pista con x e y entre 0 y 1 y la canasta arriba. No inventes lanzamientos. Responde solo JSON válido: {"court":"half","ownIdentification":{"team":"BUEN CONSEJO","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"opponentIdentification":{"team":"RIVAL","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"ownShots":[{"x":0.42,"y":0.18}],"opponentShots":[{"x":0.55,"y":0.22}]}.`;
 }
 function repaintShotCourt() {
   const wrap = $('#shotCourt');
@@ -1014,7 +1073,7 @@ function applyRemote(row){const event=row.event||row;if(state.ops.some(x=>x.id==
 async function syncNow(){if(syncing||!state.settings.api||!state.settings.token)return;syncing=true;paintSync(true);try{if(state.ops.length&&state.settings.role!=='viewer'){const response=await fetch(`${state.settings.api}/api/events`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.settings.token}`},body:JSON.stringify({events:state.ops})});if(!response.ok)throw Error('No se pudo enviar');state.ops=[];}const before=deepSignature({roster:state.roster,games:state.games,live:state.live});const response=await fetch(`${state.settings.api}/api/events?since=${state.lastSeq}`,{headers:{'Authorization':`Bearer ${state.settings.token}`}});if(!response.ok)throw Error('No se pudo leer');const json=await response.json();(json.events||[]).forEach(applyRemote);state.lastSeq=json.lastSeq||state.lastSeq;save();$('#syncStatus').classList.add('online');const changed=before!==deepSignature({roster:state.roster,games:state.games,live:state.live});const editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);if(changed&&!editing)render();else if(changed)renderAfterEdit=true;}catch(error){console.warn(error);$('#syncStatus').classList.remove('online');}finally{syncing=false;paintSync();}}
 function paintSync(busy=false){const s=$('#syncStatus');if(!s)return;s.querySelector('b').textContent=busy?'Sincronizando':state.settings.api?'Conectado':'Local';s.classList.toggle('online',!!state.settings.api&&!busy);}
 
-async function copyText(text){await navigator.clipboard.writeText(text);toast('Copiado');}
+async function copyText(text){try{await navigator.clipboard.writeText(text);}catch(error){const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.append(area);area.select();if(!document.execCommand('copy'))throw error;area.remove();}toast('Copiado');}
 function exportJSON(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download=`estadisticas-${today()}.json`;a.click();URL.revokeObjectURL(a.href);}
 function install(){if(installPrompt){installPrompt.prompt();installPrompt=null;}else openModal('Instalar','Instalar aplicación','<p>En Chrome abre el menú y pulsa «Instalar aplicación».</p>');}
 function applyTheme(theme){theme=theme==='dark'?'dark':'light';document.documentElement.dataset.theme=theme;const color=theme==='dark'?'#0b0f16':'#f3f5f8',meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=color;document.documentElement.style.backgroundColor=color;document.body.style.backgroundColor=color;}
@@ -1035,9 +1094,9 @@ document.addEventListener('click',async e=>{
   if(act==='sort-players'){const key=a.dataset.key;if(playerSort===key)playerSortDir*=-1;else{playerSort=key;playerSortDir=-1;}return render();}
   if(act==='trend-game')return openGameDetail(a.dataset.id);if(act==='game-team'){modalContext.side=a.dataset.side;return renderGameDetail();}if(act==='sort-box'){const k=a.dataset.key;if(modalContext.sort===k)modalContext.dir*=-1;else{modalContext.sort=k;modalContext.dir=k==='number'?1:-1;}return renderGameDetail();}if(act==='game-map'){modalContext.map=a.dataset.mode;return renderGameDetail();}
   if(act==='heat-mode')return openHeatAnalysis(`heat-${a.dataset.mode==='both'?'compare':a.dataset.mode}`);
-  if(act==='open-shot')return openShotDetail();if(act==='shot-for-game')return openShotDetail(a.dataset.id);if(act==='copy-shot-prompt'){state.settings.shotSide=$('#shotSide').value;state.settings.shotColor=$('#shotColor').value;state.settings.rivalColor=$('#rivalColor').value;save();return copyText(shotPrompt());}if(act==='show-shot-json'){return $('#shotJsonWrap').hidden=false;}if(act==='shot-kind'){modalContext.kind=a.dataset.kind;$$('.shot-kind button').forEach(b=>b.classList.toggle('active',b===a));return;}if(act==='swap-shot-teams'){[modalContext.shotsFor,modalContext.shotsAgainst]=[modalContext.shotsAgainst,modalContext.shotsFor];modalContext.selected='';repaintShotCourt();return;}if(act==='delete-selected-shot'){if(!modalContext.selected)return toast('Selecciona un punto');const[k,i]=modalContext.selected.split(':'),arr=k==='for'?modalContext.shotsFor:modalContext.shotsAgainst;arr.splice(+i,1);modalContext.selected='';repaintShotCourt();return;}if(act==='clear-shots'){modalContext.shotsFor=[];modalContext.shotsAgainst=[];modalContext.selected='';repaintShotCourt();return;}
-  if(act==='apply-shot-json'){try{const j=JSON.parse($('#shotJson').value.replace(/```(?:json)?|```/g,'').trim());if(!Array.isArray(j.ownShots)||!Array.isArray(j.opponentShots))throw Error();modalContext.shotsFor=foldShots(j.ownShots,j.court||'half',j.ownIdentification?.side||'left');modalContext.shotsAgainst=foldShots(j.opponentShots,j.court||'half',j.opponentIdentification?.side||'right');modalContext.selected='';repaintShotCourt();toast(`${modalContext.shotsFor.length} ataque · ${modalContext.shotsAgainst.length} defensa`);}catch{toast('JSON no válido');}return;}
-  if(act==='save-shots'){const g=state.games.find(x=>x.id===$('#shotGame').value);g.shotsFor=modalContext.shotsFor;g.shotsAgainst=modalContext.shotsAgainst;g.availability={...(g.availability||{}),shotMap:!!(g.shotsFor.length||g.shotsAgainst.length)};state.settings.shotSide=$('#shotSide').value;state.settings.shotColor=$('#shotColor').value;state.settings.rivalColor=$('#rivalColor').value;save();record('shot-set',{gameId:g.id,shotsFor:g.shotsFor,shotsAgainst:g.shotsAgainst});closeModal();render();}
+  if(act==='open-shot')return openShotDetail();if(act==='shot-for-game')return openShotDetail(a.dataset.id);if(act==='copy-shot-prompt')return copyText(shotPrompt());if(act==='shot-kind'){modalContext.kind=a.dataset.kind;$$('.shot-kind button').forEach(b=>b.classList.toggle('active',b===a));return;}if(act==='swap-shot-teams'){[modalContext.shotsFor,modalContext.shotsAgainst]=[modalContext.shotsAgainst,modalContext.shotsFor];modalContext.selected='';repaintShotCourt();return;}if(act==='delete-selected-shot'){if(!modalContext.selected)return toast('Selecciona un punto');const[k,i]=modalContext.selected.split(':'),arr=k==='for'?modalContext.shotsFor:modalContext.shotsAgainst;arr.splice(+i,1);modalContext.selected='';repaintShotCourt();return;}if(act==='clear-shots'){modalContext.shotsFor=[];modalContext.shotsAgainst=[];modalContext.selected='';repaintShotCourt();return;}
+  if(act==='apply-shot-json'){try{const raw=$('#shotJson').value.replace(/```(?:json)?|```/g,'').trim(),j=JSON.parse(raw);if(!Array.isArray(j.ownShots)||!Array.isArray(j.opponentShots))throw Error('Faltan ownShots u opponentShots');const all=[...j.ownShots,...j.opponentShots];if(all.some(point=>!Number.isFinite(+point.x)||!Number.isFinite(+point.y)||+point.x<0||+point.x>1||+point.y<0||+point.y>1))throw Error('Hay coordenadas fuera de 0–1');const own=j.ownIdentification||{},opp=j.opponentIdentification||{};if(own.checksAgree===false||opp.checksAgree===false||own.conflict||opp.conflict)throw Error(`La IA detectó un conflicto: ${own.conflict||opp.conflict||'revisa cabecera, color y lista'}`);modalContext.shotsFor=foldShots(j.ownShots,j.court||'half',own.side||'left');modalContext.shotsAgainst=foldShots(j.opponentShots,j.court||'half',opp.side||'right');modalContext.selected='';repaintShotCourt();const assignment=$('#shotAssignment');if(assignment)assignment.textContent=`✓ ${modalContext.shotsFor.length} ataque · ${modalContext.shotsAgainst.length} defensa · revisa la pista antes de guardar`;toast('Puntos colocados');}catch(error){const assignment=$('#shotAssignment');if(assignment)assignment.textContent=error.message||'JSON no válido';toast(error.message||'JSON no válido');}return;}
+  if(act==='save-shots'){const g=state.games.find(x=>x.id===$('#shotGame').value);g.shotsFor=modalContext.shotsFor;g.shotsAgainst=modalContext.shotsAgainst;g.availability={...(g.availability||{}),shotMap:!!(g.shotsFor.length||g.shotsAgainst.length)};save();record('shot-set',{gameId:g.id,shotsFor:g.shotsFor,shotsAgainst:g.shotsAgainst});closeModal();render();}
 });
 
 $('#fileInput').addEventListener('change',e=>handleFiles([...e.target.files]));
@@ -1047,4 +1106,4 @@ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installProm
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn);
 const query=new URLSearchParams(location.search);if(query.get('api')&&query.get('token')){state.settings.api=query.get('api');state.settings.token=query.get('token');state.settings.role=query.get('role')||'viewer';save();history.replaceState({},'',location.pathname);}
 paintSync();render();if(state.settings.api){syncNow();setInterval(syncNow,5000);}
-window.__ESTADISTICAS__={getState:()=>state,setState:s=>{state=sanitise(s);save();render();},foldShots,splitLegacyShots,parseGame,validateTotals,effectiveTotals,teamStats,playerAgg,teamMetricRows,aggregateMetric,playerMetricRows,playerSeasonReference,PLAYER_METRICS,APP_VERSION,STORE};
+window.__ESTADISTICAS__={getState:()=>state,setState:s=>{state=sanitise(s);save();render();},foldShots,splitLegacyShots,parseGame,validateTotals,effectiveTotals,teamStats,playerAgg,teamMetricRows,aggregateMetric,playerMetricRows,playerSeasonReference,liveMetricRows,PLAYER_METRICS,TEAM_METRICS,LIVE_METRICS,APP_VERSION,STORE};

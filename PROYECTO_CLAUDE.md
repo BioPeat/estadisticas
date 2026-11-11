@@ -1,27 +1,24 @@
-# Proyecto Claude · Estadísticas v6
+# Proyecto Claude · Estadísticas v7
 
 Objetivo: mantener una PWA local-first de baloncesto, sin compilación, con cambios pequeños y verificables.
 
 ## Contratos
-- Estado local `estadisticas_shared_v2`; Excel FBM de ambos equipos es la fuente.
-- No calcular porcentajes de campo ni posesiones; TL% sin tiros = `null`.
-- Faltas recibidas del equipo = faltas del rival.
-- `playerId:null` suma a Equipo; descartar Directo sincroniza `live:null`.
-- Comparativas de equipo BC/rival; minutos temporada/media/partido; doble referencia individual.
-- Mantener acta deslizable, mapas, roles, sincronización y migración.
-- No tocar `worker.js` por cambios de UI.
+- Estado local `estadisticas_shared_v2`; migración sin pérdida.
+- Excel FBM de ambos equipos es la fuente de actas.
+- No porcentajes de campo, posesiones, ratings ni datos inventados.
+- TL% sin tiros = `null`; no entra en medias.
+- Partidos sin Directo quedan fuera de métricas manuales.
+- Robos/pérdidas = nuestros robos frente a nuestras pérdidas; no es rival ni posesiones.
+- REB O BC/rival solo desde eventos `orbFor`/`orbAgainst`.
+- `playerId:null` conserva «Equipo (sin jugadora)».
+- Faltas ordenan mejor por menor valor y exponen FAL/40; valoración se expresa por partido.
+- Logo/iconos fijos. Worker w2, endpoints y permisos intactos.
 
-## Identidad bloqueada
-El logo no se rediseña: SVG e iconos estándar/maskable con `#10233f #18365f #ed304c #7455dc #18a985`, iguales en claro y oscuro.
+## Interfaz
+- Una o dos lecturas en portada; todas las vistas válidas dentro del detalle.
+- Listas completas de puntos/minutos; scroll lateral táctil real.
+- JSON del mapa siempre visible, validado y editable; cabecera arriba=izquierda, abajo=derecha.
+- Navegación y guardia inferior azul noche en ambos temas para empatar el color fijo observado en Android.
 
-## Flujo de poco contexto
-1. Consulta `MAPA_DEL_CODIGO.md` y abre solo el archivo afectado.
-2. Usa `actualizar.html` para preparar el prompt y validar la respuesta.
-3. Cambia una responsabilidad cada vez.
-4. Ejecuta:
-```bash
-python tools/validate.py .
-python tests/smoke.py
-python tools/capture.py
-```
-5. Revisa 360×640, 390×844, 412×915 y 1440×980 en claro/oscuro.
+## Respuesta para `actualizar.html`
+Devuelve únicamente JSON de bloques exactos `find`/`replace`, nunca el archivo completo. Cada búsqueda debe ser literal y única. Tras aplicar: `python tools/validate.py .` y `python tests/smoke.py`.
