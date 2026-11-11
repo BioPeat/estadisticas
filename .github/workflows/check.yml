@@ -1,4 +1,4 @@
-name: Comprobar Estadísticas
+name: Comprobar Estadísticas v3
 on:
   push:
   pull_request:
@@ -13,4 +13,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: python tools/validate.py
+      - name: Validar estructura y JavaScript
+        run: python tools/validate.py
+      - name: Instalar navegador de pruebas
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Probar móvil, tema, actas, mapas y navegación
+        run: python tests/smoke.py

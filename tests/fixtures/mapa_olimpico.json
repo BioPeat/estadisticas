@@ -1,8 +1,81 @@
 {
   "court": "half",
-  "header": {"topTeam":"BUEN CONSEJO","topScore":61,"bottomTeam":"OLIMPICO 64","bottomScore":48},
-  "ownIdentification": {"team":"BUEN CONSEJO","headerPosition":"top","side":"left","color":"red","playersColumn":"left","checksAgree":true,"conflict":"","confidence":0.99},
-  "opponentIdentification": {"team":"OLIMPICO 64","headerPosition":"bottom","side":"right","color":"gray","playersColumn":"right","checksAgree":true,"conflict":"","confidence":0.99},
-  "ownShots": [{"x":0.42,"y":0.18},{"x":0.51,"y":0.23}],
-  "opponentShots": [{"x":0.46,"y":0.16},{"x":0.72,"y":0.51}]
+  "header": {
+    "topTeam": "BUEN CONSEJO",
+    "topScore": 61,
+    "bottomTeam": "OLIMPICO 64",
+    "bottomScore": 48
+  },
+  "ownIdentification": {
+    "team": "BUEN CONSEJO",
+    "headerPosition": "top",
+    "side": "left",
+    "color": "rojo",
+    "playersColumn": "left",
+    "checksAgree": true,
+    "conflict": "",
+    "confidence": 0.98
+  },
+  "opponentIdentification": {
+    "team": "OLIMPICO 64",
+    "headerPosition": "bottom",
+    "side": "right",
+    "color": "gris",
+    "playersColumn": "right",
+    "checksAgree": true,
+    "conflict": "",
+    "confidence": 0.96
+  },
+  "ownShots": [
+    {
+      "id": "f0",
+      "x": 0.52,
+      "y": 0.13,
+      "source": "simulated"
+    },
+    {
+      "id": "f1",
+      "x": 0.36,
+      "y": 0.37,
+      "source": "simulated"
+    },
+    {
+      "id": "f2",
+      "x": 0.95,
+      "y": 0.17,
+      "source": "simulated"
+    },
+    {
+      "id": "f3",
+      "x": 0.64,
+      "y": 0.68,
+      "source": "simulated"
+    }
+  ],
+  "opponentShots": [
+    {
+      "id": "a0",
+      "x": 0.45,
+      "y": 0.18,
+      "source": "simulated"
+    },
+    {
+      "id": "a1",
+      "x": 0.72,
+      "y": 0.42,
+      "source": "simulated"
+    },
+    {
+      "id": "a2",
+      "x": 0.05,
+      "y": 0.18,
+      "source": "simulated"
+    },
+    {
+      "id": "a3",
+      "x": 0.52,
+      "y": 0.76,
+      "source": "simulated"
+    }
+  ]
 }

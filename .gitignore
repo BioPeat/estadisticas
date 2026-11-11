@@ -1,13 +1,6 @@
-# Sistema
 .DS_Store
-Thumbs.db
-
-# Pruebas locales
 __pycache__/
-.pytest_cache/
+*.pyc
+capturas/
+playwright-report/
 test-results/
-
-# Secretos / configuración local
-.env
-.dev.vars
-.wrangler/

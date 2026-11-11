@@ -1,55 +1,34 @@
-# AGENTS.md · Estadísticas
+# AGENTS.md · Estadísticas v3
 
-## Objetivo innegociable
+## Objetivo
+Mantener una PWA sencilla y fiable para Buen Consejo 26/27. Los datos deben ser reales, trazables y compatibles con instalaciones existentes.
 
-Mantener una aplicación compartida, rápida y comprensible para un equipo de baloncesto. No inventar datos. Una ausencia es `—`, no cero.
+## Reglas que no se pueden romper
+1. Conservar `STORE='estadisticas_shared_v2'` y migrar sin borrar datos.
+2. No inventar estadísticas. Mostrar `—` cuando la fuente no exista.
+3. No calcular FG%, 2P%, 3P%, eFG%, TS%, posesiones, ritmo u ORtg/DRtg con estas actas.
+4. Guardar los dos equipos completos: `players`, `opponentPlayers`, `teamTotals`, `opponentTotals`.
+5. Dos filas `X · NOMBRE` son dos personas distintas dentro del acta; no deduplicarlas.
+6. Las cuatro zonas son exactamente: Pintura, Media distancia, Triple de esquina y Triple.
+7. Coordenadas: `x` 0–1 de banda izquierda a derecha; `y` 0–1 de fondo a medio campo.
+8. La pista es media pista FIBA SVG de 15×14 m. Aro a 1,575 m; triple a 6,75 m; esquinas a 0,90 m de banda; zona de 4,90 m; círculo de TL de radio 1,80 m.
+9. La pista de lectura usa `touch-action: pan-y`. Solo bloquear gesto mientras se arrastra un punto del editor.
+10. Antes de Directo debe haber scroll. En Directo en curso todo debe caber en 360×640.
+11. Mantener rutas locales de `assets/`; no añadir CDN.
+12. Actualizar `APP_VERSION`, caché del service worker, documentación, tests y capturas en cada versión.
 
-## Contrato de datos
+## Flujo de cambio barato con IA
+- Un chat nuevo por cambio.
+- Abrir `actualizar.html`, elegir un único archivo y descargar el paquete enfocado.
+- Pedir a la IA el archivo completo, nunca fragmentos con “resto igual”.
+- Pegar, aplicar, comprobar, descargar y sustituir.
+- Ejecutar validación y smoke.
 
-- `localStorage`: `estadisticas_shared_v2`.
-- `games[].shotsFor`: canastas de Buen Consejo, normalizadas a media pista.
-- `games[].shotsAgainst`: canastas del rival, normalizadas a media pista.
-- Coordenadas: `x` 0–1 de banda izquierda a derecha; `y` 0–1 de línea de fondo a medio campo; canasta arriba.
-- `games[].events`: solo eventos apuntados en Directo con `provenance: recorded`.
-- Las actas FBM son fiables para puntos, minutos, canastas de 2/3, tiros libres, faltas y +/-; no para REC, PER, REB ni AST cuando aparecen como ceros sistemáticos.
-
-## Regla confirmada para mapas Afición FBM
-
-1. Buscar `BUEN CONSEJO` en la cabecera.
-2. Equipo de arriba → mitad izquierda. Equipo de abajo → mitad derecha.
-3. El color confirma (Buen Consejo suele ser rojo), pero no manda.
-4. Columna izquierda de jugadoras → equipo de arriba; columna derecha → equipo de abajo.
-5. Si las tres comprobaciones no coinciden, la respuesta de IA debe marcar `checksAgree: false` y describir `conflict`.
-6. La app debe mostrar la asignación y permitir **Intercambiar equipos** antes de guardar.
-7. Reflejar la mitad derecha a media pista; conservar listas separadas de ataque y defensa.
-
-Casos de prueba obligatorios:
-- Buen Consejo arriba/izquierda/rojo vs Olímpico abajo/derecha/gris.
-- Buen Consejo abajo/derecha/rojo vs Las Rozas arriba/izquierda/azul.
-- Buen Consejo arriba/izquierda/rojo vs Ensanche abajo/derecha/negro.
-
-## Reglas de interfaz
-
-- En Directo, a 360×640, 390×844 y 412×915 no puede existir scroll de página.
-- Deben verse rival, cuarto, cuatro acciones, contadores, deshacer y finalizar.
-- Cada tarjeta de análisis es interactiva y abre desglose/explicación.
-- Colores funcionales: coral Directo/ataque, verde petróleo Equipo, violeta Jugadoras, azul Partidos/defensa.
-- Contraste mínimo WCAG AA y foco visible.
-- No añadir animaciones decorativas, degradados, emojis ni tarjetas gigantes.
-
-## Métricas prohibidas sin nuevos datos
-
-No calcular 2P%, 3P%, FG%, eFG%, TS%, posesiones, ritmo, uso, PER, ORtg o DRtg. Los mapas muestran reparto de canastas anotadas, nunca acierto.
-
-## Verificación antes de entregar
-
-1. `node --check app.js`.
-2. `python tools/validate.py`.
-3. `python tests/smoke.py`.
-4. Capturas claro/oscuro en móvil y PC con las tres actas reales importadas.
-5. Confirmar que el estado vacío no contiene datos de ejemplo.
-6. Confirmar que un enlace `viewer` no envía eventos.
-
-## Revisión en frío obligatoria antes de empaquetar
-
-Después de las pruebas y antes del ZIP, generar capturas con las tres actas reales en 360×640, 390×844, 412×915 y PC, claro/oscuro. Revisar como usuario nuevo: comprensión, jerarquía, densidad, separación, color, contraste, affordance, Directo sin scroll, mapas y apariencia no genérica. Registrar críticas, corregir y repetir hasta que todos los apartados sean positivos. Solo entonces crear el ZIP.
+## Cierre obligatorio
+```bash
+node --check app.js
+python tools/validate.py
+python tests/smoke.py
+python tools/capture.py capturas
+```
+Revisar móvil y PC, claro y oscuro, y comprobar que ninguna captura muestra datos de prueba como producción.

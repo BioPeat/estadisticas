@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#f6f4ef">
+  <meta name="theme-color" content="#f5f6f8">
   <meta name="description" content="Estadísticas compartidas de Buen Consejo">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estadísticas</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <script>try{document.documentElement.dataset.theme=localStorage.getItem('estadisticas_theme')||'light'}catch(e){}</script>
+  <script>try{const t=localStorage.getItem('estadisticas_theme')||'light';document.documentElement.dataset.theme=t;document.querySelector('meta[name=theme-color]').content=t==='dark'?'#101114':'#f5f6f8'}catch(e){}</script>
 </head>
 <body>
   <a class="skip" href="#main">Saltar al contenido</a>
@@ -38,7 +38,7 @@
         <button data-go="players"><em>03</em><span><b>Jugadoras</b><small>Rendimiento</small></span></button>
         <button data-go="games"><em>04</em><span><b>Partidos</b><small>Actas y mapas</small></span></button>
       </nav>
-      <footer><b id="roleLabel">SIN CONECTAR</b><small>v2 · datos honestos</small></footer>
+      <footer><b id="roleLabel">SIN CONECTAR</b><small>v3 · datos reales</small></footer>
     </aside>
 
     <main id="main" tabindex="-1"><div id="view"></div></main>

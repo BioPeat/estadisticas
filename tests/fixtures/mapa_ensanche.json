@@ -1,8 +1,81 @@
 {
   "court": "half",
-  "header": {"topTeam":"BUEN CONSEJO","topScore":40,"bottomTeam":"ENSANCHE DE VALLECAS","bottomScore":65},
-  "ownIdentification": {"team":"BUEN CONSEJO","headerPosition":"top","side":"left","color":"red","playersColumn":"left","checksAgree":true,"conflict":"","confidence":0.99},
-  "opponentIdentification": {"team":"ENSANCHE DE VALLECAS","headerPosition":"bottom","side":"right","color":"black","playersColumn":"right","checksAgree":true,"conflict":"","confidence":0.99},
-  "ownShots": [{"x":0.44,"y":0.15},{"x":0.58,"y":0.31}],
-  "opponentShots": [{"x":0.52,"y":0.17},{"x":0.79,"y":0.58}]
+  "header": {
+    "topTeam": "BUEN CONSEJO",
+    "topScore": 40,
+    "bottomTeam": "ENSANCHE DE VALLECAS PANGOSTUDIO.COM",
+    "bottomScore": 65
+  },
+  "ownIdentification": {
+    "team": "BUEN CONSEJO",
+    "headerPosition": "top",
+    "side": "left",
+    "color": "rojo",
+    "playersColumn": "left",
+    "checksAgree": true,
+    "conflict": "",
+    "confidence": 0.98
+  },
+  "opponentIdentification": {
+    "team": "ENSANCHE DE VALLECAS PANGOSTUDIO.COM",
+    "headerPosition": "bottom",
+    "side": "right",
+    "color": "gris",
+    "playersColumn": "right",
+    "checksAgree": true,
+    "conflict": "",
+    "confidence": 0.96
+  },
+  "ownShots": [
+    {
+      "id": "f0",
+      "x": 0.5,
+      "y": 0.16,
+      "source": "simulated"
+    },
+    {
+      "id": "f1",
+      "x": 0.42,
+      "y": 0.34,
+      "source": "simulated"
+    },
+    {
+      "id": "f2",
+      "x": 0.04,
+      "y": 0.16,
+      "source": "simulated"
+    },
+    {
+      "id": "f3",
+      "x": 0.5,
+      "y": 0.75,
+      "source": "simulated"
+    }
+  ],
+  "opponentShots": [
+    {
+      "id": "a0",
+      "x": 0.48,
+      "y": 0.14,
+      "source": "simulated"
+    },
+    {
+      "id": "a1",
+      "x": 0.67,
+      "y": 0.39,
+      "source": "simulated"
+    },
+    {
+      "id": "a2",
+      "x": 0.96,
+      "y": 0.12,
+      "source": "simulated"
+    },
+    {
+      "id": "a3",
+      "x": 0.3,
+      "y": 0.72,
+      "source": "simulated"
+    }
+  ]
 }

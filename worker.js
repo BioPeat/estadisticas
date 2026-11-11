@@ -1,4 +1,4 @@
-/* Estadísticas v2 · Cloudflare Worker + D1. Binding requerido: DB. Variable: SETUP_SECRET. */
+/* Estadísticas v3 · Cloudflare Worker + D1. Binding requerido: DB. Variable: SETUP_SECRET. */
 const CORS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Authorization,Content-Type','Access-Control-Allow-Methods':'GET,POST,DELETE,OPTIONS','Content-Type':'application/json;charset=UTF-8'};
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:CORS});
 const token=()=>[...crypto.getRandomValues(new Uint8Array(24))].map(x=>x.toString(16).padStart(2,'0')).join('');
@@ -14,7 +14,7 @@ export default {async fetch(req,env){
  if(!env.DB)return json({error:'Falta el binding D1 llamado DB'},500);
  await schema(env.DB);const url=new URL(req.url),path=url.pathname;
  try{
-  if(path==='/health')return json({ok:true,version:'w2'});
+  if(path==='/health')return json({ok:true,version:'w3'});
   if(path==='/api/setup'&&req.method==='POST'){
    const count=(await env.DB.prepare('SELECT COUNT(*) n FROM access_tokens').first()).n;if(count>0)return json({error:'La configuración inicial ya se hizo'},409);
    const body=await req.json();if(!env.SETUP_SECRET||body.secret!==env.SETUP_SECRET)return json({error:'Secreto de configuración incorrecto'},403);
