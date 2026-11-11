@@ -1,3 +1,10 @@
-# Prompt del mapa de tiro · v4
+# Mapa de tiro v6 · regla confirmada
 
-Analiza una captura del mapa de tiro de Afición FBM de Buen Consejo. Localiza los dos equipos en la cabecera. El equipo superior tira en la mitad izquierda y el inferior en la derecha. Separa todas las canastas visibles: `ownShots` para Buen Consejo y `opponentShots` para el rival. Usa color y listas solo para confirmar. Refleja la mitad derecha y normaliza ambas listas a una media pista con canasta arriba, `x` e `y` entre 0 y 1. No inventes puntos ocultos. Si hay conflicto, indícalo en `checksAgree` y `conflict`. Responde solo JSON con el formato definido en `GEM_GEMINI.md`.
+Analiza una captura de Afición FBM. Identifica BUEN CONSEJO por tres comprobaciones: cabecera, color y lista de jugadoras.
+
+Regla confirmada: el equipo de arriba en la captura tira en la mitad izquierda; el de abajo, en la derecha. Si las comprobaciones discrepan, no adivines: explica el conflicto en `conflict` y usa `checksAgree:false`.
+
+Convierte cada mitad a una media pista con canasta arriba y coordenadas `x`,`y` entre 0 y 1. Devuelve solo JSON:
+```json
+{"court":"half","ownIdentification":{"team":"BUEN CONSEJO","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"opponentIdentification":{"team":"RIVAL","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"ownShots":[{"x":0.42,"y":0.18}],"opponentShots":[{"x":0.55,"y":0.22}]}
+```

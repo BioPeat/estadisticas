@@ -1,6 +1,5 @@
-.DS_Store
 __pycache__/
-*.pyc
-capturas/
-playwright-report/
-test-results/
+*.py[cod]
+captures/
+.DS_Store
+Thumbs.db

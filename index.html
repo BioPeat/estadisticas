@@ -20,7 +20,15 @@
   <div class="app-shell">
     <header class="topbar">
       <button class="brand" data-go="team" aria-label="Ir a Equipo">
-        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="img">
+            <rect width="64" height="64" rx="16" fill="#10233f"/>
+            <rect x="9" y="9" width="46" height="46" rx="12" fill="#18365f"/>
+            <rect x="17" y="33" width="8" height="15" rx="4" fill="#ed304c"/>
+            <rect x="28" y="24" width="8" height="24" rx="4" fill="#7455dc"/>
+            <rect x="39" y="16" width="8" height="32" rx="4" fill="#18a985"/>
+          </svg>
+        </span>
         <span><b>Estadísticas</b><small>Buen Consejo · 26/27</small></span>
       </button>
       <div class="top-actions">
@@ -37,7 +45,7 @@
         <button data-go="players"><span>♙</span><span><b>Jugadoras</b><small>Rendimiento</small></span></button>
         <button data-go="games"><span>□</span><span><b>Partidos</b><small>Actas y mapas</small></span></button>
       </nav>
-      <footer><b id="roleLabel">ADMIN</b><small>v5</small></footer>
+      <footer><b id="roleLabel">ADMIN</b><small>v6</small></footer>
     </aside>
     <main id="main" tabindex="-1"><div id="view"></div></main>
     <nav class="bottom-nav" aria-label="Secciones">
@@ -46,6 +54,7 @@
       <button data-go="players"><span>♙</span><b>Jugadoras</b></button>
       <button data-go="games"><span>□</span><b>Partidos</b></button>
     </nav>
+    <div class="safe-area-guard" aria-hidden="true"></div>
   </div>
   <div id="modal" class="modal" hidden aria-hidden="true"><div class="modal-backdrop" data-action="close-modal"></div><section class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><header><div><small id="modalKicker"></small><h2 id="modalTitle"></h2></div><button class="icon-button" data-action="close-modal" aria-label="Cerrar">×</button></header><div id="modalBody"></div></section></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>

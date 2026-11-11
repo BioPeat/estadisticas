@@ -1,20 +1,37 @@
-# Mapa del código · v5
+# Mapa del código · Estadísticas v6
 
-- `index.html`: estructura, metadatos PWA, navegación, modal y carga de JSZip.
-- `styles.css`: temas, área segura, responsive, tarjetas, gráficos, Directo, actas y mapas.
-- `app.js`
-  - 24–122: estado, migración y persistencia.
-  - 149–283: lectura/importación de Excel FBM.
-  - 286–351: totales, agregados de jugadoras y equipo.
-  - 361–430: gráficos reutilizables (marcador, margen, reparto, minutos).
-  - `renderTeam`: panel de equipo.
-  - `renderPlayers`: ranking de una línea y ordenación.
-  - `renderLive`: configuración y partido en directo.
-  - `renderGameDetail`: acta propia/rival y TOTALES de Directo.
-  - `addLive`, `discardLive`, `finishLive`: ciclo del Directo.
-  - `applyRemote`, `syncNow`: sincronización.
-- `worker.js`: API Cloudflare/D1 sin cambios en v5.
-- `sw.js`: caché `estadisticas-v5-20261111`.
-- `tests/smoke.py`: pruebas funcionales y visuales en 3 móviles + PC.
-- `tools/validate.py`: contratos estáticos, fixture real y sintaxis.
-- `tools/capture.py`: capturas finales claro/oscuro.
+Nombres de funciones, sin números de línea.
+
+## Estado y migración (`app.js`)
+- `blank`, `load`, `sanitise`, `migrateV1`, `save`, `record`.
+- Contrato público de pruebas: `window.__ESTADISTICAS__`.
+
+## Importación FBM
+- `readXlsx`, `parseRoster`, `parseBoxRow`, `sumBox`, `validateTotals`, `parseGame`.
+- `handleFiles`, `findImportMatch`, `commitImport` conservan Directo, fecha y mapas al reimportar.
+
+## Modelo estadístico
+- `effectiveTotals`, `eventCounts`, `playerAgg`, `teamStats`.
+- `TEAM_METRICS`, `teamMetricRows`, `aggregateMetric`: comparativas BC/rival.
+- `PLAYER_METRICS`, `playerMetricRows`, `playerSeasonReference`: detalle individual y TL nulo.
+
+## Vistas y gráficos
+- `renderTeam`, `teamMetricCard`, `scoreChart`, `dualTrendSVG`, `scoringMixCompare`.
+- `renderMinutesCard`, `minuteRows`, `minuteBars`, `openMinutesDetail`, `minutesHeatmap`.
+- `renderPlayers`, `playerTrendSVG`, `openPlayerDetail`.
+- `renderGames`, `openGameDetail`, `renderGameDetail`.
+- `renderLive`, `startLive`, `addLive`, `discardLive`, `finishLive`.
+
+## Mapas
+- `courtHTML`, `foldShots`, `splitLegacyShots`, `zoneOf`, `openHeatAnalysis`, `openShotDetail`, `shotPrompt`.
+- Regla confirmada: equipo de arriba en la captura FBM = mitad izquierda; validar también color y lista.
+
+## Sincronización y tema
+- `applyRemote`, `syncNow`, `record` mantienen el Worker w2.
+- `applyTheme` coordina fondo, área segura y meta theme-color.
+
+## Archivos auxiliares
+- `actualizar.html`: cambio de un archivo con copia, prompt, validación y descarga.
+- `tests/smoke.py`: regresión funcional responsive.
+- `tools/validate.py`: contratos estáticos y de datos.
+- `tools/capture.py`: 14 capturas finales.

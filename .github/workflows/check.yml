@@ -1,4 +1,4 @@
-name: check
+name: check-v6
 on: [push, pull_request]
 jobs:
   test:
@@ -9,7 +9,7 @@ jobs:
         with: {python-version: '3.12'}
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
-      - run: pip install playwright
+      - run: pip install playwright pillow
       - run: playwright install --with-deps chromium
       - run: python -m py_compile tools/*.py tests/smoke.py
       - run: python tools/validate.py .

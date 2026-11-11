@@ -1,1 +1,75 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Actualizar Estadísticas a v5</title><style>:root{font-family:Arial,sans-serif;color:#172128;background:#f3f1ec}body{margin:0}.wrap{max-width:760px;margin:auto;padding:28px 16px 60px}h1{font-size:34px;letter-spacing:-.04em;margin-bottom:6px}p{line-height:1.55;color:#5d696f}.card{background:#fffefa;border:1px solid #dcdcd5;border-radius:14px;padding:18px;margin:12px 0}.step{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#172128;color:white;font-weight:bold;margin-right:8px}button{border:1px solid #172128;background:#172128;color:white;border-radius:8px;padding:10px 13px;font-weight:bold;cursor:pointer}button.alt{background:white;color:#172128}code{background:#eeeae1;padding:2px 5px;border-radius:4px}.ok{color:#167c78}.warn{color:#a05528}li{margin:7px 0}</style></head><body><main class="wrap"><small>ESTADÍSTICAS · ACTUALIZACIÓN SEGURA</small><h1>Pasar de v4 a v5</h1><p>No borres datos. v5 conserva la copia local al abrirse. Solo reinstala la app una vez si Android mantiene la franja inferior del color antiguo.</p><section class="card"><h2><span class="step">1</span>Guarda una copia</h2><p>Este botón descarga todo lo que esta web encuentre en el navegador actual. Guárdalo hasta comprobar v5.</p><button id="backup">Descargar copia local</button><p id="found"></p></section><section class="card"><h2><span class="step">2</span>Reemplaza el repositorio</h2><ol><li>Descomprime el ZIP final.</li><li>Abre <code>1_CODIGO_GITHUB</code>.</li><li>Copia <b>todo</b> a la raíz del repositorio <code>estadisticas</code> y reemplaza los archivos.</li><li>Haz Commit y Push.</li><li>Espera a GitHub Pages y abre la app con <b>Ctrl+F5</b>.</li></ol><p class="warn"><b>No copies</b> la carpeta <code>2_PARA_TI</code> al repositorio.</p></section><section class="card"><h2><span class="step">3</span>Qué migra</h2><ul><li>Actas y plantilla reales.</li><li>Eventos de Directo con procedencia registrada.</li><li>Mapas de pista completa a media pista.</li><li>Separación de puntos propios y rivales cuando v1 conserva lado/tipo.</li></ul><p>Los datos marcados como demo/ejemplo/seed y los eventos sin procedencia real se descartan.</p></section><section class="card"><h2><span class="step">4</span>Comprueba</h2><ul><li>Equipo: 3 actas reales, sin robos/rebotes inventados.</li><li>Directo: todo cabe sin scroll y permite Equipo o descartar.</li><li>Partidos: ataque y defensa están separados.</li><li>Worker: aparece «Equipo conectado».</li></ul><a href="./"><button class="alt">Abrir Estadísticas v5</button></a></section></main><script>const keys=['estadisticas_shared_v2','estadisticas_v1','estadisticas_app_v1','basket_stats_v1'];const present=keys.filter(k=>localStorage.getItem(k));document.querySelector('#found').innerHTML=present.length?'<span class="ok">✓ Encontrada una copia local: '+present.join(', ')+'</span>':'No se encontró una copia en este navegador. Si usabas otro dispositivo, haz la copia allí.';document.querySelector('#backup').onclick=()=>{const data={exportedAt:new Date().toISOString(),items:{}};keys.forEach(k=>{if(localStorage.getItem(k))data.items[k]=localStorage.getItem(k)});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='estadisticas-antes-de-v5.json';a.click();URL.revokeObjectURL(a.href)}</script></body></html>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Herramienta de cambios · Estadísticas v6</title>
+  <style>
+    :root{font-family:Arial,sans-serif;color:#10233f;background:#f3f5f8;--red:#ed304c;--green:#16805a;--line:#d7dee8}*{box-sizing:border-box}body{margin:0}.wrap{max-width:980px;margin:auto;padding:28px 16px 64px}h1{font-size:clamp(30px,5vw,46px);letter-spacing:-.045em;margin:8px 0}p{line-height:1.55;color:#526173}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{background:white;border:1px solid var(--line);border-radius:16px;padding:18px;margin:12px 0}h2{font-size:17px}.step{display:inline-grid;place-items:center;width:29px;height:29px;border-radius:9px;background:#10233f;color:white;margin-right:8px}label{display:block;font-size:11px;font-weight:800;margin:11px 0 5px}input,select,textarea{width:100%;border:1px solid #aeb9c7;border-radius:9px;background:white;padding:10px;font:inherit}textarea{min-height:210px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.45;resize:vertical}button{border:1px solid #10233f;border-radius:9px;background:#10233f;color:white;padding:10px 13px;font-weight:800;cursor:pointer;margin:5px 5px 0 0}button.alt{background:white;color:#10233f}button:disabled{opacity:.45;cursor:not-allowed}.status{padding:10px;border-radius:9px;background:#eef2f6;font-size:12px}.ok{color:var(--green);background:#e6f5ee}.bad{color:#b42331;background:#fff0f1}.rules{font-size:11px;color:#526173}.actions{display:flex;flex-wrap:wrap;gap:4px}code{background:#eef2f6;padding:2px 5px;border-radius:4px}@media(max-width:760px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <small>ESTADÍSTICAS v6 · CAMBIOS SEGUROS CON IA</small>
+  <h1>Cambiar un archivo cada vez</h1>
+  <p>Esta herramienta conserva una copia, prepara un encargo corto para Gemini o Claude, valida la respuesta y descarga el archivo listo para reemplazar. No toca GitHub directamente.</p>
+
+  <section class="card">
+    <h2><span class="step">0</span>Copia de los datos de la app</h2>
+    <p>Antes de publicar cualquier cambio, guarda el estado local de la app.</p>
+    <button id="backupData">Descargar copia local</button><span id="dataFound" class="rules"></span>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2><span class="step">1</span>Archivo enfocado</h2>
+      <label>Selecciona el archivo actual</label>
+      <input id="sourceFile" type="file" accept=".js,.css,.html,.json,.md,.txt,.yml,.yaml,.py">
+      <label>Contenido actual</label>
+      <textarea id="source" spellcheck="false" placeholder="El archivo aparecerá aquí"></textarea>
+      <div class="actions"><button class="alt" id="backupFile" disabled>Descargar copia del archivo</button><button id="makePrompt" disabled>Preparar encargo</button></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="step">2</span>Encargo para la IA</h2>
+      <label>Describe un solo cambio</label>
+      <textarea id="request" style="min-height:95px" placeholder="Ejemplo: añade una etiqueta clara a…"></textarea>
+      <label>Prompt corto generado</label>
+      <textarea id="prompt" spellcheck="false" readonly></textarea>
+      <button class="alt" id="copyPrompt" disabled>Copiar prompt</button>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2><span class="step">3</span>Pegar, aplicar y comprobar</h2>
+    <p>Pega el archivo completo devuelto por la IA. Se eliminan automáticamente las cercas <code>```</code>.</p>
+    <textarea id="answer" spellcheck="false" placeholder="Pega aquí la respuesta completa"></textarea>
+    <div class="actions"><button id="check" disabled>Aplicar y comprobar</button><button class="alt" id="download" disabled>Descargar archivo comprobado</button></div>
+    <p id="status" class="status">Elige primero un archivo.</p>
+    <ul class="rules"><li>El logo definitivo y sus cinco colores no se modifican.</li><li>La clave <code>estadisticas_shared_v2</code> y el formato de datos no se cambian.</li><li><code>worker.js</code> solo se modifica por un encargo explícito de Cloudflare.</li><li>Tras reemplazar el archivo, ejecuta <code>python tools/validate.py .</code> y <code>python tests/smoke.py</code>.</li></ul>
+  </section>
+</main>
+<script>
+const $=id=>document.getElementById(id);let fileName='',validated='';
+const keys=['estadisticas_shared_v2','estadisticas_v1','estadisticas_app_v1','basket_stats_v1'];
+const present=keys.filter(key=>localStorage.getItem(key));$('dataFound').textContent=present.length?` · encontrada: ${present.join(', ')}`:' · sin datos en este navegador';
+function download(name,text,type='text/plain'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),0)}
+$('backupData').onclick=()=>{const items={};keys.forEach(key=>{if(localStorage.getItem(key))items[key]=localStorage.getItem(key)});download(`estadisticas-copia-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify({exportedAt:new Date().toISOString(),items},null,2),'application/json')};
+$('sourceFile').onchange=async event=>{const file=event.target.files[0];if(!file)return;fileName=file.name;$('source').value=await file.text();$('backupFile').disabled=false;$('makePrompt').disabled=false;$('check').disabled=false;$('status').className='status';$('status').textContent=`${fileName} cargado. Describe el cambio.`};
+$('backupFile').onclick=()=>download(`${fileName}.antes-v6.txt`,$('source').value);
+$('makePrompt').onclick=()=>{const request=$('request').value.trim();if(!request)return $('status').textContent='Escribe el cambio que necesitas.';const context={
+'app.js':'Conserva la API window.__ESTADISTICAS__, las migraciones y estadisticas_shared_v2.',
+'styles.css':'Mantén responsive 360×640, áreas seguras y los dos temas.',
+'index.html':'No cambies el SVG del logo: #10233f #18365f #ed304c #7455dc #18a985.',
+'sw.js':'Si cambian recursos, conserva la estrategia y sube el nombre de caché.',
+'worker.js':'No cambies contratos HTTP, D1, tokens ni roles.',
+'manifest.json':'Mantén standalone, fondo #10233f y los tres iconos.'
+}[fileName]||'Conserva los contratos documentados en AGENTS.md.';$('prompt').value=`Edita únicamente ${fileName}. Cambio: ${request}\n${context}\nDevuelve solo el archivo completo, sin explicación ni cercas de código. No inventes métricas ni datos.`;$('copyPrompt').disabled=false};
+$('copyPrompt').onclick=async()=>{await navigator.clipboard.writeText($('prompt').value);$('status').textContent='Prompt copiado.'};
+function clean(text){return text.trim().replace(/^```[a-z0-9_-]*\s*/i,'').replace(/\s*```$/,'')+'\n'}
+function validate(name,text){const errors=[];if(!text.trim())errors.push('La respuesta está vacía.');if(name.endsWith('.json')){try{JSON.parse(text)}catch(error){errors.push('JSON no válido: '+error.message)}}if(name.endsWith('.js')){try{new Function(text)}catch(error){errors.push('JavaScript no válido: '+error.message)}}if(name.endsWith('.css')){let balance=0;for(const char of text){if(char==='{')balance++;if(char==='}')balance--;}if(balance)errors.push('Las llaves CSS no están equilibradas.')}if(name.endsWith('.html')){const doc=new DOMParser().parseFromString(text,'text/html');if(!doc.documentElement||!doc.body)errors.push('HTML incompleto.')}if(name==='app.js'&&!text.includes("estadisticas_shared_v2"))errors.push('Se ha perdido la clave de datos.');if(name==='index.html'&&['#10233f','#18365f','#ed304c','#7455dc','#18a985'].some(color=>!text.includes(color)))errors.push('El logo definitivo ha cambiado.');if(name==='manifest.json'&&!text.includes('icon-maskable-512.png'))errors.push('Falta el icono maskable.');return errors}
+$('check').onclick=()=>{validated=clean($('answer').value);const errors=validate(fileName,validated);$('download').disabled=!!errors.length;$('status').className='status '+(errors.length?'bad':'ok');$('status').textContent=errors.length?errors.join(' '):'✓ Comprobación básica superada. Descarga el archivo, reemplázalo y ejecuta las pruebas completas.'};
+$('download').onclick=()=>download(fileName,validated,fileName.endsWith('.json')?'application/json':'text/plain');
+</script>
+</body>
+</html>

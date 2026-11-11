@@ -1,16 +1,21 @@
-# Contexto · Estadísticas v5
+# Contexto de Estadísticas v6
 
-Aplicación PWA de Buen Consejo, temporada 26/27. Importa actas FBM de ambos equipos, registra cuatro eventos durante el partido y permite añadir mapas de canastas anotadas.
+PWA local-first para Buen Consejo, temporada 26/27. Importa plantilla y actas XLSX de la FBM, muestra estadísticas de equipo/jugadoras, registra eventos en Directo y mantiene mapas de canastas.
 
-## v5
-- Tema claro y oscuro coordinado con `theme-color`, fondo de `html/body`, área segura y barra inferior.
-- Directo: evento sin jugadora, deshacer, descartar sincronizado con confirmación y finalizar.
-- Equipo: marcador sin relleno, etiquetas y acceso al partido; reparto real por puntos totales; top 3; margen por partido; minutos; comparación ataque/defensa; faltas recibidas desde las faltas rivales; mapas por cuatro zonas.
-- Jugadoras: una fila por jugadora, PTS/P · MIN/P · VAL/P visibles y cabeceras ordenables.
-- Acta: FR individual se oculta si el Excel lo trae a cero; eventos sin jugadora aparecen solo en TOTALES.
+## Fuentes y límites
+- Acta FBM: puntos, minutos, 2P/3P anotados, TL anotados e intentados, faltas, valoración y +/- de ambos equipos.
+- Rebotes, asistencias, robos y pérdidas de la hoja suelen venir a cero/no publicados: solo se muestran como Directo cuando existen eventos reales.
+- No hay intentos fiables de 2P/3P; están prohibidos los porcentajes de campo y métricas derivadas de posesiones.
+- Faltas recibidas de equipo = faltas del rival. No atribuirlas individualmente.
+- TL% sin intentos = dato ausente, nunca 0%.
 
-## Límites honestos
-Los Excel FBM aportan canastas anotadas e intentos de TL, pero no intentos de 2P/3P fiables. Los mapas contienen canastas, no fallos. Robos, pérdidas y rebotes de Directo solo son completos si se apuntan durante todo el partido.
+## Experiencia v6
+- Equipo compara siempre Buen Consejo y rival; cada métrica abre total, media, evolución, reparto y partidos.
+- El margen solo aparece como diferencia dentro de Marcador.
+- Minutos permite temporada, media y partido; el detalle incluye mapa jugadora×partido, evolución y cuota.
+- Jugadora compara con media del equipo en cada partido y con referencia de temporada.
+- Directo ocupa todo el espacio disponible y conserva Equipo, Deshacer, Descartar y Finalizar.
+- Tema: `html`, `body`, navegación, guardia de área segura y `theme-color` cambian juntos.
 
-## Sincronización
-La operación de descarte es `live-upsert` con `live:null`; los demás dispositivos eliminan el Directo activo al recibirla. No se ha cambiado `worker.js` ni la configuración de Cloudflare.
+## Persistencia
+La clave local sigue siendo `estadisticas_shared_v2`. La nube sincroniza operaciones, no reemplaza el modelo local. `worker.js` conserva el contrato w2 y no cambió en v6.

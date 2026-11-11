@@ -1,20 +1,24 @@
-# AGENTS.md · Estadísticas v5
+# AGENTS.md · Estadísticas v6
 
-## Contrato
-- App web local-first, sin compilación. Entrada: `index.html`; lógica: `app.js`; estilos: `styles.css`.
-- Conserva el almacén `estadisticas_shared_v2`: la versión de interfaz es v5, no se cambia la clave local.
-- No inventes estadísticas. No calcules FG%, 2P%, 3P%, eFG%, TS%, posesiones ni ratings: el Excel FBM no contiene los intentos de campo completos.
-- Las faltas recibidas del equipo son las faltas cometidas por el rival (`opponentTotals.fouls`). FR individual permanece oculto cuando todo es 0.
-- Los eventos de Directo con `playerId:null` cuentan para el equipo y TOTALES, nunca para una jugadora.
-- Descartar Directo debe emitir `live-upsert` con `live:null` y exigir confirmación.
-- `worker.js` es el contrato de Cloudflare. No modificarlo para cambios visuales o estadísticos.
+## Orden de trabajo
+1. Lee `CONTEXTO_ESTADISTICAS.md` y `MAPA_DEL_CODIGO.md`.
+2. Cambia el menor número posible de archivos; usa `actualizar.html` para un cambio enfocado.
+3. Conserva contratos de datos y funciones públicas.
+4. Ejecuta `python tools/validate.py .` y `python tests/smoke.py`.
+5. Revisa 360×640, 390×844, 412×915 y 1440×980, claro y oscuro.
 
-## Antes de entregar
-1. `python tools/validate.py .`
-2. `python tests/smoke.py`
-3. `python tools/capture.py`
-4. Revisar 360×640, 390×844, 412×915 y 1440×980; claro y oscuro.
-5. Subir versión de caché en `sw.js` si cambia un recurso cacheado.
+## Contratos que no se rompen
+- PWA sin build: `index.html`, `styles.css`, `app.js` y JSZip local.
+- Almacén: `estadisticas_shared_v2`; la migración admite versiones anteriores.
+- Excel FBM de los dos equipos es la fuente de actas. No inventar estadísticas.
+- No calcular FG%, 2P%, 3P%, eFG%, TS%, posesiones ni ratings.
+- TL% con 0 intentos es `null`/«sin tiros» y no entra en medias.
+- `playerId:null` es Equipo (sin jugadora). Descartar Directo sincroniza `live:null`.
+- Acta, mapas, roles, sincronización y unión Directo↔acta deben seguir funcionando.
+- `worker.js` no se modifica para cambios de interfaz o métricas.
 
-## Datos de prueba
-`tests/fixtures/real_3_partidos.json` se creó desde las tres actas reales adjuntas. No incluye Excel ni datos inventados.
+## Logo definitivo: bloqueado
+No modificar nunca el SVG de `index.html`, `assets/icon-192.png`, `assets/icon-512.png` ni `assets/icon-maskable-512.png`. Colores fijos: `#10233f`, `#18365f`, `#ed304c`, `#7455dc`, `#18a985`. El logo es idéntico en claro y oscuro.
+
+## Definición de terminado
+Datos propios y rivales visibles; tarjeta de Margen ausente; minutos con temporada/media/partido y detalle; referencias individuales de partido y temporada; TL nulo sin intentos; Directo sin scroll con objetivos grandes; área segura igual al tema; caché de `sw.js` nueva si cambian recursos.
