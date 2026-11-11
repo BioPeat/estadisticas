@@ -1,81 +1,55 @@
 {
-  "court": "half",
-  "header": {
-    "topTeam": "BUEN CONSEJO",
-    "topScore": 40,
-    "bottomTeam": "ENSANCHE DE VALLECAS PANGOSTUDIO.COM",
-    "bottomScore": 65
-  },
-  "ownIdentification": {
-    "team": "BUEN CONSEJO",
-    "headerPosition": "top",
-    "side": "left",
-    "color": "rojo",
-    "playersColumn": "left",
-    "checksAgree": true,
-    "conflict": "",
-    "confidence": 0.98
-  },
-  "opponentIdentification": {
-    "team": "ENSANCHE DE VALLECAS PANGOSTUDIO.COM",
-    "headerPosition": "bottom",
-    "side": "right",
-    "color": "gris",
-    "playersColumn": "right",
-    "checksAgree": true,
-    "conflict": "",
-    "confidence": 0.96
-  },
-  "ownShots": [
+  "gameId": "g2",
+  "shotsFor": [
     {
-      "id": "f0",
+      "id": "sf2-0",
       "x": 0.5,
-      "y": 0.16,
-      "source": "simulated"
+      "y": 0.11,
+      "source": "test"
     },
     {
-      "id": "f1",
-      "x": 0.42,
-      "y": 0.34,
-      "source": "simulated"
+      "id": "sf2-1",
+      "x": 0.66,
+      "y": 0.38,
+      "source": "test"
     },
     {
-      "id": "f2",
-      "x": 0.04,
-      "y": 0.16,
-      "source": "simulated"
+      "id": "sf2-2",
+      "x": 0.91,
+      "y": 0.19,
+      "source": "test"
     },
     {
-      "id": "f3",
-      "x": 0.5,
-      "y": 0.75,
-      "source": "simulated"
+      "id": "sf2-3",
+      "x": 0.33,
+      "y": 0.62,
+      "source": "test"
     }
   ],
-  "opponentShots": [
+  "shotsAgainst": [
     {
-      "id": "a0",
-      "x": 0.48,
-      "y": 0.14,
-      "source": "simulated"
+      "id": "sa2-0",
+      "x": 0.616,
+      "y": 0.2,
+      "source": "test"
     },
     {
-      "id": "a1",
-      "x": 0.67,
-      "y": 0.39,
-      "source": "simulated"
+      "id": "sa2-1",
+      "x": 0.5599999999999999,
+      "y": 0.28,
+      "source": "test"
     },
     {
-      "id": "a2",
-      "x": 0.96,
-      "y": 0.12,
-      "source": "simulated"
+      "id": "sa2-2",
+      "x": 0.824,
+      "y": 0.54,
+      "source": "test"
     },
     {
-      "id": "a3",
-      "x": 0.3,
-      "y": 0.72,
-      "source": "simulated"
+      "id": "sa2-3",
+      "x": 0.31199999999999994,
+      "y": 0.26,
+      "source": "test"
     }
   ]
 }

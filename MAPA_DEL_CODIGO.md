@@ -1,33 +1,35 @@
-# Mapa del código · v3
+# Mapa del código · v4
 
-## `index.html`
-Shell, navegación, modal, input XLSX, rutas de assets, metadatos PWA y arranque temprano del tema.
+## Estado y migración
 
-## `app.js`
-- Estado/migración: `blank`, `load`, `sanitise`, `save`, `migrateV1`.
-- XLSX: `readXlsx`, `parseRoster`, `parseGame`, `parseBoxRow`, `commitImport`.
-- Equipo: `teamTotals`, `renderTeam`, `openAdvancedDetail`.
-- Jugadoras: `playerAgg`, `renderPlayers`, `openPlayerDetail`.
-- Partidos: `renderGames`, `openGameDetail`, `renderGameDetail`, `BOX_COLS`.
-- Directo: `renderLive`, `startLive`, `addLive`, `commitLiveEvent`, `finishLive`.
-- Pista: `courtHTML`, `shotSVG`, `zoneOf`, `zoneCounts`, `zoneBars`.
-- Mapas: `openHeatAnalysis`, `openShotDetail`, `bindShotCourt`, `shotPrompt`.
-- Tema/PWA: `applyTheme`, registro de `sw.js`.
-- Sincronización: `record`, `syncNow`, `applyRemote`.
+- `blank`, `load`, `sanitise`, `migrateV1`, `legacyPlayer`
+- Contrato local: `estadisticas_shared_v2`
+- Señal de reparación: `needsReimport`
 
-## `styles.css`
-Tokens de color, escritorio/móvil, áreas seguras, configuración y tablero de Directo, SVG FIBA, barras de zonas, acta horizontal, fichas de jugadora y tema oscuro.
+## Excel
 
-## `actualizar.html`
-Herramienta autónoma: copia local, paquete enfocado, extracción de respuesta, comprobación de JS/JSON/CSS/HTML y descarga.
+- `readXlsx`: lector OOXML con JSZip.
+- `parseRoster`: plantilla.
+- `parseGame`, `parseBoxRow`: dos equipos completos.
+- `validateTotals`: compara filas con TOTALES.
+- `commitImport`, `findImportMatch`: actualización sin perder Directo/mapas.
 
-## Infraestructura
-- `worker.js`: API, roles, invitaciones, D1.
-- `configurar.html`: alta inicial.
-- `sw.js`: caché `estadisticas-v3`.
-- `manifest.json`: PWA.
+## Cálculo
 
-## Calidad
-- `tools/validate.py`: estructura, versiones, tokens críticos y sintaxis.
-- `tests/smoke.py`: Excel reales, rival completo, anónimas, scroll, tema, tabla, zonas y navegación.
-- `tools/capture.py`: 10 capturas finales claro/oscuro en PC y móvil.
+- `sumBox`, `effectiveTotals`, `teamStats`, `playerAgg`, `eventCounts`.
+- `PLAYER_METRICS`: métricas permitidas en evolución.
+- `zoneOf`, `zoneCounts`: cuatro zonas del mapa.
+
+## Interfaz
+
+- `renderTeam`, `renderPlayers`, `renderGames`, `renderLive`.
+- `openPlayerDetail`, `playerTrendSVG`.
+- `openGameDetail`, `renderGameDetail`.
+- `scoreChart`, `stackedBar`, `compareBar`, `donut`, `sparkline`.
+
+## Directo y sincronización
+
+- Borrador: `state.liveDraft` + `updateDraftFromInput`.
+- Partido: `startLive`, `commitLiveEvent`, `finishLive`.
+- Red: `record`, `syncNow`, `applyRemote`.
+- `syncNow` compara firmas y respeta el foco activo.

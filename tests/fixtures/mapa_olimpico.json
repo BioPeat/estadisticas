@@ -1,81 +1,49 @@
 {
-  "court": "half",
-  "header": {
-    "topTeam": "BUEN CONSEJO",
-    "topScore": 61,
-    "bottomTeam": "OLIMPICO 64",
-    "bottomScore": 48
-  },
-  "ownIdentification": {
-    "team": "BUEN CONSEJO",
-    "headerPosition": "top",
-    "side": "left",
-    "color": "rojo",
-    "playersColumn": "left",
-    "checksAgree": true,
-    "conflict": "",
-    "confidence": 0.98
-  },
-  "opponentIdentification": {
-    "team": "OLIMPICO 64",
-    "headerPosition": "bottom",
-    "side": "right",
-    "color": "gris",
-    "playersColumn": "right",
-    "checksAgree": true,
-    "conflict": "",
-    "confidence": 0.96
-  },
-  "ownShots": [
+  "gameId": "g1",
+  "shotsFor": [
     {
-      "id": "f0",
-      "x": 0.52,
-      "y": 0.13,
-      "source": "simulated"
+      "id": "sf1-0",
+      "x": 0.51,
+      "y": 0.15,
+      "source": "test"
     },
     {
-      "id": "f1",
-      "x": 0.36,
-      "y": 0.37,
-      "source": "simulated"
+      "id": "sf1-1",
+      "x": 0.41,
+      "y": 0.25,
+      "source": "test"
     },
     {
-      "id": "f2",
-      "x": 0.95,
-      "y": 0.17,
-      "source": "simulated"
-    },
-    {
-      "id": "f3",
-      "x": 0.64,
-      "y": 0.68,
-      "source": "simulated"
+      "id": "sf1-2",
+      "x": 0.1,
+      "y": 0.22,
+      "source": "test"
     }
   ],
-  "opponentShots": [
+  "shotsAgainst": [
     {
-      "id": "a0",
-      "x": 0.45,
-      "y": 0.18,
-      "source": "simulated"
+      "id": "sa1-0",
+      "x": 0.6,
+      "y": 0.19,
+      "source": "test"
     },
     {
-      "id": "a1",
-      "x": 0.72,
-      "y": 0.42,
-      "source": "simulated"
+      "id": "sa1-1",
+      "x": 0.472,
+      "y": 0.46,
+      "source": "test"
     },
     {
-      "id": "a2",
-      "x": 0.05,
-      "y": 0.18,
-      "source": "simulated"
+      "id": "sa1-2",
+      "x": 0.2719999999999999,
+      "y": 0.27,
+      "source": "test"
     },
     {
-      "id": "a3",
-      "x": 0.52,
-      "y": 0.76,
-      "source": "simulated"
+      "id": "sa1-3",
+      "x": 0.736,
+      "y": 0.7,
+      "source": "test"
     }
   ]
 }
