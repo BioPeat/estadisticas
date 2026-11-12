@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Functional regression suite for Estadísticas v7."""
+"""Functional regression suite for Estadísticas v7.1."""
 from pathlib import Path
 from threading import Thread
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from functools import partial
 import copy
 import json
+import time
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,13 +30,16 @@ try:
             errors = []
             page.on('pageerror', lambda error: errors.append(str(error)))
             page.goto(url, wait_until='networkidle')
+            assert page.locator('[data-logo="aro-vector"]').count() == 1
+            assert page.locator('.brand-mark svg text').count() == 0
+            assert page.locator('.brand-mark svg').get_attribute('viewBox') == '0 0 512 512'
             page.evaluate('(state) => window.__ESTADISTICAS__.setState(state)', STATE)
 
             # Tarjetas con criterio: 7 comparativas y valoración BC-only.
             assert page.locator('.stat-card').count() == 8
             assert page.locator('.stat-card .stat-values strong').count() == 15
             assert page.locator('.stat-val .stat-values.own-only').is_visible()
-            assert page.locator('.stat-val', has_text='media por partido').is_visible()
+            assert page.locator('.stat-val', has_text='por partido').is_visible()
             assert page.locator('.margin-chart').count() == 0
             assert page.locator('.score-chart .score-margin').count() == 3
             assert page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1')
@@ -46,6 +50,26 @@ try:
             assert stats['foulsDrawn'] == 59
             point_rows = page.evaluate('window.__ESTADISTICAS__.teamMetricRows("points")')
             assert [(row['own'], row['opp']) for row in point_rows] == [(40, 65), (64, 36), (61, 48)]
+
+            # Portada seleccionable: medias y totales sin cambiar de contexto.
+            page.click('[data-action="stats-mode"][data-mode="total"]')
+            point_values = page.locator('.stat-points .stat-values strong').all_inner_texts()
+            assert point_values == ['165', '149']
+            assert page.locator('[data-action="stats-mode"][data-mode="total"]').get_attribute('class') == 'active'
+            page.click('[data-action="stats-mode"][data-mode="average"]')
+
+            # Series coincidentes: los dos puntos se separan y la línea rival se distingue.
+            page.locator('[data-detail="metric:p3m"]').click()
+            own_y = float(page.locator('.dual-trend:not(.compact) circle.own').nth(1).get_attribute('cy'))
+            opp_y = float(page.locator('.dual-trend:not(.compact) circle.opp').nth(1).get_attribute('cy'))
+            assert own_y != opp_y
+            assert page.locator('.trend-scroller').is_visible()
+            page.click('[data-action="metric-breakdown"][data-mode="average"]')
+            assert page.locator('[data-action="metric-breakdown"][data-mode="average"]').get_attribute('class') == 'active'
+            assert '/P' in page.locator('.breakdown-bars strong').first.inner_text()
+            page.locator('.modal-sheet .icon-button').click()
+            page.wait_for_timeout(20)
+            assert page.evaluate('document.activeElement?.dataset?.detail') == 'metric:p3m'
 
             # Reparto completo: las 14 jugadoras, incluidas las de 0.
             page.locator('[data-detail="point-share"]').click()
@@ -103,6 +127,8 @@ try:
             page.click('[data-action="apply-shot-json"]')
             assert page.locator('#shotCourt .shot-svg:not(.against)').count() == 1
             assert page.locator('#shotCourt .shot-svg.against').count() == 1
+            assert page.locator('#shotCourt .shot-svg').first.get_attribute('r') == '21'
+            assert page.locator('#shotCourt .court').evaluate('e => getComputedStyle(e).touchAction') == 'none'
             assert 'revisa la pista' in page.locator('#shotAssignment').inner_text()
             page.locator('.modal-sheet .icon-button').click()
 
@@ -122,14 +148,16 @@ try:
             page.click('[data-action="confirm-discard-live"]')
             assert page.evaluate('window.__ESTADISTICAS__.getState().live') is None
 
-            # Franja: navegación y guardia empatan con el color fijo observado del manifest en ambos temas.
+            # Franja: navegación y guardia siguen las superficies de cada tema.
             light = page.evaluate("""() => ({nav:getComputedStyle(document.querySelector('.bottom-nav')).backgroundColor,guard:getComputedStyle(document.querySelector('.safe-area-guard')).backgroundColor,meta:document.querySelector('meta[name=theme-color]').content})""")
-            assert light['nav'] == light['guard'] == 'rgb(16, 35, 63)'
+            assert light['nav'] == light['guard'] == 'rgb(255, 255, 255)'
             page.click('[data-action="toggle-theme"]')
             dark = page.evaluate("""() => ({html:getComputedStyle(document.documentElement).backgroundColor,body:getComputedStyle(document.body).backgroundColor,nav:getComputedStyle(document.querySelector('.bottom-nav')).backgroundColor,guard:getComputedStyle(document.querySelector('.safe-area-guard')).backgroundColor,meta:document.querySelector('meta[name=theme-color]').content,scheme:getComputedStyle(document.documentElement).colorScheme})""")
             assert dark['html'] == dark['body'] == 'rgb(11, 15, 22)'
-            assert dark['nav'] == dark['guard'] == 'rgb(16, 35, 63)'
+            assert dark['nav'] == dark['guard'] == 'rgb(20, 27, 37)'
             assert dark['meta'] == '#0b0f16' and dark['scheme'] == 'dark'
+            page.locator('.bottom-nav [data-go="team"]').click()
+            assert page.locator('.mix-card').evaluate('e => getComputedStyle(e).backgroundColor') == 'rgb(20, 27, 37)'
             assert not errors, errors
             page.close()
 
@@ -150,7 +178,72 @@ try:
         page.locator('[data-detail="live:ball"]').click()
         assert page.locator('.metric-summary', has_text='Robos BC').is_visible()
         assert page.locator('.metric-explain', has_text='No es una estadística completa del rival').is_visible()
-        assert page.locator('.breakdown-bars', has_text='Equipo').is_visible()
+        assert page.locator('.manual-player-list', has_text='Equipo').is_visible()
+        sara_rows = page.evaluate("""() => {const p=window.__ESTADISTICAS__.playerAgg().find(x=>x.name.includes('SARA'));return window.__ESTADISTICAS__.playerMetricRows(p,'liveSteals').map(r=>r.value)}""")
+        assert sara_rows == [0, 0, None]
+        page.locator('.modal-sheet .icon-button').click()
+        page.locator('.bottom-nav [data-go="games"]').click()
+        page.locator('.game-row', has_text='ENSANCHE').click()
+        headers = ' '.join(page.locator('.boxscore thead').all_inner_texts())
+        assert all(label in headers for label in ['DIRECTO', 'ROB', 'PER', 'REB O', 'REB R'])
+        assert page.locator('.boxscore tbody tr').first.inner_text().count('0') >= 3
+        page.close()
+
+        # Pendientes de Directo: no son 0-0, no alteran balance, racha ni numeración.
+        page = browser.new_page(viewport={'width': 390, 'height': 844})
+        page.goto(url, wait_until='networkidle')
+        pending_state = copy.deepcopy(STATE)
+        pending_state['games'].insert(1, {'id':'pending','opponent':'PENDIENTE','date':'2026-10-20','us':None,'them':None,'players':[],'events':[{'id':'p1','type':'steal','quarter':1}],'source':'live-pending','availability':{'manual':True}})
+        page.evaluate('(state) => window.__ESTADISTICAS__.setState(state)', pending_state)
+        assert page.evaluate('window.__ESTADISTICAS__.validGames().length') == 3
+        assert page.evaluate('window.__ESTADISTICAS__.teamStats().played') == 3
+        assert page.evaluate('window.__ESTADISTICAS__.currentStreak(window.__ESTADISTICAS__.validGames())') == 'V2'
+        assert page.locator('#minutesScope option').all_inner_texts()[2:] == ['P1 · ENSANCHE DE VALLECAS PANGOSTUDIO.COM', 'P2 · C.B. LAS ROZAS', 'P3 · OLIMPICO 64']
+        page.locator('.bottom-nav [data-go="games"]').click()
+        pending_row = page.locator('.game-row', has_text='PENDIENTE')
+        assert pending_row.locator('.game-result').inner_text() == 'P'
+        assert 'Pendiente de acta' in pending_row.inner_text()
+        pending_row.click()
+        assert page.locator('.pending-hero', has_text='Esperando acta').is_visible()
+        assert page.locator('#gameDetail', has_text='No cuenta en estadísticas').is_visible()
+        page.close()
+
+        # Sincronización: una operación creada mientras se envía no se borra con el lote anterior.
+        page = browser.new_page(viewport={'width': 390, 'height': 844})
+        def sync_route(route):
+            if route.request.method == 'POST':
+                assert 'initial-op' in (route.request.post_data or '')
+                time.sleep(.12)
+            route.fulfill(status=200, content_type='application/json', body=json.dumps({'events': [], 'lastSeq': 0}))
+        page.route('https://sync.test/**', sync_route)
+        page.goto(url, wait_until='networkidle')
+        sync_state = copy.deepcopy(STATE)
+        sync_state['settings']['api'] = 'https://sync.test'
+        sync_state['settings']['token'] = 'token'
+        sync_state['ops'] = [{'id':'initial-op','at':'2026-11-12T09:00:00Z','type':'set-roster','payload':{'roster':[]}}]
+        page.evaluate('(state) => window.__ESTADISTICAS__.setState(state)', sync_state)
+        page.evaluate("""() => {setTimeout(()=>window.__ESTADISTICAS__.getState().ops.push({id:'late-op',at:new Date().toISOString(),type:'set-roster',payload:{roster:[]}}),20);return window.__ESTADISTICAS__.syncNow()}""")
+        assert [item['id'] for item in page.evaluate('window.__ESTADISTICAS__.getState().ops')] == ['late-op']
+        page.close()
+
+        # Veinticinco partidos: el detalle crece y se desplaza en vez de comprimir etiquetas.
+        page = browser.new_page(viewport={'width': 390, 'height': 844})
+        page.goto(url, wait_until='networkidle')
+        long_state = copy.deepcopy(STATE)
+        template = long_state['games'][0]
+        long_state['games'] = []
+        for index in range(25):
+            game = copy.deepcopy(template)
+            game['id'] = f'long-{index}'
+            game['date'] = f'2026-{10 + index // 20:02d}-{1 + index % 20:02d}'
+            game['opponent'] = f'RIVAL {index + 1}'
+            game['us'], game['them'] = 40 + index % 9, 38 + index % 7
+            long_state['games'].append(game)
+        page.evaluate('(state) => window.__ESTADISTICAS__.setState(state)', long_state)
+        page.locator('[data-detail="metric:points"]').click()
+        sizes = page.locator('.trend-scroller').first.evaluate('e => ({client:e.clientWidth,scroll:e.scrollWidth})')
+        assert sizes['scroll'] > sizes['client']
+        assert page.locator('.dual-trend:not(.compact) text').filter(has_text='P25').count() == 1
         page.close()
 
         # Escritorio: migración v5/v6 a v7, rival completo y scroll del acta.
@@ -168,6 +261,6 @@ try:
         assert page.locator('.box-wrap').evaluate('e => getComputedStyle(e).overflowX') == 'auto'
         browser.close()
 
-    print('OK · v7: listas completas, scroll táctil, faltas/40, valoración/P, criterio de tarjetas, Directo, mapas, temas y migración')
+    print('OK · v7.1: datos ausentes, escalas, series largas, solapes, listas, Directo, actas, mapas, temas y migración')
 finally:
     server.shutdown()
