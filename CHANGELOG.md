@@ -1,5 +1,14 @@
 # Cambios
 
+## v9 · visibilidad real y comparación (12-11-2026)
+- Hace visibles ROB, PER y REB O aun sin datos de Directo, con ausencia explícita y sin ceros inventados.
+- Mantiene columnas DIRECTO en actas de BC y bloque manual en jugadoras.
+- Añade modo Comparar, diferencia, victorias y composición de puntos.
+- Diferencia visualizaciones y refuerza gráficos de 25 partidos.
+- Aumenta ligeramente los puntos del mapa y conserva Aro vector.
+- Caché v9, pruebas, documentación, guía e instrucciones Gemini/Claude renovadas.
+
+
 ## v7.1 · auditoría, guía y marca (12-11-2026)
 - Excluye los Directos pendientes sin marcador de balance, racha, medias, P1… y gráficos.
 - Unifica el orden cronológico de todas las vistas.

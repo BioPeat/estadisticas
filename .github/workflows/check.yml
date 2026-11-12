@@ -1,4 +1,4 @@
-name: check-v7
+name: check-v9
 on: [push, pull_request]
 jobs:
   test:

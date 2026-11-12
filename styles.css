@@ -594,3 +594,21 @@ button.card{appearance:none;-webkit-appearance:none;background:var(--paper);colo
 
 .breakdown-title{align-items:center}.breakdown-title .segmented{flex:0 0 auto}
 @media(max-width:430px){.breakdown-title{align-items:flex-start;flex-direction:column}.breakdown-title .segmented{width:100%}.breakdown-title .segmented button{flex:1}}
+
+/* v9 · manual siempre visible, comparación y lectura móvil */
+.no-data{min-height:92px;display:flex;align-items:center;gap:11px;padding:13px;border:1px dashed var(--line-strong);border-radius:12px;background:var(--paper-2)}
+.no-data>span{display:grid;place-items:center;width:32px;height:32px;flex:0 0 32px;border-radius:10px;background:var(--paper);color:var(--faint);font-size:18px}
+.no-data b,.no-data small{display:block}.no-data b{font-size:11px}.no-data small{margin-top:3px;color:var(--muted);font-size:9px;line-height:1.35}
+.coverage-badge{padding:6px 9px;border:1px solid var(--line);border-radius:99px;background:var(--paper);color:var(--muted);font-size:9px;font-weight:900;white-space:nowrap}
+.live-stat-card.is-empty{border-style:dashed;box-shadow:none}.live-stat-card.is-empty header small{color:var(--orange)}
+.comparison-value{display:flex;align-items:end;justify-content:space-between;gap:8px}.comparison-value strong{font-size:31px;line-height:1;color:var(--green)}.comparison-value span{color:var(--muted);font-size:9px;text-align:right}
+.comparison-card .comparison-value strong{color:var(--purple)}
+.balance-mini{height:66px;display:flex;align-items:center;justify-content:center;gap:6px;border-bottom:1px solid var(--line);padding:5px 4px}
+.balance-mini i{width:12px;min-height:4px;border-radius:4px 4px 1px 1px;align-self:flex-end}.balance-mini i.positive{background:var(--red)}.balance-mini i.negative{background:var(--blue)}
+.manual-table-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 8px;padding:10px 12px;border:1px dashed var(--orange);border-radius:11px;background:color-mix(in srgb,var(--orange) 9%,var(--paper))}
+.manual-table-notice b{font-size:10px;color:var(--orange);white-space:nowrap}.manual-table-notice span{color:var(--muted);font-size:9px;text-align:right}
+.manual-player-block.is-empty{border-style:dashed}.manual-player-block.is-empty .no-data{background:var(--paper)}
+.stat-threeShare .single-trend .spark,.stat-freeShare .single-trend .spark,.stat-winRate .single-trend .spark{--tone:var(--green)}
+.stat-margin .single-trend .spark{--tone:var(--orange)}
+@media(max-width:700px){.stats-title{flex-wrap:wrap}.stats-title>div{flex:1 1 190px}.stats-title .segmented{flex:0 0 auto}.manual-table-notice{align-items:flex-start;flex-direction:column}.manual-table-notice span{text-align:left}.live-data-block .section-title{align-items:flex-start;gap:8px}}
+@media(max-width:430px){.stats-title p{max-width:none}.stats-title .segmented{width:100%}.stats-title .segmented button{flex:1;padding-left:4px;padding-right:4px}.coverage-badge{font-size:8px}.no-data{padding:10px}.comparison-value strong{font-size:27px}}

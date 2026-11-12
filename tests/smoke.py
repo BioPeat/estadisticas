@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Functional regression suite for Estadísticas v7.1."""
+"""Functional regression suite for Estadísticas v9."""
 from pathlib import Path
 from threading import Thread
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -35,9 +35,11 @@ try:
             assert page.locator('.brand-mark svg').get_attribute('viewBox') == '0 0 512 512'
             page.evaluate('(state) => window.__ESTADISTICAS__.setState(state)', STATE)
 
-            # Tarjetas con criterio: 7 comparativas y valoración BC-only.
-            assert page.locator('.stat-card').count() == 8
-            assert page.locator('.stat-card .stat-values strong').count() == 15
+            # Panel completo: estadísticas oficiales y manuales siempre visibles.
+            assert page.locator('.stats-grid:not(.live-stats-grid) .stat-card').count() == 12
+            assert page.locator('.live-stat-card').count() == 2
+            assert page.locator('.live-stat-card.is-empty').count() == 2
+            assert page.locator('.live-data-block', has_text='Sin datos registrados todavía').is_visible()
             assert page.locator('.stat-val .stat-values.own-only').is_visible()
             assert page.locator('.stat-val', has_text='por partido').is_visible()
             assert page.locator('.margin-chart').count() == 0
@@ -50,12 +52,18 @@ try:
             assert stats['foulsDrawn'] == 59
             point_rows = page.evaluate('window.__ESTADISTICAS__.teamMetricRows("points")')
             assert [(row['own'], row['opp']) for row in point_rows] == [(40, 65), (64, 36), (61, 48)]
+            three_share = page.evaluate('window.__ESTADISTICAS__.aggregateMetric("threeShare", window.__ESTADISTICAS__.teamMetricRows("threeShare"), "own", "total")')
+            assert round(three_share, 3) == round(24 / 165 * 100, 3)
 
             # Portada seleccionable: medias y totales sin cambiar de contexto.
             page.click('[data-action="stats-mode"][data-mode="total"]')
             point_values = page.locator('.stat-points .stat-values strong').all_inner_texts()
             assert point_values == ['165', '149']
             assert page.locator('[data-action="stats-mode"][data-mode="total"]').get_attribute('class') == 'active'
+            page.click('[data-action="stats-mode"][data-mode="average"]')
+            page.click('[data-action="stats-mode"][data-mode="compare"]')
+            assert page.locator('.comparison-card').count() >= 6
+            assert page.locator('[data-action="stats-mode"][data-mode="compare"]').get_attribute('class') == 'active'
             page.click('[data-action="stats-mode"][data-mode="average"]')
 
             # Series coincidentes: los dos puntos se separan y la línea rival se distingue.
@@ -111,6 +119,7 @@ try:
             page.locator('.player-rank', has_text='Lara').click()
             assert page.locator('.detail-stats', has_text='FAL/40').is_visible()
             assert page.locator('.detail-stats', has_text='VAL/P').is_visible()
+            assert page.locator('.manual-player-block', has_text='Sin datos registrados todavía').is_visible()
             page.select_option('#playerMetric', 'ftp')
             assert page.locator('.player-trend .missing').count() >= 1
             assert page.locator('.player-trend .team-average').count() >= 1
@@ -127,7 +136,7 @@ try:
             page.click('[data-action="apply-shot-json"]')
             assert page.locator('#shotCourt .shot-svg:not(.against)').count() == 1
             assert page.locator('#shotCourt .shot-svg.against').count() == 1
-            assert page.locator('#shotCourt .shot-svg').first.get_attribute('r') == '21'
+            assert page.locator('#shotCourt .shot-svg').first.get_attribute('r') == '24'
             assert page.locator('#shotCourt .court').evaluate('e => getComputedStyle(e).touchAction') == 'none'
             assert 'revisa la pista' in page.locator('#shotAssignment').inner_text()
             page.locator('.modal-sheet .icon-button').click()
@@ -158,6 +167,12 @@ try:
             assert dark['meta'] == '#0b0f16' and dark['scheme'] == 'dark'
             page.locator('.bottom-nav [data-go="team"]').click()
             assert page.locator('.mix-card').evaluate('e => getComputedStyle(e).backgroundColor') == 'rgb(20, 27, 37)'
+            page.locator('.bottom-nav [data-go="games"]').click()
+            page.locator('.game-row').first.click()
+            headers = ' '.join(page.locator('.boxscore thead').all_inner_texts())
+            assert all(label in headers for label in ['DIRECTO', 'ROB', 'PER', 'REB O', 'REB R'])
+            assert page.locator('.manual-table-notice', has_text='Sin datos registrados todavía').is_visible()
+            page.locator('.modal-sheet .icon-button').click()
             assert not errors, errors
             page.close()
 
@@ -252,7 +267,7 @@ try:
         page.evaluate("(state) => localStorage.setItem('estadisticas_shared_v2', JSON.stringify(state))", STATE)
         page.reload(wait_until='networkidle')
         migrated = page.evaluate('window.__ESTADISTICAS__.getState()')
-        assert migrated['version'] == 7 and len(migrated['games']) == 3 and len(migrated['roster']) == 14
+        assert migrated['version'] == 9 and len(migrated['games']) == 3 and len(migrated['roster']) == 14
         assert page.evaluate("localStorage.getItem('estadisticas_shared_v2') !== null")
         page.locator('.sidebar [data-go="games"]').click()
         page.locator('.game-row').first.click()
@@ -261,6 +276,6 @@ try:
         assert page.locator('.box-wrap').evaluate('e => getComputedStyle(e).overflowX') == 'auto'
         browser.close()
 
-    print('OK · v7.1: datos ausentes, escalas, series largas, solapes, listas, Directo, actas, mapas, temas y migración')
+    print('OK · v9: manual visible sin inventar ceros, comparación, series largas, actas, mapas, temas y migración')
 finally:
     server.shutdown()

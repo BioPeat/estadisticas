@@ -1,15 +1,9 @@
-# Archivos generados localmente
-captures/
-GUIA_ESTADISTICAS_v7_1.pdf
-*.antes-v7-1.txt
-
-# Python
 __pycache__/
 *.py[cod]
-.venv/
-
-# Sistema y editores
+.pytest_cache/
+.playwright/
+captures/
+*.log
 .DS_Store
 Thumbs.db
-.vscode/
-.idea/
+GUIA_ESTADISTICAS_v9.pdf
