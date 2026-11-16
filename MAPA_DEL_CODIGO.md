@@ -1,14 +1,16 @@
-# Mapa del código · v9
+# Mapa del código · v10
 
-- `index.html`: shell, Aro vector, navegación, modal y carga de recursos.
-- `app.js`: estado/migración, importación FBM, métricas, vistas, actas, Directo, mapas y sincronización.
-  - Modelo: `validGames`, `hasManualData`, `effectiveTotals`, `eventCounts`, `playerAgg`, `teamStats`.
-  - Equipo: `TEAM_METRICS`, `teamMetricCard`, `renderLiveMetrics`, `openTeamMetricDetail`, `openLiveMetricDetail`.
-  - Jugadoras: `PLAYER_METRICS`, `playerMetricRows`, `openPlayerDetail`.
-  - Acta: `BOX_GROUPS`, `visibleBoxGroups`, `renderGameDetail`.
-  - Escalabilidad: `scoreChart`, `dualTrendSVG`, `playerTrendSVG` y contenedores `trend-scroller`.
-- `styles.css`: temas, móvil, área segura, tarjetas, estados sin datos y gráficos.
-- `sw.js`: caché `estadisticas-v9-20261112-manual-visible`.
-- `actualizar.html`: aplica JSON `find`/`replace` a un archivo y valida antes de descargar.
-- `worker.js`: Cloudflare D1 `w2`; no depende de la interfaz.
-- `tests/smoke.py`: 360×640, 390×844, 412×915, claro/oscuro, 3/25 partidos y Directo presente/ausente.
+- `app.js`
+  - Estado/migración: `blank`, `sanitise`, `repairPendingGames`.
+  - Unión: `mergeEvents`, `mergePendingIntoGame`, `mergePendingManual`, `merge-game`.
+  - Identidad Directo→acta: `rosterPlayerForEvent`, `resolveEventPlayer`, `eventCounts`, `unassignedEventCounts`.
+  - Marcador: `gameScore`, `gameSides`, `scoreChart` (ventana de 8).
+  - Minutos: `minutesHeatmap`, `openMinutesDetail`.
+  - Equipo/Comparar: `TEAM_METRICS`, `liveMetricCard`, `balanceVisual`.
+- `styles.css`: temas, responsive, rejilla única de Minutos, fila de equipo y ventana del marcador.
+- `actualizar.html`: carpeta/ZIP → contexto actual → JSON multiarchivo → ZIP.
+- `sw.js`: caché `estadisticas-v10-20261116-audit2`.
+- `worker.js`: original recibido, sin cambios.
+- `tests/smoke.py`: pruebas funcionales, Excel y copia real opcionales, responsive y actualizador.
+- `tests/fixtures/dehesa_directo_sanitizado.json`: datos reales necesarios sin configuración ni credenciales.
+- `tools/capture.py`: 24 capturas finales.

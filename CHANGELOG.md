@@ -1,40 +1,18 @@
-# Cambios
+# Historial
 
-## v9 · visibilidad real y comparación (12-11-2026)
-- Hace visibles ROB, PER y REB O aun sin datos de Directo, con ausencia explícita y sin ceros inventados.
-- Mantiene columnas DIRECTO en actas de BC y bloque manual en jugadoras.
-- Añade modo Comparar, diferencia, victorias y composición de puntos.
-- Diferencia visualizaciones y refuerza gráficos de 25 partidos.
-- Aumenta ligeramente los puntos del mapa y conserva Aro vector.
-- Caché v9, pruebas, documentación, guía e instrucciones Gemini/Claude renovadas.
+## v10 · auditoría final 2026-11-16
 
+- Corrige el reparto real del Directo de La Dehesa usando el `playerId` de plantilla y separa `Equipo / sin asignar`.
+- Verifica exactamente: 21 ROB, 13 PER, 12 REB O BC y 7 REB O rival, sin duplicados.
+- Añade fixture sanitizado derivado de la copia real y pruebas de migración con la copia privada fuera del artefacto.
+- Rehace la rejilla de Minutos con anchos compartidos y orden Jugadora, Media, Cuota, P1…Pn.
+- Sustituye el marcador largo por una ventana útil de los últimos 8 partidos, a ancho completo.
+- Rehace `actualizar.html`: contexto actual explícito por petición; sin afirmar acceso automático a GitHub y sin sustituir conocimiento manualmente.
+- Amplía pruebas a 360×640, 390×844 y 412×915, claro/oscuro, 4/25 partidos, Excel real, migración real, unión, sincronización, temas y actualizador multiarchivo.
+- Sube la caché a `estadisticas-v10-20261116-audit2`.
+- `worker.js`, logo, assets y configuración de sincronización local no cambian.
 
-## v7.1 · auditoría, guía y marca (12-11-2026)
-- Excluye los Directos pendientes sin marcador de balance, racha, medias, P1… y gráficos.
-- Unifica el orden cronológico de todas las vistas.
-- Evita perder operaciones creadas durante una sincronización y exige respuestas JSON sin caché.
-- El service worker no intercepta API ni orígenes remotos y nunca devuelve la app como datos.
-- Sustituye el monograma BC por «Aro vector»: símbolo geométrico sin letras, legible a 32 px y coherente en cabecera, iconos y maskable.
-- Sube la caché a `estadisticas-v7-1-20261112-logo-aro-vector`.
-- Navegación y franja segura cambian correctamente entre claro y oscuro.
-- Selector global Totales / Por partido; tarjetas con etiquetas explícitas y visualizaciones diferenciadas.
-- Ratios manuales de robos/pérdidas y rebote ofensivo, con cobertura visible.
-- Medias manuales de jugadora con denominador de partidos registrados; ausencias como `null`.
-- Columnas ROB, PER, REB O y REB R en el acta cuando existe Directo, incluso si un valor es cero.
-- Gráficos desplazables para 20+ partidos y separación visual de series coincidentes.
-- Mapa de tiro con puntos algo mayores y arrastre móvil sin desplazar la página.
-- Añade `.gitignore`, refuerza pruebas, actualiza documentación y genera guía PDF con capturas reales.
-- Alinea Gem de Gemini y Proyecto de Claude con el flujo JSON `find`/`replace` de `actualizar.html`.
+## v10 inicial
 
-## v7 · 12 de noviembre de 2026
-- Reparto de puntos y minutos abren la plantilla completa de 14 jugadoras.
-- Mapa de minutos horizontal táctil; faltas con FAL/40; valoración por partido.
-- Tarjetas y detalles con criterio; Directo con robos, pérdidas y REB O.
-- Flujo de mapa con JSON visible, validación, edición y guardado.
-- Clave `estadisticas_shared_v2` y Worker w2 conservados.
-
-## v6
-Panel gráfico, comparativas BC/rival, minutos, doble referencia individual, TL% nulo, Directo y área segura.
-
-## v5
-Directo descartable, Equipo sin jugadora, primeras comparativas y faltas recibidas.
+- Unión Directo/acta y operación idempotente `merge-game`.
+- Marcador local–visitante, serie Diferencia, Comparar completo y eliminación de Victorias.

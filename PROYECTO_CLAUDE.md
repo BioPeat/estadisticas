@@ -1,5 +1,5 @@
-# Instrucciones del proyecto Claude · Estadísticas v9
+# Proyecto Claude · Estadísticas v10
 
-Usa este proyecto con `actualizar.html`. Protege `estadisticas_shared_v2`, migraciones, sincronización y Worker w2. Separa acta, Directo y mapa. Ausencia manual nunca equivale a cero: conserva siempre «Sin datos registrados todavía», denominadores solo con cobertura y columnas DIRECTO visibles en actas de BC. No calcules FG%, eFG%, TS%, posesiones ni ratings con los Excel actuales. Mantén una línea por jugadora, temas, área segura, mapas y gráficos desplazables con 25 partidos. Logo Aro vector sin letras.
+Configura una vez el Proyecto con las instrucciones de `INSTRUCCIONES_Y_CREACION_CLAUDE_v10.txt`. Claude no conoce automáticamente GitHub.
 
-Devuelve solo JSON `{"file":"…","changes":[{"find":"…","replace":"…"}]}`. Sin Markdown ni archivo completo. `find` literal y único en el estado intermedio.
+En cada cambio, genera con `actualizar.html` el archivo `CONTEXTO_ACTUAL_ESTADISTICAS.md`, adjúntalo en un chat nuevo junto con la petición y pega la respuesta JSON en el actualizador. No sustituyas manualmente archivos de conocimiento después de publicar.

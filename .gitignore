@@ -1,9 +1,5 @@
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.playwright/
-captures/
-*.log
 .DS_Store
-Thumbs.db
-GUIA_ESTADISTICAS_v9.pdf
+__pycache__/
+*.pyc
+captures/
+GUIA_*.pdf

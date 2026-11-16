@@ -1,7 +1,7 @@
-/* Estadísticas v9 · Buen Consejo 26/27 · local-first */
+/* Estadísticas v10 · Buen Consejo 26/27 · local-first */
 'use strict';
 
-const APP_VERSION = 'v9';
+const APP_VERSION = 'v10';
 const STORE = 'estadisticas_shared_v2';
 const TEAM = 'BUEN CONSEJO';
 const $ = (s, r = document) => r.querySelector(s);
@@ -13,7 +13,7 @@ const clamp = (n, a = 0, b = 1) => Math.max(a, Math.min(b, Number(n) || 0));
 const num = (n, d = 1) => Number.isFinite(+n) ? (+n).toLocaleString('es-ES', {minimumFractionDigits:d, maximumFractionDigits:d}) : '—';
 const pct = n => Number.isFinite(+n) ? `${num(n, 0)}%` : '—';
 const signed = n => Number.isFinite(+n) ? `${+n > 0 ? '+' : ''}${num(n)}` : '—';
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const minutes = s => { if (typeof s === 'number') return s; const [m, x] = String(s || '0').split(':').map(Number); return (m || 0) + (x || 0) / 60; };
 const formatMinutes = v => { const total = Math.max(0, Math.round((+v || 0) * 60)); return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`; };
 const parseAI = s => { const [m, a] = String(s || '0/0').split('/').map(Number); return {m:m || 0, a:a || 0}; };
@@ -24,10 +24,10 @@ const deepSignature = x => JSON.stringify(x);
 /* ── State, migration and persistence ───────────────────────────── */
 function blank() {
   return {
-    version: 9,
+    version: 10,
     team: {name:'Buen Consejo', season:'26/27'},
     roster: [], games: [], live: null,
-    liveDraft: {rival:'', date:today(), selected:[]},
+    liveDraft: {rival:'', date:today(), dateManual:false, selected:[]},
     ops: [], lastSeq: 0,
     settings: {api:'', token:'', role:'admin', shotSide:'auto', shotColor:'por confirmar', rivalColor:'por confirmar'}
   };
@@ -37,6 +37,7 @@ let state = load();
 let view = 'team';
 let modalContext = null;
 let fileMode = 'games';
+let importPendingId = '';
 let installPrompt = null;
 let toastTimer;
 let syncing = false;
@@ -92,7 +93,7 @@ function hasLegacyFields(g) {
 
 function sanitise(s) {
   const base = blank();
-  const out = {...base, ...s, version:9, team:{...base.team, ...(s.team || {})}, settings:{...base.settings, ...(s.settings || {})}};
+  const out = {...base, ...s, version:10, team:{...base.team, ...(s.team || {})}, settings:{...base.settings, ...(s.settings || {})}};
   out.roster = (s.roster || []).filter(p => p?.name).map(p => ({...p, id:p.id || uid(), number:String(p.number || '')}));
   out.games = (s.games || []).filter(g => g && !g.demo && !g.isDemo && !['DEMO','EJEMPLO'].some(x => norm(g.opponent).includes(x))).map(g => {
     const pair = splitLegacyShots(g);
@@ -111,7 +112,9 @@ function sanitise(s) {
   });
   out.liveDraft = {...base.liveDraft, ...(s.liveDraft || {})};
   if (!Array.isArray(out.liveDraft.selected)) out.liveDraft.selected = [];
-  if (!out.liveDraft.date) out.liveDraft.date = today();
+  // v9 persistía la fecha del Directo anterior. Solo conservamos una fecha
+  // distinta de hoy cuando la persona la eligió de forma explícita en v10.
+  if (!out.liveDraft.dateManual || !out.liveDraft.date) out.liveDraft.date = today();
   return out;
 }
 
@@ -123,7 +126,7 @@ function migrateV1(old) {
   return sanitise(out);
 }
 
-function save() { state.version = 9; localStorage.setItem(STORE, JSON.stringify(state)); }
+function save() { state.version = 10; localStorage.setItem(STORE, JSON.stringify(state)); }
 function record(type, payload) { state.ops.push({id:uid(), at:new Date().toISOString(), type, payload}); save(); paintSync(); scheduleSync(); }
 function toast(message) { const t = $('#toast'); t.textContent = message; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
 function setView(next) { view = next; $$('[data-go]').forEach(b => b.setAttribute('aria-current', b.dataset.go === next ? 'page' : 'false')); render(); window.scrollTo(0, 0); }
@@ -252,14 +255,17 @@ async function handleFiles(files) {
     }
     const parsed = [];
     for (const file of files) parsed.push(parseGame(await readXlsx(file), file.name));
-    modalContext = {type:'import', games:parsed};
+    modalContext = {type:'import', games:parsed, forcedPendingId:importPendingId};
+    importPendingId = '';
     openModal('Importación', `${parsed.length} acta${parsed.length > 1 ? 's' : ''}`, `
       ${parsed.map((g, i) => `<article class="import-card">
-        <div><b>${esc(g.opponent)}</b><span>${g.us}–${g.them} · ${g.home ? 'Casa' : 'Fuera'} · ${g.players.length} + ${g.opponentPlayers.length} jugadoras</span></div>
+        <div><b>${esc(g.opponent)}</b><span>${gameScore(g)} · ${g.home ? 'Casa' : 'Fuera'} · local–visitante · ${g.players.length} + ${g.opponentPlayers.length} jugadoras</span></div>
         <label>Fecha<input type="date" data-import-date="${i}" value="${g.date}"></label>
+        ${pendingImportControl(g,i,modalContext.forcedPendingId)}
         ${g.importWarnings.length ? `<div class="data-warning"><b>Revisar Excel</b>${g.importWarnings.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : `<div class="validation-ok">✓ Filas y totales coinciden</div>`}
       </article>`).join('')}
-      <button class="btn primary wide" data-action="confirm-import">Guardar</button>`);
+      <div class="import-confirmation">Revisa la fecha y el Directo seleccionado. La unión conserva los eventos y evita duplicados.</div>
+      <button class="btn primary wide" data-action="confirm-import">Guardar y unir lo seleccionado</button>`);
   } catch (error) { console.error(error); toast(error.message || 'No se pudo leer el Excel'); }
 }
 
@@ -269,27 +275,105 @@ function mergeRoster(current, incoming) {
   return [...map.values()];
 }
 
-function findImportMatch(g, chosenDate='') {
+function dateDistance(a,b) {
+  const ax=Date.parse(`${a||''}T00:00:00Z`),bx=Date.parse(`${b||''}T00:00:00Z`);
+  return Number.isFinite(ax)&&Number.isFinite(bx)?Math.abs(ax-bx)/86400000:Infinity;
+}
+
+function opponentAffinity(a,b) {
+  const na=norm(a),nb=norm(b); if(!na||!nb)return 0;if(na===nb)return 1;
+  if(na.includes(nb)||nb.includes(na))return .82;
+  const ignored=new Set(['CLUB','CD','CB','CDE','CDSCM','BALONCESTO','BASKET','FEMENINO','FEM']);
+  const words=value=>new Set(value.split(' ').filter(word=>word.length>2&&!ignored.has(word)));
+  const aw=words(na),bw=words(nb);if(!aw.size||!bw.size)return 0;
+  const common=[...aw].filter(word=>bw.has(word)).length;
+  return common/Math.max(aw.size,bw.size);
+}
+
+function pendingScore(pending,game,chosenDate=game.date) {
+  const name=opponentAffinity(pending.opponent,game.opponent),days=dateDistance(pending.date,chosenDate);
+  const date=days===0?.55:days<=2?.4:days<=7?.25:0;
+  return {pending,name,days,score:name+date};
+}
+
+function pendingCandidates(game,chosenDate=game.date,includeAll=false) {
+  return state.games.filter(item=>item.source==='live-pending'&&item.id!==game.id).map(item=>pendingScore(item,game,chosenDate)).filter(item=>includeAll||(item.name>=.45&&item.days<=7)).sort((a,b)=>b.score-a.score||a.days-b.days);
+}
+
+function automaticPendingMatch(game,chosenDate=game.date) {
+  const rows=pendingCandidates(game,chosenDate),first=rows[0],second=rows[1];
+  return first&&first.score>=.78&&(!second||first.score-second.score>=.15)?first.pending:null;
+}
+
+function pendingImportControl(game,index,forcedId='') {
+  const all=pendingCandidates(game,game.date,true),automatic=automaticPendingMatch(game,game.date);
+  const selected=forcedId&&all.some(row=>row.pending.id===forcedId)?forcedId:automatic?.id||'';
+  if(!all.length)return `<div class="import-match none"><b>Directo</b><span>No hay Directos pendientes.</span></div>`;
+  return `<label class="import-match">Directo a unir<select data-import-pending="${index}"><option value="">No unir ningún Directo</option>${all.map(row=>{const item=row.pending,events=(item.events||[]).filter(event=>!event.undone).length;return `<option value="${item.id}" ${item.id===selected?'selected':''}>${esc(item.opponent)} · ${item.date||'sin fecha'} · ${events} eventos${item.id===automatic?.id?' · recomendado':''}</option>`}).join('')}</select><small>${selected?'Se unirá el Directo indicado al guardar.':'No se unirá ningún Directo.'}</small></label>`;
+}
+
+function completeImportMatch(g,chosenDate='') {
   const exact=state.games.filter(x => norm(x.opponent) === norm(g.opponent) && hasScore(x.us) && hasScore(x.them) && +x.us === +g.us && +x.them === +g.them);
   const byDate=chosenDate&&exact.find(x=>x.date===chosenDate);
-  return byDate || (exact.length===1?exact[0]:null)
-    || state.games.find(x => x.source === 'live-pending' && norm(x.opponent).split(' ').some(w => w.length > 2 && norm(g.opponent).includes(w)) && (!x.date || !chosenDate || x.date === chosenDate));
+  return byDate || (exact.length===1?exact[0]:null);
+}
+
+function eventKey(event) {
+  return event.id||[event.type,event.quarter,event.playerId||norm(event.playerName),event.at||''].join('|');
+}
+
+function mergeEvents(...lists) {
+  const map=new Map();lists.flat().filter(Boolean).forEach(event=>{const key=eventKey(event);if(!map.has(key))map.set(key,event)});return [...map.values()];
+}
+
+function mergePendingIntoGame(pending,target) {
+  if(!pending||!target||pending.id===target.id)return target;
+  target.events=mergeEvents(target.events||[],pending.events||[]);
+  target.shotsFor=(target.shotsFor||[]).length?target.shotsFor:(pending.shotsFor||[]);
+  target.shotsAgainst=(target.shotsAgainst||[]).length?target.shotsAgainst:(pending.shotsAgainst||[]);
+  target.availability={...(target.availability||{}),manual:hasManualData(target)||!!(pending.events||[]).length,shotMap:!!((target.shotsFor||[]).length||(target.shotsAgainst||[]).length)};
+  state.games=state.games.filter(game=>game.id!==pending.id);
+  return target;
+}
+
+function queueMerge(pending,target) {
+  if(state.settings.role==='viewer')return;
+  state.ops.push({id:uid(),at:new Date().toISOString(),type:'merge-game',payload:{sourceId:pending.id,targetId:target.id,game:target}});
+}
+
+function repairPendingGames() {
+  let changed=0;
+  for(const pending of [...state.games.filter(game=>game.source==='live-pending')]){
+    const candidates=validGames().map(game=>({...pendingScore(pending,game,game.date),game})).filter(item=>item.name>=.45&&item.days<=7).sort((a,b)=>b.score-a.score||a.days-b.days);
+    const first=candidates[0],second=candidates[1];
+    if(!first||first.score<.78||(second&&first.score-second.score<.15))continue;
+    mergePendingIntoGame(pending,first.game);queueMerge(pending,first.game);changed++;
+  }
+  if(changed)save();
+  return changed;
 }
 
 function commitImport() {
+  let joined=0;
   modalContext.games.forEach((g, i) => {
     const chosenDate = $(`[data-import-date="${i}"]`)?.value || '';
-    const existing = findImportMatch(g,chosenDate);
-    g.date = existing?.date && chosenDate === today() ? existing.date : chosenDate;
+    const pendingId=$(`[data-import-pending="${i}"]`)?.value||'';
+    const pending=state.games.find(game=>game.id===pendingId&&game.source==='live-pending');
+    let existing = completeImportMatch(g,chosenDate);
+    g.date = chosenDate;
+    if(!existing&&pending)existing=pending;
+    if(pending)joined++;
     if (existing) {
-      Object.assign(existing, {...g, id:existing.id, date:g.date || existing.date, events:existing.events || [], shotsFor:existing.shotsFor || [], shotsAgainst:existing.shotsAgainst || [], needsReimport:false,
-        availability:{...g.availability, manual:!!(existing.availability?.manual||existing.events?.length), shotMap:!!(existing.shotsFor?.length || existing.shotsAgainst?.length)}});
+      const events=mergeEvents(existing.events||[],pending&&pending!==existing?pending.events||[]:[]),shotsFor=(existing.shotsFor||[]).length?existing.shotsFor:pending?.shotsFor||[],shotsAgainst=(existing.shotsAgainst||[]).length?existing.shotsAgainst:pending?.shotsAgainst||[];
+      Object.assign(existing, {...g, id:existing.id, date:g.date || existing.date, events, shotsFor, shotsAgainst, needsReimport:false,
+        availability:{...g.availability, manual:!!events.length, shotMap:!!(shotsFor.length || shotsAgainst.length)}});
+      if(pending&&pending!==existing){mergePendingIntoGame(pending,existing);queueMerge(pending,existing);}
     } else state.games.push(g);
     const saved = existing || g;
-    state.roster = mergeRoster(state.roster, g.players.map(p => ({id:p.id, number:p.number, name:p.name})));
+    state.roster = mergeRoster(state.roster, g.players.map(player => ({id:player.id, number:player.number, name:player.name})));
     record('replace-game', {game:saved});
   });
-  save(); closeModal(); toast('Actas guardadas'); render();
+  save(); scheduleSync(); closeModal(); toast(joined?`Actas guardadas · ${joined} Directo${joined===1?'':'s'} unido${joined===1?'':'s'}`:'Actas guardadas'); render();
 }
 
 /* ── Trusted statistics model ───────────────────────────────────── */
@@ -303,13 +387,46 @@ function effectiveTotals(g, side = 'own') {
   return legacyPlayer(out);
 }
 
+function rosterPlayerForEvent(event) {
+  return event?.playerId ? state.roster.find(player => player.id === event.playerId) || null : null;
+}
+
+function resolveEventPlayer(game, event) {
+  const players = game?.players || [];
+  if (!event || (!event.playerId && !event.playerName)) return null;
+  const direct = event.playerId ? players.filter(player => player.id === event.playerId) : [];
+  if (direct.length === 1) return direct[0];
+  const rosterPlayer = rosterPlayerForEvent(event);
+  for (const sourceName of [rosterPlayer?.name, event.playerName]) {
+    const key = norm(sourceName);
+    if (!key) continue;
+    const matches = players.filter(player => norm(player.name) === key);
+    if (matches.length === 1) return matches[0];
+  }
+  const number = String(rosterPlayer?.number || '').trim();
+  if (number) {
+    const matches = players.filter(player => String(player.number || '').trim() === number);
+    if (matches.length === 1) return matches[0];
+  }
+  return null;
+}
+
 function eventCounts(g, p) {
-  const key = norm(p?.name);
-  const events = (g.events || []).filter(e => !e.undone && (p ? (e.playerId === p.id || norm(e.playerName) === key) : true));
-  return {steals:events.filter(e => e.type === 'steal').length, turnovers:events.filter(e => e.type === 'turnover').length, orb:events.filter(e => e.type === 'orbFor').length, rivalOrb:events.filter(e => e.type === 'orbAgainst').length};
+  const events = (g.events || []).filter(event => !event.undone && (!p || resolveEventPlayer(g, event) === p));
+  return {steals:events.filter(event => event.type === 'steal').length, turnovers:events.filter(event => event.type === 'turnover').length, orb:events.filter(event => event.type === 'orbFor').length, rivalOrb:events.filter(event => event.type === 'orbAgainst').length};
+}
+
+function unassignedEventCounts(g) {
+  const events = (g.events || []).filter(event => !event.undone && !resolveEventPlayer(g, event));
+  return {steals:events.filter(event => event.type === 'steal').length, turnovers:events.filter(event => event.type === 'turnover').length, orb:events.filter(event => event.type === 'orbFor').length, rivalOrb:events.filter(event => event.type === 'orbAgainst').length};
 }
 
 function hasScore(value) { return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)); }
+function gameScore(game,separator='–') {
+  const left=game.home?game.us:game.them,right=game.home?game.them:game.us;
+  return `${left??'—'}${separator}${right??'—'}`;
+}
+function gameSides(game) { return game.home?`Buen Consejo · ${game.opponent}`:`${game.opponent} · Buen Consejo`; }
 function gameTime(game) { return `${game.date || '9999-12-31'}|${game.importedAt || ''}|${game.id || ''}`; }
 function chronological(games) { return [...games].sort((a,b) => gameTime(a).localeCompare(gameTime(b))); }
 function validGames() { return chronological(state.games.filter(g => g.source !== 'live-pending' && hasScore(g.us) && hasScore(g.them))); }
@@ -409,24 +526,29 @@ function sparkline(values, tone = 'team', width = 150, height = 42) {
 function scoreChart(games) {
   if (!games.length) return '';
   const ordered = [...games].sort((a,b) => String(a.date).localeCompare(String(b.date)));
-  const all = ordered.flatMap(g => [+g.us, +g.them]);
-  const max = Math.max(...all, 1), min = Math.min(...all, 0), w = Math.max(760,ordered.length*82), h = 240;
-  const x = index => ordered.length === 1 ? w / 2 : 52 + index * (w - 104) / (ordered.length - 1);
+  const limit = 8, shown = ordered.length > limit ? ordered.slice(-limit) : ordered;
+  const all = shown.flatMap(game => [+game.us, +game.them]);
+  const max = Math.max(...all, 1), min = Math.min(...all, 0), w = 760, h = 240;
+  const x = index => shown.length === 1 ? w / 2 : 52 + index * (w - 104) / (shown.length - 1);
   const y = value => h - 58 - (value - min) / (max - min || 1) * (h - 108);
-  const line = key => ordered.map((g, index) => `${x(index)},${y(+g[key])}`).join(' ');
-  return `<div class="chart-wrap chart-scroller"><svg class="score-chart" viewBox="0 0 ${w} ${h}" style="min-width:${Math.max(0,ordered.length*74)}px" role="img" aria-label="Marcador y diferencia por partido">
+  const line = key => shown.map((game, index) => `${x(index)},${y(+game[key])}`).join(' ');
+  const margins=shown.map(game=>+game.us-(+game.them)),marginMax=Math.max(1,...margins.map(Math.abs));
+  const marginY=value=>h-59-(value/marginMax)*13;
+  const windowLabel=ordered.length>limit?`Últimos ${shown.length} de ${ordered.length}`:`${shown.length} partido${shown.length===1?'':'s'}`;
+  return `<div class="chart-wrap"><div class="chart-window-label">${windowLabel}</div><svg class="score-chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Marcador y diferencia por partido · ${windowLabel}">
     <line class="grid-line" x1="26" y1="${h-58}" x2="${w-26}" y2="${h-58}"/>
     <polyline class="score-us" points="${line('us')}"/><polyline class="score-them" points="${line('them')}"/>
-    ${ordered.map((g, index) => {
-      const margin = +g.us - +g.them;
-      return `<g data-detail="game:${g.id}" tabindex="0" role="button">
-        <circle class="score-us" cx="${x(index)}" cy="${y(+g.us)}" r="6"/><circle class="score-them" cx="${x(index)}" cy="${y(+g.them)}" r="6"/>
-        <text class="score-label us" x="${x(index)}" y="${Math.max(17,y(+g.us)-12)}" text-anchor="middle">${g.us}</text>
-        <text class="score-label them" x="${x(index)}" y="${Math.min(h-64,y(+g.them)+21)}" text-anchor="middle">${g.them}</text>
+    <polyline class="score-difference" points="${margins.map((value,index)=>`${x(index)},${marginY(value)}`).join(' ')}"/>
+    ${shown.map((game, index) => {
+      const margin = +game.us - +game.them, seasonIndex=ordered.indexOf(game)+1;
+      return `<g data-detail="game:${game.id}" tabindex="0" role="button">
+        <circle class="score-us" cx="${x(index)}" cy="${y(+game.us)}" r="6"/><circle class="score-them" cx="${x(index)}" cy="${y(+game.them)}" r="6"/>
+        <text class="score-label us" x="${x(index)}" y="${Math.max(17,y(+game.us)-12)}" text-anchor="middle">${game.us}</text>
+        <text class="score-label them" x="${x(index)}" y="${Math.min(h-64,y(+game.them)+21)}" text-anchor="middle">${game.them}</text>
         <text class="score-margin ${margin >= 0 ? 'positive' : 'negative'}" x="${x(index)}" y="${h-38}" text-anchor="middle">${margin > 0 ? '+' : ''}${margin}</text>
-        <text class="game-label" x="${x(index)}" y="${h-19}" text-anchor="middle">${esc(String(g.opponent||'Rival').split(' ')[0].slice(0,10))}</text>
-        <text class="date-label" x="${x(index)}" y="${h-5}" text-anchor="middle">${esc(String(g.date||'').slice(5))}</text>
-        <title>${esc(g.opponent)}: ${g.us}–${g.them} · diferencia ${margin > 0 ? '+' : ''}${margin}</title>
+        <text class="game-label" x="${x(index)}" y="${h-19}" text-anchor="middle">P${seasonIndex}</text>
+        <text class="date-label" x="${x(index)}" y="${h-5}" text-anchor="middle">${esc(String(game.date||'').slice(5))}</text>
+        <title>${esc(gameSides(game))}: ${gameScore(game)} · local–visitante · diferencia BC ${margin > 0 ? '+' : ''}${margin}</title>
       </g>`;
     }).join('')}
   </svg><div class="chart-legend"><span class="us">Buen Consejo</span><span class="them">Rival</span><span class="margin">Diferencia</span></div></div>`;
@@ -477,17 +599,16 @@ function donut(value, label, tone = 'team') {
 
 const TEAM_METRICS = {
   points:{label:'Puntos', short:'PTS', player:'pts', compare:true, higherBetter:true, value:(game, totals, side) => side === 'own' ? +game.us : +game.them, note:'Marcador oficial.'},
-  margin:{label:'Diferencia', short:'+/-', compare:false, higherBetter:true, value:(game, totals, side) => side === 'own' ? +game.us-(+game.them) : +game.them-(+game.us), note:'Puntos de Buen Consejo menos puntos del rival; resume el margen real de cada partido.'},
-  winRate:{label:'Victorias', short:'V%', compare:false, percent:true, higherBetter:true, value:(game, totals, side) => side === 'own' ? (+game.us>+game.them?100:0) : (+game.them>+game.us?100:0), note:'Porcentaje de victorias sobre partidos disputados.'},
+  margin:{label:'Diferencia', short:'+/-', compare:true, higherBetter:true, value:(game, totals, side) => side === 'own' ? +game.us-(+game.them) : +game.them-(+game.us), note:'Puntos de Buen Consejo menos puntos del rival; resume el margen real de cada partido.'},
   p2m:{label:'Canastas de 2', short:'2P', player:'p2m', compare:true, higherBetter:true, value:(game, totals) => +totals.p2m || 0, note:'Canastas anotadas; no porcentaje porque los intentos de campo del acta no son fiables.'},
   p3m:{label:'Canastas de 3', short:'3P', player:'p3m', compare:true, higherBetter:true, value:(game, totals) => +totals.p3m || 0, note:'Triples anotados; las líneas coincidentes se separan y el rival se dibuja discontinuo.'},
   ftm:{label:'Tiros libres', short:'TL', player:'ftm', compare:true, higherBetter:true, value:(game, totals) => +totals.ftm || 0, note:'Tiros libres anotados.'},
   fta:{label:'TL intentados', short:'TLI', player:'fta', compare:true, higherBetter:true, value:(game, totals) => +totals.fta || 0, note:'Intentos de tiro libre; aproxima la presión sobre el aro sin inventar posesiones.'},
   ftp:{label:'Porcentaje TL', short:'TL%', player:'ftp', compare:true, percent:true, higherBetter:true, value:(game, totals) => totals.fta ? totals.ftm/totals.fta*100 : null, note:'Los partidos sin intentos quedan ausentes: no cuentan como 0% ni entran en la media.'},
-  threeShare:{label:'Peso del triple', short:'3P PTS%', compare:false, percent:true, higherBetter:null, value:(game, totals, side) => {const pts=side==='own'?+game.us:+game.them;return pts?3*(+totals.p3m||0)/pts*100:null;}, note:'Porcentaje de los puntos que procede de triples. Describe el estilo, no si es mejor o peor.'},
-  freeShare:{label:'Peso del tiro libre', short:'TL PTS%', compare:false, percent:true, higherBetter:null, value:(game, totals, side) => {const pts=side==='own'?+game.us:+game.them;return pts?(+totals.ftm||0)/pts*100:null;}, note:'Porcentaje de los puntos que procede del tiro libre. Describe el estilo anotador.'},
+  threeShare:{label:'Peso del triple', short:'3P PTS%', compare:true, percent:true, higherBetter:null, value:(game, totals, side) => {const pts=side==='own'?+game.us:+game.them;return pts?3*(+totals.p3m||0)/pts*100:null;}, note:'Porcentaje de los puntos que procede de triples. Describe el estilo, no si es mejor o peor.'},
+  freeShare:{label:'Peso del tiro libre', short:'TL PTS%', compare:true, percent:true, higherBetter:null, value:(game, totals, side) => {const pts=side==='own'?+game.us:+game.them;return pts?(+totals.ftm||0)/pts*100:null;}, note:'Porcentaje de los puntos que procede del tiro libre. Describe el estilo anotador.'},
   fouls:{label:'Faltas', short:'FAL', player:'fouls', compare:true, lowerBetter:true, per40:true, value:(game, totals) => +totals.fouls || 0, note:'Faltas cometidas. Menos es mejor; las faltas del rival equivalen a faltas recibidas por Buen Consejo.'},
-  val:{label:'Valoración', short:'VAL', player:'val', compare:false, higherBetter:true, value:(game, totals) => +totals.val || 0, note:'Valoración publicada en el acta. La tarjeta principal se centra en Buen Consejo; el detalle conserva la referencia rival.'},
+  val:{label:'Valoración', short:'VAL', player:'val', compare:true, higherBetter:true, value:(game, totals) => +totals.val || 0, note:'Valoración publicada en el acta. La tarjeta principal conserva la referencia rival.'},
   ast:{label:'Asistencias', short:'AST', player:'ast', compare:true, optional:true, higherBetter:true, value:(game, totals) => +totals.ast || 0, note:'Asistencias publicadas en el acta. Solo aparece cuando el Excel contiene valores.'},
   rebTot:{label:'Rebotes totales', short:'REB', player:'rebTot', compare:true, optional:true, higherBetter:true, value:(game, totals) => +totals.rebTot || 0, note:'Rebotes totales publicados en el acta. Solo aparece cuando el Excel contiene valores fiables.'},
   rebOff:{label:'Rebotes ofensivos · acta', short:'REB O', player:'rebOff', compare:true, optional:true, higherBetter:true, value:(game, totals) => +totals.rebOff || 0, note:'Rebotes ofensivos publicados en el acta; no se mezclan con Directo.'},
@@ -530,7 +651,6 @@ function aggregateMetric(key, rows, side, mode = 'average') {
   }
   const values = rows.map(row => row[side]).filter(value => value !== null && Number.isFinite(+value));
   if (!values.length) return null;
-  if (key==='winRate') return mean(values,value=>value);
   return mode === 'total' ? sum(values, value => value) : mean(values, value => value);
 }
 
@@ -582,14 +702,14 @@ function pairedRingsVisual(key, rows) {
 }
 
 function balanceVisual(key, rows) {
-  const shown=rows.length>10?rows.slice(-10):rows,max=Math.max(1,...shown.map(row=>Math.abs(difference(row.own,row.opp)||0))),metric=TEAM_METRICS[key]||{};
-  return `<div class="balance-mini" aria-label="Diferencia BC menos rival">${shown.map(row=>{const d=difference(row.own,row.opp)||0,good=metric.lowerBetter?d<=0:d>=0;return `<i class="${good?'positive':'negative'}" style="height:${Math.max(4,Math.abs(d)/max*100)}%"></i>`}).join('')}</div>`;
+  const shown=rows.length>10?rows.slice(-10):rows,delta=row=>key==='margin'?(+row.own||0):(difference(row.own,row.opp)||0),max=Math.max(1,...shown.map(row=>Math.abs(delta(row)))),metric=TEAM_METRICS[key]||{};
+  return `<div class="balance-mini" aria-label="Diferencia BC menos rival">${shown.map(row=>{const d=delta(row),good=metric.lowerBetter?d<=0:d>=0;return `<i class="${good?'positive':'negative'}" style="height:${Math.max(4,Math.abs(d)/max*100)}%"></i>`}).join('')}</div>`;
 }
 
 function metricMiniVisual(key, rows) {
   if (statsMode==='compare' && TEAM_METRICS[key]?.compare) return balanceVisual(key,rows);
   if (['points','val','margin'].includes(key)) return dualTrendSVG(rows,key,true);
-  if (['ftp','winRate','threeShare','freeShare'].includes(key)) return pairedRingsVisual(key,rows);
+  if (['ftp','threeShare','freeShare'].includes(key)) return pairedRingsVisual(key,rows);
   if (['p2m','fouls','fta'].includes(key)) return pairedBarsVisual(key,rows);
   const shown=rows.length>8?rows.slice(-8):rows,max=Math.max(1,...shown.flatMap(row=>[+row.own||0,+row.opp||0]));
   return `<div class="mini-columns">${shown.map(row=>`<span><i class="own" style="height:${(+row.own||0)/max*100}%"></i><i class="opp" style="height:${(+row.opp||0)/max*100}%"></i></span>`).join('')}</div>`;
@@ -599,11 +719,11 @@ function teamMetricCard(key) {
   const metric=TEAM_METRICS[key], rows=teamMetricRows(key);
   const ownAverage=aggregateMetric(key,rows,'own'), oppAverage=aggregateMetric(key,rows,'opp');
   const ownTotal=aggregateMetric(key,rows,'own','total'), oppTotal=aggregateMetric(key,rows,'opp','total');
-  const mode = ['ftp','threeShare','freeShare'].includes(key) ? 'total' : key==='winRate' ? 'average' : statsMode;
+  const mode = ['ftp','threeShare','freeShare'].includes(key) ? 'total' : statsMode;
   const ownShown = mode === 'total' ? ownTotal : ownAverage, oppShown = mode === 'total' ? oppTotal : oppAverage;
-  const modeLabel = ['ftp','winRate','threeShare','freeShare'].includes(key) ? 'temporada' : mode === 'total' ? 'total' : mode==='compare'?'diferencia media':'por partido';
+  const modeLabel = ['ftp','threeShare','freeShare'].includes(key) ? 'temporada' : mode === 'total' ? 'total' : mode==='compare'?'diferencia media':'por partido';
   const detail = key === 'ftp' ? `TL convertidos ${sum(rows,row=>effectiveTotals(row.game,'own').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'own').fta)}` : `${rows.length} partido${rows.length===1?'':'s'} con acta`;
-  if (mode==='compare' && metric.compare) {const delta=difference(ownAverage,oppAverage);return `<button class="stat-card stat-${key} comparison-card" data-detail="metric:${key}"><header><span>${metric.label}</span><small>BC − rival</small></header><div class="comparison-value"><strong>${key==='ftp'?'—':signed(delta)}</strong><span>por partido</span></div>${metricMiniVisual(key,rows)}<footer>Rojo = favorable; azul = desfavorable<b>Ver detalle →</b></footer></button>`;}
+  if (statsMode==='compare' && metric.compare) {const delta=key==='margin'?ownAverage:difference(ownAverage,oppAverage),shown=metric.percent?`${signed(delta)} pp`:signed(delta);return `<button class="stat-card stat-${key} comparison-card" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${key==='margin'?'Margen BC':'BC − rival'}</small></header><div class="comparison-value"><strong>${shown}</strong><span>media por partido</span></div>${metricMiniVisual(key,rows)}<footer>Rojo = favorable; azul = desfavorable<b>Ver detalle →</b></footer></button>`;}
   if (!metric.compare) return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>Buen Consejo</small></header><div class="stat-values own-only"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><span>${modeLabel}</span></div><div class="single-trend">${sparkline(rows.map(row=>row.own),'team',260,70)}</div><footer>${detail}<b>Ver detalle →</b></footer></button>`;
   const hint=metric.lowerBetter?'BC / Rival · menos':'BC / Rival';
   return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${hint}</small></header><div class="stat-values"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><strong>${metricValue(key,oppShown,mode==='total'?0:1)}</strong></div><div class="value-caption"><span>BC · ${modeLabel}</span><span>Rival · ${modeLabel}</span></div>${metricMiniVisual(key,rows)}<footer>${detail}<b>Ver detalle →</b></footer></button>`;
@@ -648,7 +768,8 @@ function liveMetricCard(key) {
   const share=(ownTotal+oppTotal)?ownTotal/(ownTotal+oppTotal)*100:null, relation=ratio(ownTotal,oppTotal),balance=ownTotal-oppTotal;
   const insight=key==='ball'?`Balance ${signed(balance).replace(',0','')} · ROB/PER ${relation===null?'—':num(relation,2)}`:`Cuota REB O ${share===null?'—':pct(share)}`;
   const values=compareMode?`<div class="comparison-value"><strong>${signed(balance).replace(',0','')}</strong><span>${key==='ball'?'ROB − PER':'REB O BC − rival'}</span></div>`:`<div class="stat-values"><strong>${num(own,totalMode?0:1)}</strong><strong>${num(opp,totalMode?0:1)}</strong></div><div class="live-card-labels"><span>${metric.ownLabel}</span><span>${metric.oppLabel}</span></div>`;
-  return `<button class="stat-card live-stat-card" data-detail="live:${key}"><header><span>${metric.label}</span><small>Directo · ${compareMode?'balance':totalMode?'total':'por partido'}</small></header>${values}<div class="mini-columns">${rows.slice(-8).map(row=>`<span><i class="own" style="height:${row.own/max*100}%"></i><i class="opp" style="height:${row.opp/max*100}%"></i></span>`).join('')}</div><footer>${insight}<b>Ver detalle →</b></footer></button>`;
+  const visual=compareMode?balanceVisual(`live-${key}`,rows):`<div class="mini-columns">${rows.slice(-8).map(row=>`<span><i class="own" style="height:${row.own/max*100}%"></i><i class="opp" style="height:${row.opp/max*100}%"></i></span>`).join('')}</div>`;
+  return `<button class="stat-card live-stat-card ${compareMode?'comparison-card':''}" data-detail="live:${key}"><header><span>${metric.label}</span><small>Directo · ${compareMode?'balance total':totalMode?'total':'por partido'}</small></header>${values}${visual}<footer>${insight}<b>Ver detalle →</b></footer></button>`;
 }
 
 function renderLiveMetrics() {
@@ -711,7 +832,8 @@ function renderGames() {
   return head('games-page', 'Partidos', `<button class="btn" data-action="import-games">Importar acta</button><button class="btn primary" data-action="open-shot">Añadir mapa</button>`, meta) + reimportBanner() + (!games.length ? `<div class="empty card"><h2>Sin partidos</h2><button class="btn primary" data-action="import-games">Elegir Excel</button></div>` : `<div class="games-list">${games.map(g => {
     const complete = !g.needsReimport && g.opponentPlayers?.length;
     const isPending=!hasScore(g.us)||!hasScore(g.them)||g.source==='live-pending',result=isPending?'pending':g.us>g.them?'win':'loss';
-    return `<button class="game-row" data-detail="game:${g.id}"><span class="game-result ${result}">${isPending?'P':g.us > g.them ? 'V' : 'D'}</span><span class="game-main"><b>${esc(g.opponent)}</b><small>${g.date || 'Sin fecha'} · ${isPending?'Pendiente de acta':g.home ? 'Casa' : 'Fuera'}</small></span><span class="game-score">${g.us ?? '—'}<i>–</i>${g.them ?? '—'}</span><span class="game-data"><i class="${complete ? 'ok' : 'warn'}"></i>${isPending?'Directo guardado':complete ? `${g.players.length} + ${g.opponentPlayers.length}` : 'Reimportar'}</span><span class="rank-arrow">›</span></button>`;
+    const score=gameScore(g).split('–');
+    return `<button class="game-row" data-detail="game:${g.id}"><span class="game-result ${result}">${isPending?'P':g.us > g.them ? 'V' : 'D'}</span><span class="game-main"><b>${esc(g.opponent)}</b><small>${g.date || 'Sin fecha'} · ${isPending?'Pendiente de acta':g.home ? 'Casa' : 'Fuera'}</small></span><span class="game-score" title="Local–visitante">${score[0]}<i>–</i>${score[1]}</span><span class="game-data"><i class="${complete ? 'ok' : 'warn'}"></i>${isPending?'Directo guardado':complete ? `${g.players.length} + ${g.opponentPlayers.length}` : 'Reimportar'}</span><span class="rank-arrow">›</span></button>`;
   }).join('')}</div>`) + `</section>`;
 }
 
@@ -841,7 +963,7 @@ function formatBox(r, key) {
   if (['p2ai','p3ai','ftai'].includes(key)) return esc(r[key] || '0/0');
   if (key === 'pm') return signed(+r[key] || 0).replace(',0','');
   if (key.startsWith('live')) {
-    if (!r._manualAvailable || (key === 'liveRivalOrb' && !r._isTotal)) return '—';
+    if (!r._manualAvailable || (key === 'liveRivalOrb' && !r._isTotal && !r._teamUnassigned)) return '—';
     return Number.isFinite(+r[key]) ? +r[key] : 0;
   }
   return Number.isFinite(+r[key]) ? +r[key] : '—';
@@ -864,19 +986,31 @@ function renderGameDetail() {
   const g = state.games.find(x => x.id === modalContext.gameId); if (!g) return;
   if(g.source==='live-pending'||!hasScore(g.us)||!hasScore(g.them)){
     const ec=eventCounts(g),active=(g.events||[]).filter(event=>!event.undone);
-    $('#gameDetail').innerHTML=`<div class="pending-hero"><span>Directo guardado · ${g.date||'Sin fecha'}</span><strong>Esperando acta</strong><p>Al importar el Excel del partido, la app conservará y unirá estos datos manuales.</p></div><div class="metric-summary"><div><span>Robos BC</span><strong>${ec.steals}</strong></div><div><span>Pérdidas BC</span><strong>${ec.turnovers}</strong></div><div><span>REB O BC</span><strong>${ec.orb}</strong></div><div><span>REB O rival</span><strong>${ec.rivalOrb}</strong></div></div><div class="coverage-note"><b>${active.length} evento${active.length===1?'':'s'} conservado${active.length===1?'':'s'}</b><span>No cuenta en estadísticas hasta tener marcador.</span></div><button class="btn primary wide pending-import" data-action="import-games">Importar acta y unir</button>`;
+    const games=validGames(),suggested=games.map(game=>({...pendingScore(g,game,game.date),game})).filter(item=>item.name>=.35).sort((a,b)=>b.score-a.score)[0]?.game;
+    $('#gameDetail').innerHTML=`<div class="pending-hero"><span>Directo guardado · ${g.date||'Sin fecha'}</span><strong>Esperando acta</strong><p>Al importar el Excel del partido, la app conservará y unirá estos datos manuales.</p></div><div class="metric-summary"><div><span>Robos BC</span><strong>${ec.steals}</strong></div><div><span>Pérdidas BC</span><strong>${ec.turnovers}</strong></div><div><span>REB O BC</span><strong>${ec.orb}</strong></div><div><span>REB O rival</span><strong>${ec.rivalOrb}</strong></div></div><div class="coverage-note"><b>${active.length} evento${active.length===1?'':'s'} conservado${active.length===1?'':'s'}</b><span>No cuenta en estadísticas hasta tener marcador.</span></div>${games.length?`<div class="manual-join"><label class="field">Unir manualmente a un acta<select id="pendingTarget">${games.map(game=>`<option value="${game.id}" ${game.id===suggested?.id?'selected':''}>${esc(game.opponent)} · ${game.date} · ${gameScore(game)}</option>`).join('')}</select></label><button class="btn" data-action="merge-pending-manual" data-id="${g.id}">Unir a esta acta</button></div>`:''}<button class="btn primary wide pending-import" data-action="import-games" data-pending-id="${g.id}">Importar acta y unir</button>`;
     return;
   }
   const own = modalContext.side === 'own', players = own ? (g.players || []) : (g.opponentPlayers || []);
   const manualAvailable=own&&hasManualData(g);
   const rows = players.map(p => { const ec = eventCounts(g,p); return {...p, _manualAvailable:manualAvailable, liveSteals:own ? ec.steals : 0, liveTurnovers:own ? ec.turnovers : 0, liveOrb:own ? ec.orb : 0, liveRivalOrb:null}; });
+  if (manualAvailable) {
+    const unassigned=unassignedEventCounts(g);
+    if (unassigned.steals||unassigned.turnovers||unassigned.orb||unassigned.rivalOrb) rows.push({id:'team-unassigned',number:'',name:'Equipo / sin asignar',_manualAvailable:true,_teamUnassigned:true,liveSteals:unassigned.steals,liveTurnovers:unassigned.turnovers,liveOrb:unassigned.orb,liveRivalOrb:unassigned.rivalOrb});
+  }
   const ec = eventCounts(g), rawTotal = effectiveTotals(g, own ? 'own' : 'opp');
   const total = {...rawTotal, name:'TOTALES', _isTotal:true, _manualAvailable:manualAvailable, liveSteals:own ? ec.steals : 0, liveTurnovers:own ? ec.turnovers : 0, liveOrb:own ? ec.orb : 0, liveRivalOrb:own ? ec.rivalOrb : 0};
-  rows.sort((a,b) => compareBox(a[modalContext.sort], b[modalContext.sort]) * modalContext.dir);
+  rows.sort((a,b) => a._teamUnassigned ? 1 : b._teamUnassigned ? -1 : compareBox(a[modalContext.sort], b[modalContext.sort]) * modalContext.dir);
   const groups = visibleBoxGroups(rows, total, own), columns = groups.flatMap(x => x.cols);
+  const individualRows=rows.filter(row=>!row._teamUnassigned),unassignedRow=rows.find(row=>row._teamUnassigned);
+  if (own&&manualAvailable) {
+    for (const key of ['liveSteals','liveTurnovers','liveOrb']) {
+      const individual=sum(individualRows,row=>row[key]),unassigned=+unassignedRow?.[key]||0;
+      if (individual+unassigned!==+total[key]) console.warn(`Directo incoherente en ${key}`);
+    }
+  }
   const warning = g.needsReimport || (!own && !players.length) ? `<div class="reimport-inline"><b>Faltan datos del rival</b><span>Vuelve a importar el acta. La actualización conserva Directo y mapas.</span><button class="btn" data-action="import-games">Reimportar</button></div>` : '';
   const manualNotice=own&&!manualAvailable?`<div class="manual-table-notice"><b>ROB · PER · REB O · REB R</b><span>Sin datos registrados todavía. Las columnas se muestran para distinguir ausencia de un cero real.</span></div>`:'';
-  $('#gameDetail').innerHTML = `<div class="score-hero"><div><span>${g.home ? 'Casa' : 'Fuera'} · ${g.date || 'Sin fecha'}</span><strong>${g.us}–${g.them}</strong></div><div class="result-pill ${g.us > g.them ? 'win' : 'loss'}">${g.us > g.them ? 'Victoria' : 'Derrota'}</div></div>${warning}${manualNotice}<div class="team-tabs"><button class="${own ? 'active' : ''}" data-action="game-team" data-side="own">Buen Consejo · ${g.us}</button><button class="${!own ? 'active' : ''}" data-action="game-team" data-side="opp">${esc(g.opponent)} · ${g.them}</button></div><div class="box-hint">Desliza la tabla</div><div class="box-wrap"><table class="boxscore"><thead><tr><th class="identity" rowspan="2" data-action="sort-box" data-key="number">Nº · Nombre</th>${groups.map(group => `<th colspan="${group.cols.length}">${group.label}</th>`).join('')}</tr><tr>${groups.map(group => group.cols.map(([k,label]) => `<th data-action="sort-box" data-key="${k}">${label}${modalContext.sort === k ? (modalContext.dir === 1 ? ' ↑' : ' ↓') : ''}</th>`).join('')).join('')}</tr></thead><tbody>${rows.map(r => `<tr><td class="identity" title="${esc(namePretty(r.name))}"><b>${esc(r.number || '—')}</b><span>${esc(firstName(r.name))}</span></td>${columns.map(([k]) => `<td>${formatBox(r,k)}</td>`).join('')}</tr>`).join('')}<tr class="totals"><td class="identity"><b></b><span>TOTALES</span></td>${columns.map(([k]) => `<td>${formatBox(total,k)}</td>`).join('')}</tr></tbody></table></div><div class="game-map-block"><div class="map-switch"><button class="${modalContext.map === 'attack' ? 'active' : ''}" data-action="game-map" data-mode="attack">Ataque</button><button class="${modalContext.map === 'defense' ? 'active' : ''}" data-action="game-map" data-mode="defense">Defensa</button><button class="${modalContext.map === 'both' ? 'active' : ''}" data-action="game-map" data-mode="both">Juntos</button></div>${courtHTML(modalContext.map === 'defense' ? [] : g.shotsFor || [], modalContext.map === 'attack' ? [] : g.shotsAgainst || [], false)}<button class="btn" data-action="shot-for-game" data-id="${g.id}">Editar mapa</button></div>`;
+  $('#gameDetail').innerHTML = `<div class="score-hero"><div><span>${gameSides(g)} · ${g.date || 'Sin fecha'} · local–visitante</span><strong>${gameScore(g)}</strong></div><div class="result-pill ${g.us > g.them ? 'win' : 'loss'}">${g.us > g.them ? 'Victoria' : 'Derrota'}</div></div>${warning}${manualNotice}<div class="team-tabs"><button class="${own ? 'active' : ''}" data-action="game-team" data-side="own">Buen Consejo · ${g.us}</button><button class="${!own ? 'active' : ''}" data-action="game-team" data-side="opp">${esc(g.opponent)} · ${g.them}</button></div><div class="box-hint">Desliza la tabla</div><div class="box-wrap"><table class="boxscore"><thead><tr><th class="identity" rowspan="2" data-action="sort-box" data-key="number">Nº · Nombre</th>${groups.map(group => `<th colspan="${group.cols.length}">${group.label}</th>`).join('')}</tr><tr>${groups.map(group => group.cols.map(([k,label]) => `<th data-action="sort-box" data-key="${k}">${label}${modalContext.sort === k ? (modalContext.dir === 1 ? ' ↑' : ' ↓') : ''}</th>`).join('')).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="${r._teamUnassigned?'team-unassigned':''}"><td class="identity" title="${esc(namePretty(r.name))}"><b>${esc(r.number || '—')}</b><span>${esc(r._teamUnassigned?'Equipo / sin asignar':firstName(r.name))}</span></td>${columns.map(([k]) => `<td>${formatBox(r,k)}</td>`).join('')}</tr>`).join('')}<tr class="totals"><td class="identity"><b></b><span>TOTALES</span></td>${columns.map(([k]) => `<td>${formatBox(total,k)}</td>`).join('')}</tr></tbody></table></div><div class="game-map-block"><div class="map-switch"><button class="${modalContext.map === 'attack' ? 'active' : ''}" data-action="game-map" data-mode="attack">Ataque</button><button class="${modalContext.map === 'defense' ? 'active' : ''}" data-action="game-map" data-mode="defense">Defensa</button><button class="${modalContext.map === 'both' ? 'active' : ''}" data-action="game-map" data-mode="both">Juntos</button></div>${courtHTML(modalContext.map === 'defense' ? [] : g.shotsFor || [], modalContext.map === 'attack' ? [] : g.shotsAgainst || [], false)}<button class="btn" data-action="shot-for-game" data-id="${g.id}">Editar mapa</button></div>`;
 }
 
 function openScoringMixDetail() {
@@ -888,7 +1022,7 @@ function openScoringMixDetail() {
   const own = games.reduce((out,game) => add(out,effectiveTotals(game,'own')),{});
   const opp = games.reduce((out,game) => add(out,effectiveTotals(game,'opp')),{});
   modalContext = {type:'scoring-mix'};
-  openModal('Estadística','Origen de los puntos',`<p class="metric-explain">Reparte los puntos entre canastas de 2, triples y tiros libres. Son anotaciones, no porcentajes de tiro.</p><section class="detail-block"><div class="card-title"><div><h3>Temporada</h3><span>Buen Consejo y rival</span></div></div>${scoringMixCompare(own,opp)}</section><section class="detail-block"><h3>Partido a partido</h3><div class="mix-games">${games.map((game,index)=>`<button data-detail="game:${game.id}"><header><span>P${index+1} · ${esc(game.opponent)}</span><strong>${game.us}–${game.them}</strong></header>${scoringMixCompare(effectiveTotals(game,'own'),effectiveTotals(game,'opp'))}</button>`).join('')}</div></section>`);
+  openModal('Estadística','Origen de los puntos',`<p class="metric-explain">Reparte los puntos entre canastas de 2, triples y tiros libres. Son anotaciones, no porcentajes de tiro.</p><section class="detail-block"><div class="card-title"><div><h3>Temporada</h3><span>Buen Consejo y rival</span></div></div>${scoringMixCompare(own,opp)}</section><section class="detail-block"><h3>Partido a partido</h3><div class="mix-games">${games.map((game,index)=>`<button data-detail="game:${game.id}"><header><span>P${index+1} · ${esc(game.opponent)}</span><strong title="Local–visitante">${gameScore(game)}</strong></header>${scoringMixCompare(effectiveTotals(game,'own'),effectiveTotals(game,'opp'))}</button>`).join('')}</div></section>`);
 }
 
 function metricPlayerBreakdown(key, mode='total') {
@@ -913,7 +1047,7 @@ function openTeamMetricDetail(key, breakdownMode='total') {
   const ftpExtra=key==='ftp'?`<div class="attempt-summary"><b>Buen Consejo</b><span>${sum(rows,row=>effectiveTotals(row.game,'own').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'own').fta)} TL</span><b>Rival</b><span>${sum(rows,row=>effectiveTotals(row.game,'opp').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'opp').fta)} TL</span></div>`:'';
   const per40=metric.per40?(()=>{const ownMinutes=sum(rows,row=>effectiveTotals(row.game,'own').min),oppMinutes=sum(rows,row=>effectiveTotals(row.game,'opp').min);return `<div class="metric-summary per40-summary"><div><span>Faltas BC / 40 min</span><strong>${ownMinutes?num(ownTotal/ownMinutes*40):'—'}</strong></div><div><span>Faltas rival / 40 min</span><strong>${oppMinutes?num(oppTotal/oppMinutes*40):'—'}</strong></div></div>`;})():'';
   modalContext={type:'metric',key,breakdownMode};
-  openModal('Estadística',metric.label,`<p class="metric-explain">${metric.note} En el detalle, rojo es Buen Consejo y azul el rival.</p>${percentSummary}${per40}${ftpExtra}<section class="detail-block"><div class="card-title"><div><h3>Evolución por partido</h3><span>Desliza si hay muchos partidos · toca un punto para abrir el acta</span></div></div><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">Buen Consejo</span><span class="them">Rival</span></div></section><div class="best-worst"><div><span>${bestLabel}</span><b>${best?metricValue(key,best.own):'—'}</b><small>${best?esc(best.game.opponent):''}</small></div><div><span>${worstLabel}</span><b>${worst?metricValue(key,worst.own):'—'}</b><small>${worst?esc(worst.game.opponent):''}</small></div></div>${metricPlayerBreakdown(key,breakdownMode)}<section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${metricValue(key,row.own)} / ${metricValue(key,row.opp)}</strong><em>${row.game.us}–${row.game.them}</em></button>`).join('')}</div></section>`);
+  openModal('Estadística',metric.label,`<p class="metric-explain">${metric.note} En el detalle, rojo es Buen Consejo y azul el rival.</p>${percentSummary}${per40}${ftpExtra}<section class="detail-block"><div class="card-title"><div><h3>Evolución por partido</h3><span>Desliza si hay muchos partidos · toca un punto para abrir el acta</span></div></div><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">Buen Consejo</span><span class="them">Rival</span></div></section><div class="best-worst"><div><span>${bestLabel}</span><b>${best?metricValue(key,best.own):'—'}</b><small>${best?esc(best.game.opponent):''}</small></div><div><span>${worstLabel}</span><b>${worst?metricValue(key,worst.own):'—'}</b><small>${worst?esc(worst.game.opponent):''}</small></div></div>${metricPlayerBreakdown(key,breakdownMode)}<section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${metricValue(key,row.own)} / ${metricValue(key,row.opp)}</strong><em title="Local–visitante">${gameScore(row.game)}</em></button>`).join('')}</div></section>`);
 }
 
 function openPointShareDetail() {
@@ -924,9 +1058,8 @@ function openPointShareDetail() {
 }
 
 function liveEventPlayerName(event) {
-  if (event.playerName) return event.playerName;
-  const roster=state.roster.find(player=>player.id===event.playerId);
-  return roster?.name||'Equipo (sin jugadora)';
+  const rosterPlayer=rosterPlayerForEvent(event);
+  return rosterPlayer?.name||event.playerName||'Equipo (sin asignar)';
 }
 
 function openLiveMetricDetail(key) {
@@ -940,12 +1073,12 @@ function openLiveMetricDetail(key) {
   const relation=ratio(ownTotal,oppTotal), share=(ownTotal+oppTotal)?ownTotal/(ownTotal+oppTotal)*100:null, balance=ownTotal-oppTotal;
   const ratioCards=key==='ball'?[['Balance ROB−PER',signed(balance).replace(',0','')],['Ratio ROB/PER',relation===null?'—':num(relation,2)],['Acciones positivas',share===null?'—':pct(share)]]:[['Balance REB O',signed(balance).replace(',0','')],['Cuota REB O BC',share===null?'—':pct(share)],['Ratio BC/rival',relation===null?'—':num(relation,2)]];
   modalContext={type:'live-metric',key};
-  openModal('Directo',metric.label,`<p class="metric-explain">${metric.note} Los partidos sin registro manual quedan fuera de totales, medias y ratios: un dato ausente nunca se convierte en cero.</p><div class="coverage-note"><b>${rows.length} partido${rows.length===1?'':'s'} con registro</b><span>de ${validGames().length} disputados</span></div><div class="metric-summary"><div><span>Total · ${metric.ownLabel}</span><strong>${ownTotal}</strong></div><div><span>Total · ${metric.oppLabel}</span><strong>${oppTotal}</strong></div><div><span>Media · ${metric.ownLabel}</span><strong>${num(ownAvg)}</strong></div><div><span>Media · ${metric.oppLabel}</span><strong>${num(oppAvg)}</strong></div></div><div class="ratio-grid">${ratioCards.map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}</div><section class="detail-block"><h3>Evolución por partido</h3><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">${metric.ownLabel}</span><span class="them">${metric.oppLabel}</span></div></section><section class="detail-block"><h3>Por cuarto</h3><div class="quarter-breakdown">${quarters.map(row=>compareBar(`Q${row.quarter}`,row.own,row.opp,value=>num(value,0))).join('')}</div></section><section class="detail-block"><h3>${key==='orb'?'REB O BC por jugadora':'Robos y pérdidas por jugadora'}</h3>${playerRows.length?`<div class="manual-player-list">${playerRows.map(([name,value])=>`<div><span>${esc(name==='Equipo (sin jugadora)'?name:shortName(name))}</span><b>${value.own} ${metric.types[0]==='steal'?'ROB':'REB O'}</b>${key==='ball'?`<b>${value.opp} PER</b><strong>${value.own-value.opp>0?'+':''}${value.own-value.opp}</strong>`:''}</div>`).join('')}</div>`:'<div class="empty-inline">Sin asignaciones individuales.</div>'}</section><section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${row.own} / ${row.opp}</strong><em>${metric.ownLabel} / ${metric.oppLabel}</em></button>`).join('')}</div></section>`);
+  openModal('Directo',metric.label,`<p class="metric-explain">${metric.note} Los partidos sin registro manual quedan fuera de totales, medias y ratios: un dato ausente nunca se convierte en cero.</p><div class="coverage-note"><b>${rows.length} partido${rows.length===1?'':'s'} con registro</b><span>de ${validGames().length} disputados</span></div><div class="metric-summary"><div><span>Total · ${metric.ownLabel}</span><strong>${ownTotal}</strong></div><div><span>Total · ${metric.oppLabel}</span><strong>${oppTotal}</strong></div><div><span>Media · ${metric.ownLabel}</span><strong>${num(ownAvg)}</strong></div><div><span>Media · ${metric.oppLabel}</span><strong>${num(oppAvg)}</strong></div></div><div class="ratio-grid">${ratioCards.map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}</div><section class="detail-block"><h3>Evolución por partido</h3><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">${metric.ownLabel}</span><span class="them">${metric.oppLabel}</span></div></section><section class="detail-block"><h3>Por cuarto</h3><div class="quarter-breakdown">${quarters.map(row=>compareBar(`Q${row.quarter}`,row.own,row.opp,value=>num(value,0))).join('')}</div></section><section class="detail-block"><h3>${key==='orb'?'REB O BC por jugadora':'Robos y pérdidas por jugadora'}</h3>${playerRows.length?`<div class="manual-player-list">${playerRows.map(([name,value])=>`<div><span>${esc(name==='Equipo (sin asignar)'?name:shortName(name))}</span><b>${value.own} ${metric.types[0]==='steal'?'ROB':'REB O'}</b>${key==='ball'?`<b>${value.opp} PER</b><strong>${value.own-value.opp>0?'+':''}${value.own-value.opp}</strong>`:''}</div>`).join('')}</div>`:'<div class="empty-inline">Sin asignaciones individuales.</div>'}</section><section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${row.own} / ${row.opp}</strong><em>${metric.ownLabel} / ${metric.oppLabel}</em></button>`).join('')}</div></section>`);
 }
 
 function minutesHeatmap(players,games) {
   const values=players.flatMap(player=>games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min||0)), max=Math.max(40,...values);
-  return `<div class="minutes-heatmap" style="--games:${games.length}"><div class="heat-head"><span>Jugadora</span>${games.map((game,index)=>`<b title="${esc(game.opponent)}">P${index+1}</b>`).join('')}<b>Media</b><b>Cuota</b></div>${players.map(player=>{const perGame=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null), avg=player.gp?player.min/player.gp:0, share=games.length?player.min/(games.length*200)*100:0;return `<button class="heat-row" data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span>${perGame.map(value=>value===null?`<i class="heat-empty" title="No jugó">—</i>`:`<i style="--heat:${clamp(value/max)}" title="${formatMinutes(value)}">${Math.round(value)}</i>`).join('')}<b>${formatMinutes(avg)}</b><b>${num(share,0)}%</b></button>`;}).join('')}</div>`;
+  return `<div class="minutes-heatmap" style="--games:${games.length};--table-width:${145+74+60+games.length*52}px"><div class="heat-head"><span>Jugadora</span><b>Media</b><b>Cuota</b>${games.map((game,index)=>`<b title="${esc(game.opponent)}">P${index+1}</b>`).join('')}</div>${players.map(player=>{const perGame=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null), avg=player.gp?player.min/player.gp:0, share=games.length?player.min/(games.length*200)*100:0;return `<button class="heat-row" data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><b>${formatMinutes(avg)}</b><b>${num(share,0)}%</b>${perGame.map(value=>value===null?`<i class="heat-empty" title="No jugó">—</i>`:`<i style="--heat:${clamp(value/max)}" title="${formatMinutes(value)}">${Math.round(value)}</i>`).join('')}</button>`;}).join('')}</div>`;
 }
 
 function openMinutesDetail() {
@@ -1065,7 +1198,9 @@ function startLive() {
   if (!rival) return toast('Escribe el rival');
   const ids = state.liveDraft.selected;
   if (!ids.length) return toast('Selecciona al menos una jugadora');
-  state.live = {id:uid(), opponent:rival, date:state.liveDraft.date || today(), quarter:1, players:state.roster.filter(player => ids.includes(player.id)), events:[], startedAt:new Date().toISOString()};
+  const liveDate=state.liveDraft.dateManual&&state.liveDraft.date?state.liveDraft.date:today();
+  state.live = {id:uid(), opponent:rival, date:liveDate, quarter:1, players:state.roster.filter(player => ids.includes(player.id)), events:[], startedAt:new Date().toISOString()};
+  state.liveDraft.date=today();state.liveDraft.dateManual=false;
   save();
   record('live-upsert', {live:state.live});
   render();
@@ -1113,27 +1248,35 @@ function discardLive() {
 }
 
 function bestGameMatch(live) {
-  const words = new Set(norm(live.opponent).split(' '));
-  let best = null, score = 0;
-  state.games.filter(game=>game.source!=='live-pending'&&hasScore(game.us)&&hasScore(game.them)).forEach(game => {
-    const gameWords = norm(game.opponent).split(' ');
-    const next = gameWords.filter(word => words.has(word)).length / Math.max(words.size, gameWords.length) + (game.date === live.date ? .5 : 0);
-    if (next > score) { score = next; best = game; }
-  });
-  return score > .35 ? best : null;
+  const candidates=validGames().map(game=>({...pendingScore(live,game,game.date),game})).filter(item=>item.name>=.45&&item.days<=7).sort((a,b)=>b.score-a.score||a.days-b.days);
+  const first=candidates[0],second=candidates[1];
+  return first&&first.score>=.78&&(!second||first.score-second.score>=.15)?first.game:null;
 }
 
 function finishLive() {
   const live = state.live, match = bestGameMatch(live);
   if (!match) return openModal('Directo', 'Guardar pendiente', '<p>Se unirá al importar el acta.</p><button class="btn primary" data-action="keep-live-pending">Guardar</button>');
-  match.events = [...(match.events || []), ...live.events.filter(event => !event.undone)];
+  modalContext={type:'confirm-live-merge',gameId:match.id};
+  return openModal('Directo','Confirmar unión',`<p class="metric-explain">Se unirán los datos del Directo <b>${esc(live.opponent)}</b> · ${live.date} con esta acta:</p><div class="merge-target"><b>${esc(match.opponent)}</b><span>${match.date} · ${gameScore(match)} · local–visitante</span></div><div class="confirm-actions"><button class="btn" data-action="keep-live-pending">Guardar pendiente</button><button class="btn primary" data-action="confirm-live-merge" data-id="${match.id}">Unir a esta acta</button></div>`);
+}
+
+function confirmLiveMerge(gameId) {
+  const live=state.live,match=state.games.find(game=>game.id===gameId);if(!live||!match)return;
+  match.events = mergeEvents(match.events || [],live.events.filter(event => !event.undone));
   match.availability = {...(match.availability || {}), manual:true};
   record('replace-game', {game:match});
   state.live = null;
   save();
   record('live-upsert', {live:null});
   toast('Directo unido al acta');
+  closeModal();
   setView('games');
+}
+
+function mergePendingManual(pendingId,targetId) {
+  const pending=state.games.find(game=>game.id===pendingId&&game.source==='live-pending'),target=state.games.find(game=>game.id===targetId&&game.source!=='live-pending');
+  if(!pending||!target)return toast('No se encuentra el Directo o el acta');
+  mergePendingIntoGame(pending,target);queueMerge(pending,target);save();scheduleSync();closeModal();toast('Directo unido sin duplicar eventos');setView('games');
 }
 
 function keepLivePending() {
@@ -1150,7 +1293,7 @@ function openSettings(){openModal('Aplicación','Ajustes',`<label class="field">
 function saveSettings(){state.settings.api=$('#apiUrl').value.trim().replace(/\/$/,'');state.settings.token=$('#apiToken').value.trim();state.settings.role=$('#apiRole').value;save();closeModal();syncNow();render();}
 async function createInvite(role){try{const response=await fetch(`${state.settings.api}/api/invites`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.settings.token}`},body:JSON.stringify({role,label:$('#inviteLabel')?.value||''})}),json=await response.json();if(!response.ok)throw Error(json.error||'No se pudo crear');const link=`${location.origin}${location.pathname}?api=${encodeURIComponent(state.settings.api)}&token=${encodeURIComponent(json.token)}&role=${role}`;$('#inviteResult').innerHTML=`<label class="field">Enlace<textarea id="inviteLink" rows="3" readonly>${esc(link)}</textarea></label><button class="btn" data-action="copy-invite">Copiar</button>`;}catch(error){toast(error.message);}}
 function scheduleSync(){clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,700);}
-function applyRemote(row){const event=row.event||row;if(state.ops.some(x=>x.id===event.id))return false;const p=event.payload||{};if(event.type==='set-roster')state.roster=mergeRoster(state.roster,p.roster||[]);if(event.type==='replace-game'){const i=state.games.findIndex(g=>g.id===p.game.id);i<0?state.games.push(sanitise({...blank(),games:[p.game]}).games[0]):state.games[i]=sanitise({...blank(),games:[p.game]}).games[0];}if(event.type==='live-upsert')state.live=p.live;if(event.type==='live-event'&&state.live?.id===p.liveId&&!state.live.events.some(e=>e.id===p.event.id))state.live.events.push(p.event);if(event.type==='live-undo'&&state.live?.id===p.liveId){const e=state.live.events.find(e=>e.id===p.eventId);if(e)e.undone=true;}if(event.type==='shot-set'){const g=state.games.find(g=>g.id===p.gameId);if(g){g.shotsFor=p.shotsFor||[];g.shotsAgainst=p.shotsAgainst||[];}}return true;}
+function applyRemote(row){const event=row.event||row;if(state.ops.some(x=>x.id===event.id))return false;const p=event.payload||{};if(event.type==='set-roster')state.roster=mergeRoster(state.roster,p.roster||[]);if(event.type==='replace-game'){const i=state.games.findIndex(g=>g.id===p.game.id);i<0?state.games.push(sanitise({...blank(),games:[p.game]}).games[0]):state.games[i]=sanitise({...blank(),games:[p.game]}).games[0];}if(event.type==='merge-game'&&p.game){const merged=sanitise({...blank(),games:[p.game]}).games[0],i=state.games.findIndex(g=>g.id===(p.targetId||merged.id));i<0?state.games.push(merged):state.games[i]=merged;state.games=state.games.filter(game=>game.id!==p.sourceId);}if(event.type==='live-upsert')state.live=p.live;if(event.type==='live-event'&&state.live?.id===p.liveId&&!state.live.events.some(e=>e.id===p.event.id))state.live.events.push(p.event);if(event.type==='live-undo'&&state.live?.id===p.liveId){const e=state.live.events.find(e=>e.id===p.eventId);if(e)e.undone=true;}if(event.type==='shot-set'){const g=state.games.find(g=>g.id===p.gameId);if(g){g.shotsFor=p.shotsFor||[];g.shotsAgainst=p.shotsAgainst||[];}}return true;}
 async function syncNow(){
   if(syncing||!state.settings.api||!state.settings.token)return;
   syncing=true;paintSync(true);
@@ -1185,7 +1328,7 @@ function exportJSON(){const a=document.createElement('a');a.href=URL.createObjec
 function install(){if(installPrompt){installPrompt.prompt();installPrompt=null;}else openModal('Instalar','Instalar aplicación','<p>En Chrome abre el menú y pulsa «Instalar aplicación».</p>');}
 function applyTheme(theme){theme=theme==='dark'?'dark':'light';document.documentElement.dataset.theme=theme;const color=theme==='dark'?'#0b0f16':'#f3f5f8',meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=color;document.documentElement.style.backgroundColor=color;document.body.style.backgroundColor=color;}
 
-function updateDraftFromInput(target){if(target.id==='rival')state.liveDraft.rival=target.value;if(target.id==='liveDate')state.liveDraft.date=target.value;if(target.matches('.roster-card input')){const set=new Set(state.liveDraft.selected);target.checked?set.add(target.value):set.delete(target.value);state.liveDraft.selected=[...set];const card=target.closest('.roster-card');card.classList.toggle('selected',target.checked);card.querySelector('.check').textContent=target.checked?'✓':'';$('#selectedCount').textContent=`${set.size} convocadas`;}save();}
+function updateDraftFromInput(target){if(target.id==='rival')state.liveDraft.rival=target.value;if(target.id==='liveDate'){state.liveDraft.date=target.value;state.liveDraft.dateManual=true;}if(target.matches('.roster-card input')){const set=new Set(state.liveDraft.selected);target.checked?set.add(target.value):set.delete(target.value);state.liveDraft.selected=[...set];const card=target.closest('.roster-card');card.classList.toggle('selected',target.checked);card.querySelector('.check').textContent=target.checked?'✓':'';$('#selectedCount').textContent=`${set.size} convocadas`;}save();}
 
 document.addEventListener('input',e=>{if(view==='live'&&!state.live&&(e.target.id==='rival'||e.target.id==='liveDate'))updateDraftFromInput(e.target);});
 document.addEventListener('change',e=>{if(view==='live'&&!state.live&&(e.target.id==='liveDate'||e.target.matches('.roster-card input')))updateDraftFromInput(e.target);if(e.target.matches('#heatOpponent,#heatHome'))renderHeatFiltered();if(e.target.id==='playerMetric'&&modalContext?.type==='player')openPlayerDetail(modalContext.key,e.target.value);if(e.target.id==='minutesScope'){minutesScope=e.target.value;render();}});
@@ -1193,13 +1336,13 @@ document.addEventListener('click',async e=>{
   const go=e.target.closest('[data-go]');if(go)return setView(go.dataset.go);
   const d=e.target.closest('[data-detail]');if(d)return detail(d.dataset.detail);
   const a=e.target.closest('[data-action]');if(!a)return;const act=a.dataset.action;
-  const write=new Set(['import-games','import-roster','confirm-import','start-live','quarter','add-live','pick-live-player','undo-live','discard-live','confirm-discard-live','finish-live','keep-live-pending','open-shot','shot-for-game','shot-kind','swap-shot-teams','delete-selected-shot','clear-shots','apply-shot-json','save-shots']);
+  const write=new Set(['import-games','import-roster','confirm-import','start-live','quarter','add-live','pick-live-player','undo-live','discard-live','confirm-discard-live','finish-live','confirm-live-merge','keep-live-pending','merge-pending-manual','open-shot','shot-for-game','shot-kind','swap-shot-teams','delete-selected-shot','clear-shots','apply-shot-json','save-shots']);
   if(state.settings.role==='viewer'&&write.has(act))return toast('Enlace de solo lectura');
   if(act==='close-modal')return closeModal();if(act==='toggle-theme'){const th=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(th);localStorage.setItem('estadisticas_theme',th);render();return;}if(act==='install')return install();if(act==='open-settings'||act==='open-sync')return openSettings();if(act==='save-settings')return saveSettings();if(act==='export-json')return exportJSON();if(act==='create-invite')return createInvite(a.dataset.role);if(act==='copy-invite')return copyText($('#inviteLink').value);
   if(act==='stats-mode'){statsMode=['average','total','compare'].includes(a.dataset.mode)?a.dataset.mode:'average';return render();}
   if(act==='metric-breakdown'&&modalContext?.type==='metric')return openTeamMetricDetail(modalContext.key,a.dataset.mode==='average'?'average':'total');
-  if(act==='import-games'||act==='import-roster'){fileMode=act==='import-roster'?'roster':'games';$('#fileInput').value='';return $('#fileInput').click();}if(act==='confirm-import')return commitImport();
-  if(act==='start-live')return startLive();if(act==='quarter'){state.live.quarter=+a.dataset.q;record('live-upsert',{live:state.live});return render();}if(act==='add-live')return addLive(a.dataset.type);if(act==='pick-live-player')return commitLiveEvent(a.dataset.type,a.dataset.id||null);if(act==='undo-live')return undoLive();if(act==='discard-live')return requestDiscardLive();if(act==='confirm-discard-live')return discardLive();if(act==='finish-live')return finishLive();if(act==='keep-live-pending')return keepLivePending();
+  if(act==='import-games'||act==='import-roster'){fileMode=act==='import-roster'?'roster':'games';importPendingId=act==='import-games'?(a.dataset.pendingId||''):'';$('#fileInput').value='';return $('#fileInput').click();}if(act==='confirm-import')return commitImport();
+  if(act==='start-live')return startLive();if(act==='quarter'){state.live.quarter=+a.dataset.q;record('live-upsert',{live:state.live});return render();}if(act==='add-live')return addLive(a.dataset.type);if(act==='pick-live-player')return commitLiveEvent(a.dataset.type,a.dataset.id||null);if(act==='undo-live')return undoLive();if(act==='discard-live')return requestDiscardLive();if(act==='confirm-discard-live')return discardLive();if(act==='finish-live')return finishLive();if(act==='confirm-live-merge')return confirmLiveMerge(a.dataset.id);if(act==='keep-live-pending')return keepLivePending();if(act==='merge-pending-manual')return mergePendingManual(a.dataset.id,$('#pendingTarget')?.value);
   if(act==='sort-players'){const key=a.dataset.key;if(playerSort===key)playerSortDir*=-1;else{playerSort=key;playerSortDir=-1;}return render();}
   if(act==='trend-game')return openGameDetail(a.dataset.id);if(act==='game-team'){modalContext.side=a.dataset.side;return renderGameDetail();}if(act==='sort-box'){const k=a.dataset.key;if(modalContext.sort===k)modalContext.dir*=-1;else{modalContext.sort=k;modalContext.dir=k==='number'?1:-1;}return renderGameDetail();}if(act==='game-map'){modalContext.map=a.dataset.mode;return renderGameDetail();}
   if(act==='heat-mode')return openHeatAnalysis(`heat-${a.dataset.mode==='both'?'compare':a.dataset.mode}`);
@@ -1214,5 +1357,5 @@ document.addEventListener('keydown',e=>{const modal=$('#modal');if(e.key==='Esca
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn);
 const query=new URLSearchParams(location.search);if(query.get('api')&&query.get('token')){state.settings.api=query.get('api');state.settings.token=query.get('token');state.settings.role=query.get('role')||'viewer';save();history.replaceState({},'',location.pathname);}
-paintSync();render();if(state.settings.api){syncNow();setInterval(syncNow,5000);}
-window.__ESTADISTICAS__={getState:()=>state,setState:s=>{state=sanitise(s);save();render();},foldShots,splitLegacyShots,parseGame,validateTotals,effectiveTotals,teamStats,playerAgg,teamMetricRows,aggregateMetric,playerMetricRows,playerSeasonReference,liveMetricRows,validGames,hasManualData,currentStreak,syncNow,PLAYER_METRICS,TEAM_METRICS,LIVE_METRICS,APP_VERSION,STORE};
+repairPendingGames();paintSync();render();if(state.settings.api){syncNow();setInterval(syncNow,5000);}
+window.__ESTADISTICAS__={getState:()=>state,setState:s=>{state=sanitise(s);repairPendingGames();save();render();},foldShots,splitLegacyShots,parseGame,validateTotals,effectiveTotals,teamStats,playerAgg,teamMetricRows,aggregateMetric,playerMetricRows,playerSeasonReference,liveMetricRows,validGames,hasManualData,currentStreak,syncNow,repairPendingGames,automaticPendingMatch,mergePendingManual,gameScore,PLAYER_METRICS,TEAM_METRICS,LIVE_METRICS,APP_VERSION,STORE};

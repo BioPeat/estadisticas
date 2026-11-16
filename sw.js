@@ -1,4 +1,4 @@
-const CACHE='estadisticas-v9-20261112-manual-visible';
+const CACHE='estadisticas-v10-20261116-audit2';
 const ASSETS=['./','./index.html','./styles.css','./app.js','./manifest.json','./configurar.html','./actualizar.html','./assets/jszip.min.js','./assets/icon-192.png','./assets/icon-512.png','./assets/icon-maskable-512.png'];
 
 self.addEventListener('install',event=>event.waitUntil(
