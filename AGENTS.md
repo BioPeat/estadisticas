@@ -1,17 +1,11 @@
-# Reglas de mantenimiento · Estadísticas v10
+# Reglas de mantenimiento · v11
 
-## Invariantes
-
-- No cambiar ni borrar `estadisticas_shared_v2`; las migraciones son aditivas.
-- Conservar en cada móvil `settings.api`, `settings.token` y `settings.role`; nunca copiarlos a documentación, capturas, logs o fixtures.
-- No modificar `worker.js`, no cambiar Worker w2 y no añadir pasos de Cloudflare a esta versión.
-- Conservar el logo SVG `data-logo="aro-vector"` y la carpeta `assets/` existente en GitHub.
-- Los marcadores visibles son local–visitante; `us/them` sigue siendo Buen Consejo/rival para los cálculos.
-- Los eventos se deduplican por ID. La unión `merge-game` debe ser idempotente.
-- Un evento con `playerId/playerName` nulos nunca se atribuye a una jugadora: va a `Equipo / sin asignar`.
-- La asignación individual parte de `playerId` de plantilla y se resuelve contra el acta por nombre normalizado o dorsal único.
-- Una actualización de recursos requiere cambiar el nombre de caché de `sw.js`.
-
-## Antes de entregar
-
-Ejecutar validación estática, smoke con Excel y copia real cuando estén disponibles, matriz 360/390/412 claro/oscuro con 4/25 partidos, capturas y revisión del PDF. Nunca incluir `assets/` ni la copia privada en el ZIP.
+- No modificar el SVG `data-logo="aro-vector"` ni entregar `assets/`.
+- Mantener `STORE = 'estadisticas_shared_v2'`: es la fuente de migración de Buen Consejo.
+- Mantener `MULTI_STORE = 'estadisticas_multiteam_v11'` y el aislamiento por espacio.
+- Mantener las rutas w2 del Worker (`/api/events`, `/api/invites`, `/api/setup`) y sus tablas.
+- No incluir URL real, tokens, copias privadas, Excel, capturas con credenciales ni datos inventados.
+- Conservar `team.gender` y `team.color`; Buen Consejo se migra como `female` + `red`. La paleta por defecto es azul/naranja y los textos usan `genderTerms()`.
+- Directo ausente es `null`/hueco, no cero. ROB/PER es un cociente; Balance ROB−PER lleva el signo.
+- Todo gráfico de temporada larga debe desplazarse, no comprimirse indefinidamente.
+- Antes de publicar: `node --check`, `tools/validate.py`, `tests/smoke.py`, claro/oscuro y tres tamaños móviles.

@@ -1,16 +1,17 @@
-# Mapa del código · v10
+# Mapa del código · v11
 
-- `app.js`
-  - Estado/migración: `blank`, `sanitise`, `repairPendingGames`.
-  - Unión: `mergeEvents`, `mergePendingIntoGame`, `mergePendingManual`, `merge-game`.
-  - Identidad Directo→acta: `rosterPlayerForEvent`, `resolveEventPlayer`, `eventCounts`, `unassignedEventCounts`.
-  - Marcador: `gameScore`, `gameSides`, `scoreChart` (ventana de 8).
-  - Minutos: `minutesHeatmap`, `openMinutesDetail`.
-  - Equipo/Comparar: `TEAM_METRICS`, `liveMetricCard`, `balanceVisual`.
-- `styles.css`: temas, responsive, rejilla única de Minutos, fila de equipo y ventana del marcador.
-- `actualizar.html`: carpeta/ZIP → contexto actual → JSON multiarchivo → ZIP.
-- `sw.js`: caché `estadisticas-v10-20261116-audit2`.
-- `worker.js`: original recibido, sin cambios.
-- `tests/smoke.py`: pruebas funcionales, Excel y copia real opcionales, responsive y actualizador.
-- `tests/fixtures/dehesa_directo_sanitizado.json`: datos reales necesarios sin configuración ni credenciales.
-- `tools/capture.py`: 24 capturas finales.
+- `index.html`: estructura, navegación y selector de equipo.
+- `app.js`: estado local, migración, multiequipo, importador Excel, cálculos, vistas, Directo y sincronización.
+  - `loadWorkspaceBook` / `switchWorkspace`: aislamiento local.
+  - `detectGender` / `genderTerms` / `applyTeamIdentity`: categoría, lenguaje y color por equipo.
+  - `scoreChart` / `openScoreChartDetail`: marcador desplazable y ampliado.
+  - `playerShareData` / `robPerDisplay`: cuotas y ratio.
+  - `TEAM_METRICS` / `LIVE_METRICS`: métricas integradas.
+  - `syncNow`: rutas legacy o v3 según el equipo.
+- `styles.css`: temas, móvil, gráficos, modales y multiequipo.
+- `worker.js`: Worker w3 y compatibilidad w2.
+- `config.js`: URL pública opcional del servicio; nunca tokens.
+- `configurar.html`: genera `config.js` sin editar código.
+- `actualizar.html`: contexto actual + parche multiarchivo + ZIP.
+- `tests/smoke.py`: regresión funcional.
+- `tools/validate.py`: validación y detector de secretos.

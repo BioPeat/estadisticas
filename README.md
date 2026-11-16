@@ -1,35 +1,32 @@
-# Estadísticas · Buen Consejo v10
+# Estadísticas v11 · multiequipo
 
-PWA local-first para la temporada 26/27. Importa actas FBM, registra en Directo robos, pérdidas y rebote ofensivo, conserva mapas de tiro y mantiene la sincronización existente.
+PWA local-first para importar actas FBM en Excel, registrar robos/pérdidas/rebotes ofensivos en Directo, analizar equipo y jugadoras, editar mapas de tiro y sincronizar mediante Cloudflare Worker + D1.
 
-## Publicación
+## Qué cambia en v11
 
-Copia el contenido de `1_CODIGO_GITHUB` en la raíz de GitHub Pages. **No borres `assets/`**: la entrega no incluye esa carpeta ni modifica el logo. La clave local sigue siendo `estadisticas_shared_v2`; al actualizar se conservan `api`, `token` y `role` tal como ya están guardados en cada móvil. `worker.js` es exactamente el original recibido y no requiere ninguna acción.
+- Cuotas de puntos y minutos de jugadora con selector **Por partido / Temporada**; la vista inicial es por partido.
+- ROB/PER se presenta como cociente no negativo y el resultado con signo aparece como **Balance ROB−PER**. Si PER=0 se muestra `∞` o `—`, nunca se divide entre cero.
+- Las métricas de Directo se integran con las demás y solo aparecen cuando existen datos.
+- Todas las tarjetas de equipo muestran evolución por partido con la misma gramática visual; los partidos sin Directo no se convierten en ceros.
+- Marcador completo, desplazable y ampliable; muestra todos los partidos y etiquetas de diferencia legibles.
+- Varios equipos aislados en un mismo dispositivo. Cada equipo tiene sus propios datos, rol y conexión.
+- Detección femenino/masculino desde la categoría FBM; selección manual obligatoria si no hay contexto y textos adaptados por equipo.
+- Paleta propia/rival accesible azul-naranja por defecto, color propio configurable; Buen Consejo conserva rojo-azul.
+- Worker w3 con espacios privados por equipo, enlaces de editor/lector y revocación; conserva las tablas y rutas w2.
 
-La caché es `estadisticas-v10-20261116-audit2`.
+## Publicar
 
-## Correcciones verificadas
-
-- La copia real del 16/11 y el Excel real de La Dehesa se migran y unen en un solo partido, de forma idempotente.
-- Los eventos se asignan desde `playerId` de la plantilla a la fila del acta por identidad normalizada y dorsal único. `playerName` es respaldo, no una reasignación inventada.
-- Los nulos aparecen solo en `Equipo / sin asignar`: 3 robos, 1 pérdida, 1 REB O de BC y 7 REB O rival.
-- La suma individual + equipo cuadra con 21 robos, 13 pérdidas, 12 REB O BC y 7 REB O rival.
-- Minutos usa una única rejilla: Jugadora, Media, Cuota, P1…Pn; cabecera y filas tienen exactamente los mismos anchos.
-- Marcador muestra los últimos 8 partidos cuando hay temporadas largas, ocupando todo el ancho y señalando la ventana, sin media tarjeta vacía.
-- Se conserva el orden local–visitante, la serie Diferencia, Comparar completo y la ausencia de la tarjeta Victorias.
-
-## Actualizaciones con Gemini o Claude
-
-Gemini y Claude **no conocen automáticamente el GitHub actual**. `actualizar.html` genera `CONTEXTO_ACTUAL_ESTADISTICAS.md` desde la carpeta o ZIP vigente; ese es el único archivo de código que se adjunta en cada petición. Las instrucciones del Gem/Proyecto se configuran una vez. Ya no hay que sustituir manualmente `PROYECTO_ESTADISTICAS.md` en el conocimiento.
+1. Conserva una copia desde **Ajustes → Exportar este equipo**.
+2. Sube el contenido de esta carpeta a la raíz de GitHub.
+3. **No borres ni sustituyas `assets/`**: no está incluida.
+4. Si vas a permitir equipos nuevos, despliega `worker.js` siguiendo `5_CLOUDFLARE` y genera `config.js` con `configurar.html`.
+5. Pulsa **Commit changes**, espera a GitHub Pages, cierra la PWA y vuelve a abrirla.
 
 ## Pruebas
 
 ```bash
-python tools/validate.py . --excel-dir /ruta/al/excel
-ESTADISTICAS_REAL_XLSX=/ruta/estadisticaPartido_15112026.xlsx \
-ESTADISTICAS_REAL_BACKUP=/ruta/estadisticas-2026-11-16.json \
-python tests/smoke.py
-python tools/capture.py
+python tools/validate.py . --excel-dir /ruta/a/excel --private-backup /ruta/a/copia.json
+ESTADISTICAS_REAL_BACKUP=/ruta/a/copia.json ESTADISTICAS_EXCEL_DIR=/ruta/a/excel python tests/smoke.py
 ```
 
-La copia real no forma parte del repositorio ni del ZIP entregado. El fixture incluido está sanitizado y no contiene configuración de sincronización.
+Las credenciales de la copia real solo se usan para comparar en memoria. No deben entrar en el repositorio, fixtures, capturas o logs.

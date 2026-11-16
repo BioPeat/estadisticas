@@ -1,7 +1,7 @@
 {
-  "name": "Estadísticas · Buen Consejo",
+  "name": "Estadísticas · Multiequipo",
   "short_name": "Estadísticas",
-  "description": "Estadísticas v10 de Buen Consejo · Temporada 26/27",
+  "description": "Estadísticas v11 · equipos privados y estadísticas de baloncesto",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -1,5 +1,5 @@
-const CACHE='estadisticas-v10-20261116-audit2';
-const ASSETS=['./','./index.html','./styles.css','./app.js','./manifest.json','./configurar.html','./actualizar.html','./assets/jszip.min.js','./assets/icon-192.png','./assets/icon-512.png','./assets/icon-maskable-512.png'];
+const CACHE='estadisticas-v11-20261116-final2';
+const ASSETS=['./','./index.html','./styles.css','./app.js','./config.js','./manifest.json','./configurar.html','./actualizar.html','./assets/jszip.min.js','./assets/icon-192.png','./assets/icon-512.png','./assets/icon-maskable-512.png'];
 
 self.addEventListener('install',event=>event.waitUntil(
   caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())

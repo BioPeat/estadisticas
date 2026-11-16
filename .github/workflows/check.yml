@@ -1,4 +1,4 @@
-name: check-v10
+name: check-v11
 on: [push, pull_request]
 jobs:
   test:
@@ -12,5 +12,5 @@ jobs:
       - run: pip install playwright pillow
       - run: playwright install --with-deps chromium
       - run: python -m py_compile tools/*.py tests/smoke.py
-      - run: python tools/validate.py .
+      - run: python tools/validate.py . --allow-assets
       - run: python tests/smoke.py

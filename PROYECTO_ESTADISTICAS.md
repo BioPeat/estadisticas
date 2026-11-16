@@ -1,9 +1,9 @@
-# PROYECTO ESTADÍSTICAS · CONTEXTO MAESTRO v10
+# PROYECTO ESTADÍSTICAS · CONTEXTO MAESTRO v11
 
-Generado desde la versión auditada. En futuras actualizaciones no debe usarse por memoria: actualizar.html genera CONTEXTO_ACTUAL_ESTADISTICAS.md desde el código vigente. Conserva estadisticas_shared_v2, la configuración local, Worker original, Aro vector y assets.
+Generado desde la entrega v11 final. Conserva estadisticas_shared_v2, multiequipo, género/color por equipo, compatibilidad Worker w2, logo Aro vector y assets. No contiene credenciales ni datos privados.
 
 ===== BEGIN FILE: .github/workflows/check.yml =====
-name: check-v10
+name: check-v11
 on: [push, pull_request]
 jobs:
   test:
@@ -17,291 +17,203 @@ jobs:
       - run: pip install playwright pillow
       - run: playwright install --with-deps chromium
       - run: python -m py_compile tools/*.py tests/smoke.py
-      - run: python tools/validate.py .
+      - run: python tools/validate.py . --allow-assets
       - run: python tests/smoke.py
 
 ===== END FILE: .github/workflows/check.yml =====
 
 ===== BEGIN FILE: .gitignore =====
-.DS_Store
+captures/
+Guia*.pdf
+GUIA*.pdf
 __pycache__/
 *.pyc
-captures/
-GUIA_*.pdf
 
 ===== END FILE: .gitignore =====
 
 ===== BEGIN FILE: AGENTS.md =====
-# Reglas de mantenimiento · Estadísticas v10
+# Reglas de mantenimiento · v11
 
-## Invariantes
-
-- No cambiar ni borrar `estadisticas_shared_v2`; las migraciones son aditivas.
-- Conservar en cada móvil `settings.api`, `settings.token` y `settings.role`; nunca copiarlos a documentación, capturas, logs o fixtures.
-- No modificar `worker.js`, no cambiar Worker w2 y no añadir pasos de Cloudflare a esta versión.
-- Conservar el logo SVG `data-logo="aro-vector"` y la carpeta `assets/` existente en GitHub.
-- Los marcadores visibles son local–visitante; `us/them` sigue siendo Buen Consejo/rival para los cálculos.
-- Los eventos se deduplican por ID. La unión `merge-game` debe ser idempotente.
-- Un evento con `playerId/playerName` nulos nunca se atribuye a una jugadora: va a `Equipo / sin asignar`.
-- La asignación individual parte de `playerId` de plantilla y se resuelve contra el acta por nombre normalizado o dorsal único.
-- Una actualización de recursos requiere cambiar el nombre de caché de `sw.js`.
-
-## Antes de entregar
-
-Ejecutar validación estática, smoke con Excel y copia real cuando estén disponibles, matriz 360/390/412 claro/oscuro con 4/25 partidos, capturas y revisión del PDF. Nunca incluir `assets/` ni la copia privada en el ZIP.
+- No modificar el SVG `data-logo="aro-vector"` ni entregar `assets/`.
+- Mantener `STORE = 'estadisticas_shared_v2'`: es la fuente de migración de Buen Consejo.
+- Mantener `MULTI_STORE = 'estadisticas_multiteam_v11'` y el aislamiento por espacio.
+- Mantener las rutas w2 del Worker (`/api/events`, `/api/invites`, `/api/setup`) y sus tablas.
+- No incluir URL real, tokens, copias privadas, Excel, capturas con credenciales ni datos inventados.
+- Conservar `team.gender` y `team.color`; Buen Consejo se migra como `female` + `red`. La paleta por defecto es azul/naranja y los textos usan `genderTerms()`.
+- Directo ausente es `null`/hueco, no cero. ROB/PER es un cociente; Balance ROB−PER lleva el signo.
+- Todo gráfico de temporada larga debe desplazarse, no comprimirse indefinidamente.
+- Antes de publicar: `node --check`, `tools/validate.py`, `tests/smoke.py`, claro/oscuro y tres tamaños móviles.
 
 ===== END FILE: AGENTS.md =====
 
-===== BEGIN FILE: AUDITORIA_v10.md =====
-# Auditoría final · Estadísticas v10
+===== BEGIN FILE: AUDITORIA_v11.md =====
+# Auditoría v11 · crítica iterativa
 
-## Método
+## Ronda 1 · comprensión sin contexto
 
-Se volvió a leer todo el código, no solo los tres fallos visuales. Cada ronda terminó en crítica, corrección y repetición de pruebas. La copia real `estadisticas-2026-11-16.json` se usó solo como entrada privada de migración; el Excel real se usó para la importación. Ninguna credencial se incorporó a fixtures, capturas, documentación o ZIP.
+**Críticas:** las cuotas no decían su denominador; Directo parecía otra aplicación; ROB/PER se confundía con el balance; el marcador ocultaba temporadas largas y sus diferencias eran ilegibles.
 
-## Ronda 1 · hallazgos duros
+**Mejoras aplicadas:** selector Por partido/Temporada, etiquetas completas, Directo integrado y condicional, explicación de ratio frente a balance, PER=0 seguro, 15–16 px en diferencias, todos los partidos y ampliación táctil.
 
-1. **La captura anterior era falsa como evidencia individual.** `capture.py` y `smoke.py` fabricaban 53 eventos y atribuían 46 a Sara. La aplicación además comparaba `playerId` del evento con el ID de la fila del acta, aunque pertenecen a espacios de identidad distintos.
-2. **La tabla de minutos compartía texto pero no geometría.** Cabecera y filas podían calcular anchuras distintas por `minmax/fr` y por tener anchos intrínsecos diferentes.
-3. **Marcador largo técnicamente desplazable, visualmente inútil.** La combinación de un SVG muy ancho y el estado del desplazamiento dejaba media tarjeta vacía y enseñaba solo pocos puntos a la derecha.
-4. **El actualizador ocultaba mantenimiento manual.** Decía tres pasos, pero exigía reemplazar después el contexto del Gem/Proyecto. Gemini o Claude no tienen por este flujo acceso automático a GitHub.
+## Ronda 2 · coherencia visual e interacción
 
-## Correcciones
+**Críticas:** cada tarjeta usaba un mini gráfico distinto, varias barras no contaban una historia temporal y comparar no permitía ver la evolución.
 
-- `resolveEventPlayer` resuelve `playerId` contra la plantilla y después busca una única fila de acta por nombre normalizado o dorsal. `playerName` queda como respaldo. Los nulos no pasan por ningún fallback.
-- El acta añade una fila visible `Equipo / sin asignar`. Resultado real: Sara 10/1/1; Lucía 2/2/2; Julia 2/2/0; Teresa 1/0/2; Alba 1/0/0; Lara 1/1/0; Gloria 1/0/2; Beatriz 0/3/0; Eider 0/2/3; Claudia 0/1/1; equipo 3/1/1/7. Los totales son 21/13/12/7.
-- Minutos calcula un único `--table-width` y usa la misma plantilla de columnas en cabecera y filas.
-- Marcador muestra todos los partidos hasta 8; con más, muestra los últimos 8 a ancho completo y la etiqueta “Últimos 8 de N”.
-- `actualizar.html` acepta carpeta o ZIP, genera un único contexto actual, aplica JSON multiarchivo y genera el ZIP. La IA recibe el código actual como adjunto en cada petición; no se simula lectura de GitHub.
+**Mejoras aplicadas:** evolución BC/rival común en todas las tarjetas, puntos separados cuando coinciden, huecos para ausencia, detalle desplazable y acceso al acta desde los puntos.
 
-## Ronda 2 · crítica posterior
+## Ronda 3 · privacidad y multiequipo
 
-- Se detectó que un acta de prueba incompleta convertía eventos de Eider y Beatriz en “equipo”. Se sustituyó por el acta real sanitizada y se añadió una aserción por cada jugadora.
-- La fila de equipo decía solo “Equipo” por el formateador de nombre. Se cambió a `Equipo / sin asignar` visible.
-- Las capturas de Minutos probaban el inicio de la tabla, pero no demostraban P1. Se añadió desplazamiento real y matriz completa de tamaños/temas.
-- Se confirmó por hash que `worker.js` es idéntico al recibido. La migración conserva `api`, `token` y `role`; no hay acciones sobre Worker ni credenciales.
+**Críticas:** el estado único podía mezclar equipos; las rutas w2 no separaban datos; los tokens de invitación en query podían llegar al servidor de la web; faltaba revocar enlaces.
 
-## Cobertura final
+**Mejoras aplicadas:** libro local de espacios, conexión/cola/secuencia por equipo, D1 con `team_id`, enlaces nuevos en fragmento `#`, limpieza inmediata de la barra, roles y revocación. Las rutas y tablas w2 permanecen para Buen Consejo.
 
-- Sintaxis JS/Python y estructura PWA.
-- Importación del Excel real; marcador 66–69 y condición fuera.
-- Migración de la copia real; pendiente eliminado, 53 eventos conservados y configuración local intacta.
-- Unión automática/manual, deduplicación e idempotencia de `merge-game`.
-- Acta, Equipo y Jugadoras con el reparto exacto y nulos separados.
-- 360×640, 390×844, 412×915; claro/oscuro; 4 y 25 partidos; scroll horizontal.
-- Marcador, Diferencia, tablas, Comparar, ausencia de Victorias, temas, mapas, localStorage y caché.
-- Actualizador con contexto generado y petición multiarchivo realista.
+## Ronda 4 · operación real
 
-## Invariantes confirmados
+**Críticas:** una persona sin conocimientos podía confundir instrucciones estables, conocimiento del Gem y código de cada actualización; activar el servicio público obligaba a editar JavaScript.
 
-Se conserva la clave `estadisticas_shared_v2`; `worker.js` permanece idéntico al original y la configuración local de sincronización no se reescribe.
+**Mejoras aplicadas:** `configurar.html` genera `config.js`; `actualizar.html` produce un único contexto actual y aplica varios archivos; pruebas automáticas ejecutan una petición multiarchivo real.
 
-## Límites conscientes
+## Ronda 5 · universalidad real
 
-Los 25 partidos son un fixture visual explícito porque la copia real solo contiene la temporada disponible. No se presentan como resultados reales. Las credenciales y la copia privada quedan fuera de la entrega.
+**Críticas:** «Jugadoras» y rojo/azul seguían haciendo que un equipo masculino o neutro pareciera una copia de Buen Consejo.
 
-===== END FILE: AUDITORIA_v10.md =====
+**Mejoras aplicadas:** género por equipo, detección de categoría FBM, elección manual cuando no hay certeza, textos adaptativos y paleta azul/naranja accesible por defecto. El color propio es configurable y se sincroniza; Buen Consejo conserva femenino y rojo/azul. Se probaron femenino, masculino y sin detección.
+
+## Límites honestos antes de una integración oficial
+
+La PWA v11 funciona como producto autogestionado, pero no debe presentarse aún como servicio oficial de federación. Antes hacen falta: responsable de hosting, política de privacidad y conservación, borrado de equipos en nube, recuperación segura del propietario, límites/antiabuso para creación pública, revisión de seguridad externa, accesibilidad formal y acuerdo técnico con Afición FBM. No se ha supuesto que exista una API o mecanismo de instalación dentro de esa app.
+
+===== END FILE: AUDITORIA_v11.md =====
 
 ===== BEGIN FILE: CHANGELOG.md =====
-# Historial
+# CHANGELOG
 
-## v10 · auditoría final 2026-11-16
+## v11 · 2026-11-16
 
-- Corrige el reparto real del Directo de La Dehesa usando el `playerId` de plantilla y separa `Equipo / sin asignar`.
-- Verifica exactamente: 21 ROB, 13 PER, 12 REB O BC y 7 REB O rival, sin duplicados.
-- Añade fixture sanitizado derivado de la copia real y pruebas de migración con la copia privada fuera del artefacto.
-- Rehace la rejilla de Minutos con anchos compartidos y orden Jugadora, Media, Cuota, P1…Pn.
-- Sustituye el marcador largo por una ventana útil de los últimos 8 partidos, a ancho completo.
-- Rehace `actualizar.html`: contexto actual explícito por petición; sin afirmar acceso automático a GitHub y sin sustituir conocimiento manualmente.
-- Amplía pruebas a 360×640, 390×844 y 412×915, claro/oscuro, 4/25 partidos, Excel real, migración real, unión, sincronización, temas y actualizador multiarchivo.
-- Sube la caché a `estadisticas-v10-20261116-audit2`.
-- `worker.js`, logo, assets y configuración de sincronización local no cambian.
+### Gráficos y cálculos
+- Cuotas de jugadora por partido/temporada, con etiqueta inequívoca.
+- ROB/PER protegido frente a PER=0 y balance negativo visible y explicado.
+- Directo integrado en las tarjetas normales; ausencia de registro excluida del denominador.
+- Evolución uniforme en todas las estadísticas de equipo.
+- Marcador con todos los partidos, desplazamiento horizontal, diferencias más grandes y detalle ampliado.
 
-## v10 inicial
+### Equipos universales
+- Género por equipo: femenino, masculino o mixto/neutro. Detección de `Fem/Femenino` y `Masc/Masculino` al importar.
+- Terminología adaptativa: Jugadora/Jugador, Jugadoras/Jugadores, convocadas/convocados y cabeceras.
+- Paleta universal azul/naranja con contraste claro/oscuro y selector por equipo; Buen Consejo migra como femenino y rojo.
 
-- Unión Directo/acta y operación idempotente `merge-game`.
-- Marcador local–visitante, serie Diferencia, Comparar completo y eliminación de Victorias.
+### Multiequipo y privacidad
+- Almacén `estadisticas_multiteam_v11` con migración automática desde `estadisticas_shared_v2`.
+- Cambio de equipo sin mezclar plantilla, partidos, Directo, operaciones o conexión.
+- Enlaces v11 en fragmento `#` para que el token no se envíe al servidor de GitHub Pages; se borran de la barra al abrirse.
+- Roles propietario/editor/lector y revocación de enlaces.
+- Worker w3 con tablas aisladas por `team_id`; rutas y tablas w2 conservadas.
+
+### Herramientas
+- `actualizar.html` acepta cambios multiarchivo, archivos nuevos y borrados explícitos.
+- Guías Gemini/Claude separan configuración única, conocimiento y adjuntos de cada petición.
+- Smoke móvil, temas, 25 partidos, copia real, Excel, aislamiento, enlaces, roles y actualización multiarchivo.
 
 ===== END FILE: CHANGELOG.md =====
 
 ===== BEGIN FILE: CONTEXTO_ESTADISTICAS.md =====
-# Contexto estadístico · v10
+# Contexto v11
 
-`PROYECTO_ESTADISTICAS.md` es una instantánea del repositorio, pero Gemini y Claude no deben asumir que sigue actualizada. En cada actualización, `actualizar.html` genera `CONTEXTO_ACTUAL_ESTADISTICAS.md` desde la carpeta o ZIP vigente y ese archivo se adjunta a la petición.
+La app es local-first, importa actas Excel de FBM y añade estadísticas manuales de Directo. Buen Consejo migra desde `estadisticas_shared_v2` sin cambiar su conexión. Los equipos nuevos usan espacios aislados locales y, tras desplegar Worker w3, espacios aislados en D1. `assets/` y el logo Aro vector no se modifican.
 
-Invariantes: `estadisticas_shared_v2`; configuración local de sincronización conservada; Worker original; Aro vector; nulos solo en Equipo/sin asignar; marcador local–visitante; eventos deduplicados.
+Cada equipo guarda género y paleta. Al importar se detecta Fem/Femenino o Masc/Masculino; sin certeza se elige manualmente. Buen Consejo migra femenino y rojo, sin cambio visual. El resto usa azul/naranja accesible por defecto.
 
 ===== END FILE: CONTEXTO_ESTADISTICAS.md =====
 
 ===== BEGIN FILE: GEM_GEMINI.md =====
-# Gem de Gemini · Estadísticas v10
+# Conocimiento estable del Gem
 
-Configura una vez el Gem con las instrucciones de `INSTRUCCIONES_Y_CREACION_GEMINI_v10.txt`. Gemini no conoce automáticamente GitHub.
-
-En cada cambio, genera con `actualizar.html` el archivo `CONTEXTO_ACTUAL_ESTADISTICAS.md`, adjúntalo en un chat nuevo junto con la petición y pega la respuesta JSON en el actualizador. No sustituyas manualmente archivos de conocimiento después de publicar.
+Mantén compatibilidad con `estadisticas_shared_v2`, multiequipo v11, género/color por equipo y Worker w2. No toques `assets/` ni el logo Aro vector. En cada actualización usa exclusivamente `CONTEXTO_ACTUAL_ESTADISTICAS.md` adjunto en ese chat. Devuelve JSON multiarchivo compatible con `actualizar.html`; no afirmes que lees GitHub.
 
 ===== END FILE: GEM_GEMINI.md =====
 
-===== BEGIN FILE: INSTRUCCIONES_Y_CREACION_CLAUDE_v10.txt =====
-CLAUDE · ESTADÍSTICAS v10
-
-QUÉ SABE Y QUÉ NO
-- Claude no conoce automáticamente la versión publicada en GitHub.
-- El código vigente llega en el archivo CONTEXTO_ACTUAL_ESTADISTICAS.md que se adjunta en cada petición.
-- No uses como fuente una conversación anterior ni un contexto antiguo si el usuario adjunta uno nuevo.
-
-CONFIGURACIÓN · SOLO UNA VEZ
-1. En Claude crea un Proyecto nuevo llamado “Estadísticas Buen Consejo”.
-2. Copia como instrucciones del Proyecto el bloque INSTRUCCIONES DEL PROYECTO que aparece al final de este archivo.
-3. Guarda el Proyecto. No es necesario subir el código de la app a su conocimiento.
-
-CADA ACTUALIZACIÓN
-1. Abre actualizar.html.
-2. Elige la carpeta local vigente o el ZIP actual descargado de GitHub.
-3. Pulsa “Descargar contexto actual para la IA”.
-4. Abre un chat NUEVO en el Proyecto, adjunta CONTEXTO_ACTUAL_ESTADISTICAS.md y escribe la petición normal.
-5. Claude debe responder solo un JSON. Pégalo en actualizar.html.
-6. Pulsa “Comprobar cambios” y “Descargar actualización”.
-7. Sube a GitHub solo el contenido del ZIP, conserva assets y pulsa Commit changes.
-8. Espera a GitHub Pages, cierra y abre la app.
-
-No hay que sustituir PROYECTO_ESTADISTICAS.md en el conocimiento del Proyecto. En el siguiente cambio se vuelve a generar un contexto desde el código publicado.
-
-INSTRUCCIONES DEL PROYECTO · COPIAR DESDE AQUÍ
-Eres el mantenedor de la PWA “Estadísticas · Buen Consejo”. En cada petición debes recibir CONTEXTO_ACTUAL_ESTADISTICAS.md. Ese archivo es la fuente exacta del código para esa petición; no supongas que puedes leer GitHub ni que recuerdas la última versión. Si falta el contexto actual, pídeselo al usuario antes de proponer código.
-
-Devuelve exclusivamente JSON válido con este esquema:
-{"version":"v10","files":[{"path":"app.js","changes":[{"find":"fragmento literal único","replace":"sustitución completa"}]}]}
-
-Puedes incluir varios archivos. Para crear uno usa {"path":"ruta","content":"contenido completo"}; para borrar uno usa {"path":"ruta","delete":true}. Cada find debe copiar texto literal del contexto, aparecer exactamente una vez y contener suficiente alrededor para ser inequívoco. No uses puntos suspensivos, comentarios de “resto igual” ni bloques Markdown.
-
-Invariantes: conservar estadisticas_shared_v2; conservar api/token/role locales sin reproducir sus valores; no modificar worker.js; no cambiar logo ni assets; mantener local–visitante; no convertir ausencia manual en cero; no atribuir eventos nulos a jugadoras; deduplicar por ID; actualizar la caché de sw.js si cambian recursos. Incluye en el JSON todos los archivos coordinados necesarios, pruebas y documentación.
-
-===== END FILE: INSTRUCCIONES_Y_CREACION_CLAUDE_v10.txt =====
-
-===== BEGIN FILE: INSTRUCCIONES_Y_CREACION_GEMINI_v10.txt =====
-GEMINI · ESTADÍSTICAS v10
-
-QUÉ SABE Y QUÉ NO
-- Gemini no conoce automáticamente la versión publicada en GitHub.
-- El código vigente llega en el archivo CONTEXTO_ACTUAL_ESTADISTICAS.md que se adjunta en cada petición.
-- No uses como fuente una conversación anterior ni un contexto antiguo si el usuario adjunta uno nuevo.
-
-CONFIGURACIÓN · SOLO UNA VEZ
-1. En Gemini crea un Gem nuevo llamado “Estadísticas Buen Consejo”.
-2. Copia como instrucciones del Gem el bloque INSTRUCCIONES DEL GEM que aparece al final de este archivo.
-3. Guarda el Gem. No es necesario subir el código de la app a su conocimiento.
-
-CADA ACTUALIZACIÓN
-1. Abre actualizar.html.
-2. Elige la carpeta local vigente o el ZIP actual descargado de GitHub.
-3. Pulsa “Descargar contexto actual para la IA”.
-4. Abre un chat NUEVO con el Gem, adjunta CONTEXTO_ACTUAL_ESTADISTICAS.md y escribe la petición normal.
-5. Gemini debe responder solo un JSON. Pégalo en actualizar.html.
-6. Pulsa “Comprobar cambios” y “Descargar actualización”.
-7. Sube a GitHub solo el contenido del ZIP, conserva assets y pulsa Commit changes.
-8. Espera a GitHub Pages, cierra y abre la app.
-
-No hay que sustituir PROYECTO_ESTADISTICAS.md en el conocimiento del Gem. En el siguiente cambio se vuelve a generar un contexto desde el código publicado.
-
-INSTRUCCIONES DEL GEM · COPIAR DESDE AQUÍ
-Eres el mantenedor de la PWA “Estadísticas · Buen Consejo”. En cada petición debes recibir CONTEXTO_ACTUAL_ESTADISTICAS.md. Ese archivo es la fuente exacta del código para esa petición; no supongas que puedes leer GitHub ni que recuerdas la última versión. Si falta el contexto actual, pídeselo al usuario antes de proponer código.
-
-Devuelve exclusivamente JSON válido con este esquema:
-{"version":"v10","files":[{"path":"app.js","changes":[{"find":"fragmento literal único","replace":"sustitución completa"}]}]}
-
-Puedes incluir varios archivos. Para crear uno usa {"path":"ruta","content":"contenido completo"}; para borrar uno usa {"path":"ruta","delete":true}. Cada find debe copiar texto literal del contexto, aparecer exactamente una vez y contener suficiente alrededor para ser inequívoco. No uses puntos suspensivos, comentarios de “resto igual” ni bloques Markdown.
-
-Invariantes: conservar estadisticas_shared_v2; conservar api/token/role locales sin reproducir sus valores; no modificar worker.js; no cambiar logo ni assets; mantener local–visitante; no convertir ausencia manual en cero; no atribuir eventos nulos a jugadoras; deduplicar por ID; actualizar la caché de sw.js si cambian recursos. Incluye en el JSON todos los archivos coordinados necesarios, pruebas y documentación.
-
-===== END FILE: INSTRUCCIONES_Y_CREACION_GEMINI_v10.txt =====
-
 ===== BEGIN FILE: MAPA_DEL_CODIGO.md =====
-# Mapa del código · v10
+# Mapa del código · v11
 
-- `app.js`
-  - Estado/migración: `blank`, `sanitise`, `repairPendingGames`.
-  - Unión: `mergeEvents`, `mergePendingIntoGame`, `mergePendingManual`, `merge-game`.
-  - Identidad Directo→acta: `rosterPlayerForEvent`, `resolveEventPlayer`, `eventCounts`, `unassignedEventCounts`.
-  - Marcador: `gameScore`, `gameSides`, `scoreChart` (ventana de 8).
-  - Minutos: `minutesHeatmap`, `openMinutesDetail`.
-  - Equipo/Comparar: `TEAM_METRICS`, `liveMetricCard`, `balanceVisual`.
-- `styles.css`: temas, responsive, rejilla única de Minutos, fila de equipo y ventana del marcador.
-- `actualizar.html`: carpeta/ZIP → contexto actual → JSON multiarchivo → ZIP.
-- `sw.js`: caché `estadisticas-v10-20261116-audit2`.
-- `worker.js`: original recibido, sin cambios.
-- `tests/smoke.py`: pruebas funcionales, Excel y copia real opcionales, responsive y actualizador.
-- `tests/fixtures/dehesa_directo_sanitizado.json`: datos reales necesarios sin configuración ni credenciales.
-- `tools/capture.py`: 24 capturas finales.
+- `index.html`: estructura, navegación y selector de equipo.
+- `app.js`: estado local, migración, multiequipo, importador Excel, cálculos, vistas, Directo y sincronización.
+  - `loadWorkspaceBook` / `switchWorkspace`: aislamiento local.
+  - `detectGender` / `genderTerms` / `applyTeamIdentity`: categoría, lenguaje y color por equipo.
+  - `scoreChart` / `openScoreChartDetail`: marcador desplazable y ampliado.
+  - `playerShareData` / `robPerDisplay`: cuotas y ratio.
+  - `TEAM_METRICS` / `LIVE_METRICS`: métricas integradas.
+  - `syncNow`: rutas legacy o v3 según el equipo.
+- `styles.css`: temas, móvil, gráficos, modales y multiequipo.
+- `worker.js`: Worker w3 y compatibilidad w2.
+- `config.js`: URL pública opcional del servicio; nunca tokens.
+- `configurar.html`: genera `config.js` sin editar código.
+- `actualizar.html`: contexto actual + parche multiarchivo + ZIP.
+- `tests/smoke.py`: regresión funcional.
+- `tools/validate.py`: validación y detector de secretos.
 
 ===== END FILE: MAPA_DEL_CODIGO.md =====
 
 ===== BEGIN FILE: PROMPT_MAPA_TIRO.md =====
-# Mapa de tiro · contrato v10
+# Mapa de tiro · contrato v11
 
 La captura FBM identifica equipo de arriba = mitad izquierda y equipo de abajo = mitad derecha. Cruzar nombre de cabecera, color y lista de jugadoras. Si las señales discrepan, `checksAgree:false` y explicar `conflict`. Devolver solo JSON con `court`, `ownIdentification`, `opponentIdentification`, `ownShots` y `opponentShots`; coordenadas `x`,`y` entre 0 y 1, canasta arriba. No inventar lanzamientos: el mapa contiene canastas localizadas. La app pliega ambas mitades a media pista FIBA 15 × 14 m y permite revisar/mover puntos.
 
 ===== END FILE: PROMPT_MAPA_TIRO.md =====
 
 ===== BEGIN FILE: PROYECTO_CLAUDE.md =====
-# Proyecto Claude · Estadísticas v10
+# Conocimiento estable del Proyecto
 
-Configura una vez el Proyecto con las instrucciones de `INSTRUCCIONES_Y_CREACION_CLAUDE_v10.txt`. Claude no conoce automáticamente GitHub.
-
-En cada cambio, genera con `actualizar.html` el archivo `CONTEXTO_ACTUAL_ESTADISTICAS.md`, adjúntalo en un chat nuevo junto con la petición y pega la respuesta JSON en el actualizador. No sustituyas manualmente archivos de conocimiento después de publicar.
+Mantén compatibilidad con `estadisticas_shared_v2`, multiequipo v11, género/color por equipo y Worker w2. No toques `assets/` ni el logo Aro vector. En cada actualización usa exclusivamente `CONTEXTO_ACTUAL_ESTADISTICAS.md` adjunto en ese chat. Devuelve JSON multiarchivo compatible con `actualizar.html`; no afirmes que lees GitHub.
 
 ===== END FILE: PROYECTO_CLAUDE.md =====
 
 ===== BEGIN FILE: README.md =====
-# Estadísticas · Buen Consejo v10
+# Estadísticas v11 · multiequipo
 
-PWA local-first para la temporada 26/27. Importa actas FBM, registra en Directo robos, pérdidas y rebote ofensivo, conserva mapas de tiro y mantiene la sincronización existente.
+PWA local-first para importar actas FBM en Excel, registrar robos/pérdidas/rebotes ofensivos en Directo, analizar equipo y jugadoras, editar mapas de tiro y sincronizar mediante Cloudflare Worker + D1.
 
-## Publicación
+## Qué cambia en v11
 
-Copia el contenido de `1_CODIGO_GITHUB` en la raíz de GitHub Pages. **No borres `assets/`**: la entrega no incluye esa carpeta ni modifica el logo. La clave local sigue siendo `estadisticas_shared_v2`; al actualizar se conservan `api`, `token` y `role` tal como ya están guardados en cada móvil. `worker.js` es exactamente el original recibido y no requiere ninguna acción.
+- Cuotas de puntos y minutos de jugadora con selector **Por partido / Temporada**; la vista inicial es por partido.
+- ROB/PER se presenta como cociente no negativo y el resultado con signo aparece como **Balance ROB−PER**. Si PER=0 se muestra `∞` o `—`, nunca se divide entre cero.
+- Las métricas de Directo se integran con las demás y solo aparecen cuando existen datos.
+- Todas las tarjetas de equipo muestran evolución por partido con la misma gramática visual; los partidos sin Directo no se convierten en ceros.
+- Marcador completo, desplazable y ampliable; muestra todos los partidos y etiquetas de diferencia legibles.
+- Varios equipos aislados en un mismo dispositivo. Cada equipo tiene sus propios datos, rol y conexión.
+- Detección femenino/masculino desde la categoría FBM; selección manual obligatoria si no hay contexto y textos adaptados por equipo.
+- Paleta propia/rival accesible azul-naranja por defecto, color propio configurable; Buen Consejo conserva rojo-azul.
+- Worker w3 con espacios privados por equipo, enlaces de editor/lector y revocación; conserva las tablas y rutas w2.
 
-La caché es `estadisticas-v10-20261116-audit2`.
+## Publicar
 
-## Correcciones verificadas
-
-- La copia real del 16/11 y el Excel real de La Dehesa se migran y unen en un solo partido, de forma idempotente.
-- Los eventos se asignan desde `playerId` de la plantilla a la fila del acta por identidad normalizada y dorsal único. `playerName` es respaldo, no una reasignación inventada.
-- Los nulos aparecen solo en `Equipo / sin asignar`: 3 robos, 1 pérdida, 1 REB O de BC y 7 REB O rival.
-- La suma individual + equipo cuadra con 21 robos, 13 pérdidas, 12 REB O BC y 7 REB O rival.
-- Minutos usa una única rejilla: Jugadora, Media, Cuota, P1…Pn; cabecera y filas tienen exactamente los mismos anchos.
-- Marcador muestra los últimos 8 partidos cuando hay temporadas largas, ocupando todo el ancho y señalando la ventana, sin media tarjeta vacía.
-- Se conserva el orden local–visitante, la serie Diferencia, Comparar completo y la ausencia de la tarjeta Victorias.
-
-## Actualizaciones con Gemini o Claude
-
-Gemini y Claude **no conocen automáticamente el GitHub actual**. `actualizar.html` genera `CONTEXTO_ACTUAL_ESTADISTICAS.md` desde la carpeta o ZIP vigente; ese es el único archivo de código que se adjunta en cada petición. Las instrucciones del Gem/Proyecto se configuran una vez. Ya no hay que sustituir manualmente `PROYECTO_ESTADISTICAS.md` en el conocimiento.
+1. Conserva una copia desde **Ajustes → Exportar este equipo**.
+2. Sube el contenido de esta carpeta a la raíz de GitHub.
+3. **No borres ni sustituyas `assets/`**: no está incluida.
+4. Si vas a permitir equipos nuevos, despliega `worker.js` siguiendo `5_CLOUDFLARE` y genera `config.js` con `configurar.html`.
+5. Pulsa **Commit changes**, espera a GitHub Pages, cierra la PWA y vuelve a abrirla.
 
 ## Pruebas
 
 ```bash
-python tools/validate.py . --excel-dir /ruta/al/excel
-ESTADISTICAS_REAL_XLSX=/ruta/estadisticaPartido_15112026.xlsx \
-ESTADISTICAS_REAL_BACKUP=/ruta/estadisticas-2026-11-16.json \
-python tests/smoke.py
-python tools/capture.py
+python tools/validate.py . --excel-dir /ruta/a/excel --private-backup /ruta/a/copia.json
+ESTADISTICAS_REAL_BACKUP=/ruta/a/copia.json ESTADISTICAS_EXCEL_DIR=/ruta/a/excel python tests/smoke.py
 ```
 
-La copia real no forma parte del repositorio ni del ZIP entregado. El fixture incluido está sanitizado y no contiene configuración de sincronización.
+Las credenciales de la copia real solo se usan para comparar en memoria. No deben entrar en el repositorio, fixtures, capturas o logs.
 
 ===== END FILE: README.md =====
 
 ===== BEGIN FILE: actualizar.html =====
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Actualizar Estadísticas v10</title>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Actualizar Estadísticas v11</title>
 <style>
 :root{font-family:Arial,sans-serif;color:#10233f;background:#f3f5f8;--green:#16805a;--red:#b42331;--blue:#2563a9;--line:#cbd5e1}*{box-sizing:border-box}body{margin:0}.wrap{max-width:940px;margin:auto;padding:24px 14px 60px}h1{font-size:clamp(30px,6vw,48px);letter-spacing:-.05em;margin:4px 0}p{line-height:1.5;color:#526173}.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin:13px 0}.step{display:inline-grid;place-items:center;width:31px;height:31px;border-radius:9px;background:#10233f;color:white;margin-right:8px}h2{font-size:17px;margin:0 0 8px}h3{font-size:13px;margin:0 0 5px}label{display:block;font-size:11px;font-weight:800;margin:10px 0 5px}input,textarea{width:100%;border:1px solid #aeb9c7;border-radius:9px;background:white;padding:11px;font:inherit}textarea{min-height:250px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.45}button{border:1px solid #10233f;border-radius:9px;background:#10233f;color:#fff;padding:11px 14px;font-weight:800;cursor:pointer;margin:5px 5px 0 0}button.alt{background:#fff;color:#10233f}button.blue{background:var(--blue);border-color:var(--blue)}button:disabled{opacity:.45}.status{padding:12px;border-radius:10px;background:#eef2f6;white-space:pre-wrap;font-size:12px}.ok{background:#e6f5ee;color:var(--green)}.bad{background:#fff0f1;color:var(--red)}.tiny{font-size:10px}.files{display:grid;gap:4px;max-height:160px;overflow:auto;color:#526173;font-size:10px}.note{border-left:4px solid #d97706;padding:10px 12px;background:#fff8e8;border-radius:0 9px 9px 0}.actions{display:flex;flex-wrap:wrap;gap:5px}.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.once{border-color:#9bb4d0;background:#f7fbff}.every{border-color:#9fd7c1;background:#f6fffb}.badge{display:inline-block;padding:3px 7px;border-radius:99px;background:#10233f;color:#fff;font-size:9px;font-weight:900}.truth{padding:12px;border:1px solid #b9c9dc;border-radius:11px;background:#eef5fb}.truth b{display:block;margin-bottom:4px}.truth span{font-size:11px;color:#42536a}@media(max-width:680px){.wrap{padding-top:16px}.card{padding:14px}.two{grid-template-columns:1fr}}
 </style></head><body><main class="wrap">
-<small>ESTADÍSTICAS v10 · FLUJO REAL</small><h1>Actualizar la app</h1>
+<small>ESTADÍSTICAS v11 · FLUJO REAL</small><h1>Actualizar la app</h1>
 <p>La IA no conoce por sí sola qué hay ahora en GitHub. Esta página crea un único archivo de contexto con el código actual, aplica la respuesta multiarchivo y prepara el ZIP para publicar.</p>
 <div class="truth"><b>Qué sabe Gemini o Claude</b><span>Solo lo que está en sus instrucciones, en sus archivos de conocimiento y en los adjuntos del chat actual. Este flujo no afirma que lean GitHub automáticamente.</span></div>
-<section class="card once"><span class="badge">SOLO UNA VEZ</span><h2>Crear el Gem o Proyecto</h2><p>Pega las instrucciones incluidas en las carpetas 2_GEMINI o 3_CLAUDE. Esas instrucciones son estables. No vuelvas a sustituir manualmente <code>PROYECTO_ESTADISTICAS.md</code> en el conocimiento.</p></section>
-<section class="card every"><span class="badge">EN CADA ACTUALIZACIÓN</span><div class="two"><div><h3>1. Código actual</h3><p>Usa la carpeta que acabas de publicar o descarga el ZIP actual de GitHub.</p></div><div><h3>2. Un solo adjunto</h3><p>Genera el contexto y adjúntalo al Gem/Proyecto junto con tu petición.</p></div><div><h3>3. Una respuesta</h3><p>La IA devuelve solo un JSON multiarchivo.</p></div><div><h3>4. Publicar</h3><p>Pega el JSON aquí, descarga el ZIP y sube únicamente su contenido a GitHub.</p></div></div></section>
+<section class="card once"><span class="badge">SOLO UNA VEZ</span><h2>Crear el Gem o Proyecto</h2><p>Pega las instrucciones incluidas en las carpetas 2_GEMINI o 3_CLAUDE. Sube al conocimiento solo el archivo estable <code>GEM_GEMINI.md</code> o <code>PROYECTO_CLAUDE.md</code> de esta entrega. No subas el código, datos, ZIP ni <code>PROYECTO_ESTADISTICAS.md</code> al conocimiento: quedarían antiguos. Esas instrucciones estables se configuran una sola vez.</p></section>
+<section class="card every"><span class="badge">EN CADA ACTUALIZACIÓN</span><div class="two"><div><h3>1. Código actual</h3><p>Usa la carpeta que acabas de publicar o descarga el ZIP actual de GitHub.</p></div><div><h3>2. Un solo adjunto</h3><p>Genera <code>CONTEXTO_ACTUAL_ESTADISTICAS.md</code> y adjúntalo en el chat junto con tu petición. Ese archivo sustituye al código antiguo solo para esa conversación.</p></div><div><h3>3. Una respuesta</h3><p>La IA devuelve solo un JSON multiarchivo.</p></div><div><h3>4. Publicar</h3><p>Pega el JSON aquí, descarga el ZIP y sube únicamente su contenido a GitHub.</p></div></div></section>
 <section class="card"><h2><span class="step">1</span>Carga la versión actual</h2>
 <p>Elige la carpeta raíz o el ZIP descargado de GitHub. No se sube nada a Internet.</p>
 <label for="repoFolder">Carpeta completa</label><input id="repoFolder" type="file" webkitdirectory multiple>
@@ -310,7 +222,7 @@ La copia real no forma parte del repositorio ni del ZIP entregado. El fixture in
 <button class="blue" id="context" disabled>Descargar contexto actual para la IA</button></section>
 <section class="card"><h2><span class="step">2</span>Pide el cambio</h2>
 <p>Adjunta <code>CONTEXTO_ACTUAL_ESTADISTICAS.md</code> en un chat nuevo de tu Gem o Proyecto y escribe la petición con tus palabras. Pega aquí el JSON que responda.</p>
-<textarea id="answer" spellcheck="false" placeholder='{"version":"v10","files":[{"path":"app.js","changes":[{"find":"texto exacto","replace":"texto nuevo"}]}]}'></textarea>
+<textarea id="answer" spellcheck="false" placeholder='{"version":"v11","files":[{"path":"app.js","changes":[{"find":"texto exacto","replace":"texto nuevo"}]}]}'></textarea>
 <p class="tiny">Admite varios archivos, archivos nuevos con <code>content</code> y borrados explícitos con <code>delete:true</code>. Cada búsqueda debe ser literal y única.</p></section>
 <section class="card"><h2><span class="step">3</span>Comprueba y descarga</h2>
 <div class="actions"><button id="build" disabled>Comprobar cambios</button><button id="download" disabled>Descargar actualización</button></div>
@@ -329,24 +241,34 @@ $('repoFolder').onchange=e=>loadFolder(e.target.files).catch(fail);$('repoZip').
 function cleanJSON(text){return text.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'')}
 function safePath(path){path=normalizePath(path);if(!path||path.startsWith('/')||path.split('/').includes('..')||path.startsWith('assets/')||path.startsWith('captures/'))throw Error(`Ruta no permitida: ${path||'(vacía)'}`);return path}
 function apply(source,changes,path){let out=source;for(const [index,change] of changes.entries()){if(typeof change.find!=='string'||!change.find||typeof change.replace!=='string')throw Error(`${path} · bloque ${index+1}: find/replace no válidos`);const count=out.split(change.find).length-1;if(count!==1)throw Error(`${path} · bloque ${index+1}: find aparece ${count} veces; debe aparecer 1`);out=out.replace(change.find,change.replace)}return out}
-function validate(all){const errors=[];const need=(path,token)=>{if(!all.has(path))errors.push(`Falta ${path}`);else if(!all.get(path).includes(token))errors.push(`${path}: falta ${token}`)};need('app.js','estadisticas_shared_v2');need('app.js',"APP_VERSION = 'v10'");need('index.html','data-logo="aro-vector"');need('worker.js',"version:'w2'");need('sw.js','estadisticas-v10-');for(const [path,text] of all){if(path.endsWith('.json'))try{JSON.parse(text)}catch(error){errors.push(`${path}: JSON no válido`)}if(path.endsWith('.css')){let n=0;for(const char of text){if(char==='{')n++;if(char==='}')n--}if(n)errors.push(`${path}: llaves CSS desequilibradas`)}}return errors}
-function master(all){const skip=/^(?:PROYECTO_ESTADISTICAS\.md|CONTEXTO_ACTUAL_ESTADISTICAS\.md)$/;const names=[...all.keys()].filter(path=>!skip.test(path)&&!ignored(path)).sort();const body=names.map(path=>`\n===== BEGIN FILE: ${path} =====\n${all.get(path)}\n===== END FILE: ${path} =====\n`).join('');return `# CONTEXTO ACTUAL · ESTADÍSTICAS v10\n\nGenerado localmente por actualizar.html a partir del código que el usuario acaba de cargar. Esta es la fuente exacta para ESTA actualización. No supongas que conoces GitHub ni uses una versión anterior. Conserva estadisticas_shared_v2, Worker w2, el logo Aro vector y assets. Devuelve solo un JSON multiarchivo compatible con actualizar.html.\n${body}`}
+function validate(all){const errors=[];const need=(path,token)=>{if(!all.has(path))errors.push(`Falta ${path}`);else if(!all.get(path).includes(token))errors.push(`${path}: falta ${token}`)};need('app.js','estadisticas_shared_v2');need('app.js',"APP_VERSION = 'v11'");need('app.js','estadisticas_multiteam_v11');need('index.html','data-logo="aro-vector"');need('worker.js',"version:'w3'");need('worker.js','legacy');need('sw.js','estadisticas-v11-');for(const [path,text] of all){if(path.endsWith('.json'))try{JSON.parse(text)}catch(error){errors.push(`${path}: JSON no válido`)}if(path.endsWith('.css')){let n=0;for(const char of text){if(char==='{')n++;if(char==='}')n--}if(n)errors.push(`${path}: llaves CSS desequilibradas`)}}return errors}
+function master(all){const skip=/^(?:PROYECTO_ESTADISTICAS\.md|CONTEXTO_ACTUAL_ESTADISTICAS\.md)$/;const names=[...all.keys()].filter(path=>!skip.test(path)&&!ignored(path)).sort();const body=names.map(path=>`\n===== BEGIN FILE: ${path} =====\n${all.get(path)}\n===== END FILE: ${path} =====\n`).join('');return `# CONTEXTO ACTUAL · ESTADÍSTICAS v11\n\nGenerado localmente por actualizar.html a partir del código que el usuario acaba de cargar. Esta es la fuente exacta para ESTA actualización. No supongas que conoces GitHub ni uses una versión anterior. Conserva estadisticas_shared_v2, la migración multiequipo, género y color por equipo, la compatibilidad de rutas v2 del Worker w3, el logo Aro vector y assets. Devuelve solo un JSON multiarchivo compatible con actualizar.html.\n${body}`}
 function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),0)}
 $('context').onclick=()=>{try{const text=master(files);downloadBlob(new Blob([text],{type:'text/markdown'}),'CONTEXTO_ACTUAL_ESTADISTICAS.md');$('status').className='status ok';$('status').textContent='✓ Contexto actual creado. Adjunta ese único archivo a Gemini o Claude junto con tu petición.'}catch(error){fail(error)}};
-$('build').onclick=async()=>{try{changed.clear();const patch=JSON.parse(cleanJSON($('answer').value));if(patch.version&&patch.version!=='v10')throw Error(`El JSON declara ${patch.version}; se esperaba v10`);if(!Array.isArray(patch.files)||!patch.files.length)throw Error('El JSON no contiene files.');const all=new Map(files);for(const item of patch.files){const path=safePath(item.path);if(item.delete===true){if(!all.has(path))throw Error(`${path}: no existe para borrar`);all.delete(path);changed.set(path,null);continue}let out;if(typeof item.content==='string')out=item.content;else{if(!all.has(path))throw Error(`${path}: no está cargado y no trae content`);if(!Array.isArray(item.changes)||!item.changes.length)throw Error(`${path}: faltan changes`);out=apply(all.get(path),item.changes,path)}all.set(path,out);changed.set(path,out)}const errors=validate(all);if(errors.length)throw Error(errors.join('\n'));const context=master(all),project=context.replace('# CONTEXTO ACTUAL · ESTADÍSTICAS v10','# PROYECTO ESTADÍSTICAS · CONTEXTO MAESTRO v10');all.set('PROYECTO_ESTADISTICAS.md',project);changed.set('PROYECTO_ESTADISTICAS.md',project);const zip=new JSZip();for(const [path,text] of changed)if(text===null)zip.file(`${path}.BORRAR.txt`,'Borra este archivo de GitHub.');else zip.file(path,text);zip.file('LEEME_ACTUALIZACION.txt',`ESTADÍSTICAS v10\n\n1. Sube a GitHub los archivos de este ZIP conservando sus carpetas.\n2. Si aparece un archivo .BORRAR.txt, borra de GitHub el archivo indicado.\n3. No borres assets ni ningún archivo no mencionado.\n4. Pulsa Commit changes y espera a GitHub Pages.\n5. Cierra y abre la app.\n\nNo tienes que sustituir archivos de conocimiento en Gemini o Claude. En la próxima actualización vuelve a generar un contexto desde el código publicado.\n\nArchivos: ${[...changed.keys()].join(', ')}\n`);builtZip=await zip.generateAsync({type:'blob'});$('download').disabled=false;$('status').className='status ok';$('status').textContent=`✓ ${changed.size} archivo(s) preparados. Descarga la actualización.`}catch(error){builtZip=null;$('download').disabled=true;fail(error)}};
-$('download').onclick=()=>builtZip&&downloadBlob(builtZip,`actualizacion-estadisticas-v10-${new Date().toISOString().slice(0,10)}.zip`);
+$('build').onclick=async()=>{try{changed.clear();const patch=JSON.parse(cleanJSON($('answer').value));if(patch.version&&patch.version!=='v11')throw Error(`El JSON declara ${patch.version}; se esperaba v11`);if(!Array.isArray(patch.files)||!patch.files.length)throw Error('El JSON no contiene files.');const all=new Map(files);for(const item of patch.files){const path=safePath(item.path);if(item.delete===true){if(!all.has(path))throw Error(`${path}: no existe para borrar`);all.delete(path);changed.set(path,null);continue}let out;if(typeof item.content==='string')out=item.content;else{if(!all.has(path))throw Error(`${path}: no está cargado y no trae content`);if(!Array.isArray(item.changes)||!item.changes.length)throw Error(`${path}: faltan changes`);out=apply(all.get(path),item.changes,path)}all.set(path,out);changed.set(path,out)}const errors=validate(all);if(errors.length)throw Error(errors.join('\n'));const context=master(all),project=context.replace('# CONTEXTO ACTUAL · ESTADÍSTICAS v11','# PROYECTO ESTADÍSTICAS · CONTEXTO MAESTRO v11');all.set('PROYECTO_ESTADISTICAS.md',project);changed.set('PROYECTO_ESTADISTICAS.md',project);const zip=new JSZip();for(const [path,text] of changed)if(text===null)zip.file(`${path}.BORRAR.txt`,'Borra este archivo de GitHub.');else zip.file(path,text);zip.file('LEEME_ACTUALIZACION.txt',`ESTADÍSTICAS v11\n\n1. Sube a GitHub los archivos de este ZIP conservando sus carpetas.\n2. Si aparece un archivo .BORRAR.txt, borra de GitHub el archivo indicado.\n3. No borres assets ni ningún archivo no mencionado.\n4. Pulsa Commit changes y espera a GitHub Pages.\n5. Cierra y abre la app.\n\nNo tienes que sustituir archivos de conocimiento en Gemini o Claude. En la próxima actualización vuelve a generar un contexto desde el código publicado.\n\nArchivos: ${[...changed.keys()].join(', ')}\n`);builtZip=await zip.generateAsync({type:'blob'});$('download').disabled=false;$('status').className='status ok';$('status').textContent=`✓ ${changed.size} archivo(s) preparados. Descarga la actualización.`}catch(error){builtZip=null;$('download').disabled=true;fail(error)}};
+$('download').onclick=()=>builtZip&&downloadBlob(builtZip,`actualizacion-estadisticas-v11-${new Date().toISOString().slice(0,10)}.zip`);
 function fail(error){$('status').className='status bad';$('status').textContent=error.message||String(error)}
 </script></body></html>
 
 ===== END FILE: actualizar.html =====
 
 ===== BEGIN FILE: app.js =====
-/* Estadísticas v10 · Buen Consejo 26/27 · local-first */
+/* Estadísticas v11 · multiequipo · local-first */
 'use strict';
 
-const APP_VERSION = 'v10';
-const STORE = 'estadisticas_shared_v2';
-const TEAM = 'BUEN CONSEJO';
+const APP_VERSION = 'v11';
+const STORE = 'estadisticas_shared_v2'; // Compatibilidad: no renombrar ni borrar.
+const MULTI_STORE = 'estadisticas_multiteam_v11';
+const APP_CONFIG = window.ESTADISTICAS_CONFIG || {};
+const teamLabel = () => state?.team?.name || 'Mi equipo';
+const GENDERS={female:{singular:'Jugadora',plural:'Jugadoras',number:'N.º jugadora'},male:{singular:'Jugador',plural:'Jugadores',number:'N.º jugador'},neutral:{singular:'Jugador',plural:'Jugadores',number:'N.º jugador'}};
+const genderTerms=()=>GENDERS[state?.team?.gender]||GENDERS.neutral;
+const PALETTES={blue:{label:'Azul accesible',light:['#006AA6','#A65300'],dark:['#56B4E9','#F0A83A']},teal:{label:'Verde azulado',light:['#00796B','#8A3F73'],dark:['#4DD0B5','#E08BC1']},purple:{label:'Morado',light:['#6941C6','#A65300'],dark:['#B39AF1','#F0A83A']},red:{label:'Rojo Buen Consejo',light:['#C6283D','#1E5F9E'],dark:['#FF6B78','#6DB3F2']}};
+function applyTeamIdentity(){const key=PALETTES[state?.team?.color]?state.team.color:'blue',theme=document.documentElement.dataset.theme==='dark'?'dark':'light',[own,rival]=PALETTES[key][theme];document.documentElement.style.setProperty('--team',own);document.documentElement.style.setProperty('--rival',rival);document.documentElement.dataset.teamColor=key;}
+function detectGender(rows){const value=norm((rows||[]).flat(Infinity).join(' ')),female=/(^| )FEM( |$)|FEMENIN[OA]/.test(value),male=/(^| )MASC( |$)|MASCULIN[OA]/.test(value);return female&&!male?'female':male&&!female?'male':null;}
+function applyDetectedGender(rows){const detected=detectGender(rows);if(detected&&(!state.team.gender||state.team.gender==='neutral')){state.team.gender=detected;save();return detected}return detected;}
+function genderOptions(value='neutral',allowBlank=false){return `${allowBlank?'<option value="">Elige una opción</option>':''}<option value="female" ${value==='female'?'selected':''}>Femenino</option><option value="male" ${value==='male'?'selected':''}>Masculino</option><option value="neutral" ${value==='neutral'?'selected':''}>Mixto o neutro</option>`;}
+function colorOptions(value='blue'){return Object.entries(PALETTES).map(([key,item])=>`<option value="${key}" ${key===value?'selected':''}>${item.label}</option>`).join('');}
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const uid = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -365,17 +287,50 @@ const mean = (arr, getter) => arr.length ? sum(arr, getter) / arr.length : null;
 const deepSignature = x => JSON.stringify(x);
 
 /* ── State, migration and persistence ───────────────────────────── */
-function blank() {
+function blank(name = 'Mi equipo', season = '', gender = 'neutral', color = 'blue') {
   return {
-    version: 10,
-    team: {name:'Buen Consejo', season:'26/27'},
+    version: 11,
+    team: {name, season, gender, color},
     roster: [], games: [], live: null,
     liveDraft: {rival:'', date:today(), dateManual:false, selected:[]},
     ops: [], lastSeq: 0,
-    settings: {api:'', token:'', role:'admin', shotSide:'auto', shotColor:'por confirmar', rivalColor:'por confirmar'}
+    settings: {api:'', token:'', role:'admin', teamId:'', syncMode:'local', shotSide:'auto', shotColor:'por confirmar', rivalColor:'por confirmar'}
   };
 }
 
+function loadWorkspaceBook() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(MULTI_STORE) || 'null');
+    if (saved?.workspaces?.length) {
+      if (!saved.workspaces.some(item => item.id === saved.activeId)) saved.activeId = saved.workspaces[0].id;
+      return saved;
+    }
+    const legacy = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (legacy) {
+      const id = uid();
+      return {version:1, activeId:id, workspaces:[{id, name:legacy.team?.name || 'Buen Consejo', data:legacy, legacy:true}]};
+    }
+    for (const key of ['estadisticas_v1', 'estadisticas_app_v1', 'basket_stats_v1']) {
+      const old = JSON.parse(localStorage.getItem(key) || 'null');
+      if (old) {
+        const id=uid(), data=migrateV1(old);
+        return {version:1,activeId:id,workspaces:[{id,name:data.team?.name||'Buen Consejo',data,legacy:true}]};
+      }
+    }
+  } catch (error) { console.warn('No se pudo leer la lista de equipos', error); }
+  const id=uid(), data=blank('Mi equipo','','neutral','blue');
+  return {version:1,activeId:id,workspaces:[{id,name:data.team.name,data,legacy:true}]};
+}
+function activeWorkspace(){return workspaceBook.workspaces.find(item=>item.id===workspaceBook.activeId)||workspaceBook.workspaces[0];}
+function load(){return sanitise(activeWorkspace()?.data || blank());}
+function persistWorkspace(){
+  const item=activeWorkspace(); if(!item)return;
+  item.data=state;item.name=state.team.name||'Mi equipo';item.updatedAt=new Date().toISOString();
+  localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));
+  if(item.legacy)localStorage.setItem(STORE,JSON.stringify(state));
+}
+
+let workspaceBook = loadWorkspaceBook();
 let state = load();
 let view = 'team';
 let modalContext = null;
@@ -391,18 +346,6 @@ let playerSortDir = -1;
 let minutesScope = 'season';
 let statsMode = 'average'; // average | total | compare
 let modalReturnFocus = null;
-
-function load() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
-    if (saved) return sanitise(saved);
-    for (const key of ['estadisticas_v1', 'estadisticas_app_v1', 'basket_stats_v1']) {
-      const old = JSON.parse(localStorage.getItem(key) || 'null');
-      if (old) return migrateV1(old);
-    }
-  } catch (error) { console.warn('No se pudo leer la copia local', error); }
-  return blank();
-}
 
 function legacyPlayer(p = {}) {
   const p2 = parseAI(p.p2ai || p.twoAI || p.twoPoints || '0/0');
@@ -436,7 +379,9 @@ function hasLegacyFields(g) {
 
 function sanitise(s) {
   const base = blank();
-  const out = {...base, ...s, version:10, team:{...base.team, ...(s.team || {})}, settings:{...base.settings, ...(s.settings || {})}};
+  const out = {...base, ...s, version:11, team:{...base.team, ...(s.team || {})}, settings:{...base.settings, ...(s.settings || {})}};
+  if(norm(out.team.name).includes('BUEN CONSEJO')){if(!s.team?.gender)out.team.gender='female';if(!s.team?.color)out.team.color='red';}
+  if(!GENDERS[out.team.gender])out.team.gender='neutral';if(!PALETTES[out.team.color])out.team.color='blue';
   out.roster = (s.roster || []).filter(p => p?.name).map(p => ({...p, id:p.id || uid(), number:String(p.number || '')}));
   out.games = (s.games || []).filter(g => g && !g.demo && !g.isDemo && !['DEMO','EJEMPLO'].some(x => norm(g.opponent).includes(x))).map(g => {
     const pair = splitLegacyShots(g);
@@ -465,11 +410,10 @@ function migrateV1(old) {
   const out = blank();
   out.roster = (old.roster || old.players || []).filter(p => p?.name).map(p => ({id:p.id || uid(), number:p.number || p.num || '', name:p.name}));
   out.games = (old.games || old.matches || []).filter(g => g?.imported || g?.source === 'fbm' || g?.actaHash).map(g => ({...g, id:g.id || uid(), source:'fbm', needsReimport:true}));
-  localStorage.setItem(STORE, JSON.stringify(out));
   return sanitise(out);
 }
 
-function save() { state.version = 10; localStorage.setItem(STORE, JSON.stringify(state)); }
+function save() { state.version = 11; persistWorkspace(); }
 function record(type, payload) { state.ops.push({id:uid(), at:new Date().toISOString(), type, payload}); save(); paintSync(); scheduleSync(); }
 function toast(message) { const t = $('#toast'); t.textContent = message; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
 function setView(next) { view = next; $$('[data-go]').forEach(b => b.setAttribute('aria-current', b.dataset.go === next ? 'page' : 'false')); render(); window.scrollTo(0, 0); }
@@ -530,7 +474,7 @@ async function readXlsx(file) {
 
 function parseRoster(rows) {
   const i = rows.findIndex(r => norm(r[0]) === 'APELLIDOS Y NOMBRE');
-  if (i < 0) throw Error('No encuentro la tabla de jugadoras.');
+  if (i < 0) throw Error('No encuentro la tabla de la plantilla.');
   return rows.slice(i + 1).filter(r => r[0]).map(r => ({id:uid(), name:String(r[0]).trim(), number:''}));
 }
 
@@ -576,12 +520,12 @@ function parseGame(rows, fileName) {
     if (total) groups.push({team, score:+total.pts || 0, players, total, warnings:validateTotals(players, total)});
   });
   if (groups.length < 2) throw Error('El acta no contiene los dos equipos.');
-  const own = groups.find(g => norm(g.team).includes(norm(TEAM))), other = groups.find(g => g !== own);
-  if (!own) throw Error('No encuentro a Buen Consejo en el acta.');
+  const own = groups.find(g => norm(g.team).includes(norm(teamLabel())) || norm(teamLabel()).includes(norm(g.team))), other = groups.find(g => g !== own);
+  if (!own) throw Error(`No encuentro a ${teamLabel()} en el acta.`);
   return {
     id:uid(), opponent:other.team, home:groups[0] === own, us:own.score, them:other.score,
     players:own.players, opponentPlayers:other.players, teamTotals:own.total, opponentTotals:other.total,
-    importWarnings:[...own.warnings.map(x => `Buen Consejo · ${x}`), ...other.warnings.map(x => `${other.team} · ${x}`)],
+    importWarnings:[...own.warnings.map(x => `${teamLabel()} · ${x}`), ...other.warnings.map(x => `${other.team} · ${x}`)],
     events:[], shotsFor:[], shotsAgainst:[], source:'fbm', fileName, date:today(), importedAt:new Date().toISOString(), needsReimport:false,
     availability:{boxscore:true, opponentBoxscore:true, manual:false, shotMap:false}
   };
@@ -590,19 +534,19 @@ function parseGame(rows, fileName) {
 async function handleFiles(files) {
   try {
     if (fileMode === 'roster') {
-      const roster = parseRoster(await readXlsx(files[0]));
+      const rows=await readXlsx(files[0]);applyDetectedGender(rows);const roster = parseRoster(rows);
       state.roster = mergeRoster(state.roster, roster);
       if (!state.liveDraft.selected.length) state.liveDraft.selected = state.roster.map(p => p.id);
       record('set-roster', {roster:state.roster});
-      toast(`${roster.length} jugadoras importadas`); render(); return;
+      toast(`${roster.length} ${genderTerms().plural.toLowerCase()} importad${state.team.gender==='female'?'as':'os'}`); render(); return;
     }
     const parsed = [];
-    for (const file of files) parsed.push(parseGame(await readXlsx(file), file.name));
+    for (const file of files){const rows=await readXlsx(file);applyDetectedGender(rows);parsed.push(parseGame(rows,file.name));}
     modalContext = {type:'import', games:parsed, forcedPendingId:importPendingId};
     importPendingId = '';
     openModal('Importación', `${parsed.length} acta${parsed.length > 1 ? 's' : ''}`, `
       ${parsed.map((g, i) => `<article class="import-card">
-        <div><b>${esc(g.opponent)}</b><span>${gameScore(g)} · ${g.home ? 'Casa' : 'Fuera'} · local–visitante · ${g.players.length} + ${g.opponentPlayers.length} jugadoras</span></div>
+        <div><b>${esc(g.opponent)}</b><span>${gameScore(g)} · ${g.home ? 'Casa' : 'Fuera'} · local–visitante · ${g.players.length} + ${g.opponentPlayers.length} personas en acta</span></div>
         <label>Fecha<input type="date" data-import-date="${i}" value="${g.date}"></label>
         ${pendingImportControl(g,i,modalContext.forcedPendingId)}
         ${g.importWarnings.length ? `<div class="data-warning"><b>Revisar Excel</b>${g.importWarnings.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : `<div class="validation-ok">✓ Filas y totales coinciden</div>`}
@@ -769,7 +713,7 @@ function gameScore(game,separator='–') {
   const left=game.home?game.us:game.them,right=game.home?game.them:game.us;
   return `${left??'—'}${separator}${right??'—'}`;
 }
-function gameSides(game) { return game.home?`Buen Consejo · ${game.opponent}`:`${game.opponent} · Buen Consejo`; }
+function gameSides(game) { const team=teamLabel(); return game.home?`${team} · ${game.opponent}`:`${game.opponent} · ${team}`; }
 function gameTime(game) { return `${game.date || '9999-12-31'}|${game.importedAt || ''}|${game.id || ''}`; }
 function chronological(games) { return [...games].sort((a,b) => gameTime(a).localeCompare(gameTime(b))); }
 function validGames() { return chronological(state.games.filter(g => g.source !== 'live-pending' && hasScore(g.us) && hasScore(g.them))); }
@@ -866,35 +810,43 @@ function sparkline(values, tone = 'team', width = 150, height = 42) {
   </svg>`;
 }
 
-function scoreChart(games) {
+function scoreChart(games, expanded = false) {
   if (!games.length) return '';
   const ordered = [...games].sort((a,b) => String(a.date).localeCompare(String(b.date)));
-  const limit = 8, shown = ordered.length > limit ? ordered.slice(-limit) : ordered;
-  const all = shown.flatMap(game => [+game.us, +game.them]);
-  const max = Math.max(...all, 1), min = Math.min(...all, 0), w = 760, h = 240;
-  const x = index => shown.length === 1 ? w / 2 : 52 + index * (w - 104) / (shown.length - 1);
-  const y = value => h - 58 - (value - min) / (max - min || 1) * (h - 108);
-  const line = key => shown.map((game, index) => `${x(index)},${y(+game[key])}`).join(' ');
-  const margins=shown.map(game=>+game.us-(+game.them)),marginMax=Math.max(1,...margins.map(Math.abs));
-  const marginY=value=>h-59-(value/marginMax)*13;
-  const windowLabel=ordered.length>limit?`Últimos ${shown.length} de ${ordered.length}`:`${shown.length} partido${shown.length===1?'':'s'}`;
-  return `<div class="chart-wrap"><div class="chart-window-label">${windowLabel}</div><svg class="score-chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Marcador y diferencia por partido · ${windowLabel}">
-    <line class="grid-line" x1="26" y1="${h-58}" x2="${w-26}" y2="${h-58}"/>
+  const all = ordered.flatMap(game => [+game.us, +game.them]);
+  const max = Math.max(...all, 1), min = Math.min(...all, 0), w = ordered.length > 6 ? Math.max(760, ordered.length * (expanded ? 108 : 92)) : 760, h = expanded ? 300 : 250;
+  const left=54,right=54;
+  const x = index => ordered.length === 1 ? w / 2 : left + index * (w-left-right)/(ordered.length-1);
+  const y = value => h-82-(value-min)/(max-min||1)*(h-132);
+  const line = key => ordered.map((game,index)=>`${x(index)},${y(+game[key])}`).join(' ');
+  const margins=ordered.map(game=>+game.us-(+game.them)), marginMax=Math.max(1,...margins.map(Math.abs));
+  const marginBase=h-54, marginY=value=>marginBase-(value/marginMax)*16;
+  const label=`${ordered.length} partido${ordered.length===1?'':'s'}${ordered.length>6?' · desliza ↔':''}`;
+  return `<div class="score-chart-frame ${expanded?'expanded':''}"><div class="chart-window-label">${label}</div><div class="score-chart-scroller" data-detail="score-chart" tabindex="0" role="button" aria-label="Ampliar el gráfico completo"><svg class="score-chart" viewBox="0 0 ${w} ${h}" ${ordered.length>6||expanded?`style="min-width:${w}px!important"`:''} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Marcador y diferencia de ${ordered.length} partidos">
+    <line class="grid-line" x1="26" y1="${marginBase}" x2="${w-26}" y2="${marginBase}"/>
     <polyline class="score-us" points="${line('us')}"/><polyline class="score-them" points="${line('them')}"/>
     <polyline class="score-difference" points="${margins.map((value,index)=>`${x(index)},${marginY(value)}`).join(' ')}"/>
-    ${shown.map((game, index) => {
-      const margin = +game.us - +game.them, seasonIndex=ordered.indexOf(game)+1;
-      return `<g data-detail="game:${game.id}" tabindex="0" role="button">
-        <circle class="score-us" cx="${x(index)}" cy="${y(+game.us)}" r="6"/><circle class="score-them" cx="${x(index)}" cy="${y(+game.them)}" r="6"/>
-        <text class="score-label us" x="${x(index)}" y="${Math.max(17,y(+game.us)-12)}" text-anchor="middle">${game.us}</text>
-        <text class="score-label them" x="${x(index)}" y="${Math.min(h-64,y(+game.them)+21)}" text-anchor="middle">${game.them}</text>
-        <text class="score-margin ${margin >= 0 ? 'positive' : 'negative'}" x="${x(index)}" y="${h-38}" text-anchor="middle">${margin > 0 ? '+' : ''}${margin}</text>
-        <text class="game-label" x="${x(index)}" y="${h-19}" text-anchor="middle">P${seasonIndex}</text>
-        <text class="date-label" x="${x(index)}" y="${h-5}" text-anchor="middle">${esc(String(game.date||'').slice(5))}</text>
-        <title>${esc(gameSides(game))}: ${gameScore(game)} · local–visitante · diferencia BC ${margin > 0 ? '+' : ''}${margin}</title>
-      </g>`;
-    }).join('')}
-  </svg><div class="chart-legend"><span class="us">Buen Consejo</span><span class="them">Rival</span><span class="margin">Diferencia</span></div></div>`;
+    ${ordered.map((game,index)=>{const margin=+game.us-(+game.them);return `<g data-detail="game:${game.id}" tabindex="0" role="button">
+      <circle class="score-us" cx="${x(index)}" cy="${y(+game.us)}" r="7"/><circle class="score-them" cx="${x(index)}" cy="${y(+game.them)}" r="7"/>
+      <text class="score-label us" x="${x(index)}" y="${Math.max(18,y(+game.us)-13)}" text-anchor="middle">${game.us}</text>
+      <text class="score-label them" x="${x(index)}" y="${Math.min(h-83,y(+game.them)+24)}" text-anchor="middle">${game.them}</text>
+      <text class="score-margin ${margin>=0?'positive':'negative'}" x="${x(index)}" y="${h-37}" text-anchor="middle">${margin>0?'+':''}${margin}</text>
+      <text class="game-label" x="${x(index)}" y="${h-18}" text-anchor="middle">P${index+1}</text>
+      <text class="date-label" x="${x(index)}" y="${h-4}" text-anchor="middle">${esc(String(game.date||'').slice(5))}</text>
+      <title>${esc(gameSides(game))}: ${gameScore(game)} · diferencia ${margin>0?'+':''}${margin}</title></g>`;}).join('')}
+  </svg></div><div class="chart-legend"><span class="us">${esc(teamLabel())}</span><span class="them">Rival</span><span class="margin">Diferencia</span></div></div>`;
+}
+
+function scoreOverviewSVG(games){
+  const rows=[...games].sort((a,b)=>String(a.date).localeCompare(String(b.date))),values=rows.flatMap(game=>[+game.us,+game.them]),min=Math.min(0,...values),max=Math.max(1,...values),w=760,h=118,x=index=>rows.length===1?w/2:18+index*(w-36)/(rows.length-1),y=value=>h-17-(value-min)/(max-min||1)*(h-34),line=key=>rows.map((game,index)=>`${x(index)},${y(game[key])}`).join(' ');
+  return `<div class="score-overview"><span>Temporada completa · ${rows.length} partidos</span><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Vista completa de la temporada"><polyline class="score-us" points="${line('us')}"/><polyline class="score-them" points="${line('them')}"/>${rows.map((game,index)=>`<circle class="${game.us>=game.them?'win':'loss'}" cx="${x(index)}" cy="${y(game.us)}" r="${rows.length>16?3:5}"/>`).join('')}</svg></div>`;
+}
+function openScoreChartDetail(){
+  const games=validGames().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const best=[...games].sort((a,b)=>(b.us-b.them)-(a.us-a.them))[0], worst=[...games].sort((a,b)=>(a.us-a.them)-(b.us-b.them))[0];
+  modalContext={type:'score-chart'};
+  openModal('Equipo','Marcador completo',`<p class="metric-explain">Todos los partidos, sin comprimir. La vista superior enseña la temporada completa; debajo puedes deslizar el detalle y tocar un punto para abrir el acta.</p>${scoreOverviewSVG(games)}${scoreChart(games,true)}<div class="best-worst"><div><span>Mayor diferencia</span><b>${best?signed(best.us-best.them).replace(',0',''):'—'}</b><small>${best?esc(best.opponent):''}</small></div><div><span>Menor diferencia</span><b>${worst?signed(worst.us-worst.them).replace(',0',''):'—'}</b><small>${worst?esc(worst.opponent):''}</small></div></div><section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${games.map((game,index)=>`<button data-detail="game:${game.id}"><span><b>P${index+1} · ${esc(game.opponent)}</b><small>${game.date||'Sin fecha'} · ${game.home?'Casa':'Fuera'}</small></span><strong>${gameScore(game)}</strong><em>${signed(game.us-game.them).replace(',0','')}</em></button>`).join('')}</div></section>`);
+  requestAnimationFrame(()=>{const scroller=$('.modal .score-chart-scroller');if(scroller)scroller.scrollLeft=scroller.scrollWidth;});
 }
 
 function pointShareChart(players, ownPts) {
@@ -927,7 +879,7 @@ function scoringMixCompare(own, opp) {
     const parts = [{label:'2P', value:totals.p2m*2, tone:'two'}, {label:'3P', value:totals.p3m*3, tone:'three'}, {label:'TL', value:totals.ftm, tone:'free'}];
     return `<div class="mix-row"><div><b>${label}</b><span>${sum(parts, item => item.value)} pts</span></div>${stackedBar(parts, `Origen de puntos · ${label}`)}</div>`;
   };
-  return `<div class="mix-compare">${row('Buen Consejo', own, 'own')}${row('Rival', opp, 'opp')}</div>`;
+  return `<div class="mix-compare">${row(teamLabel(), own, 'own')}${row('Rival', opp, 'opp')}</div>`;
 }
 
 function compareBar(label, own, opp, formatter = num) {
@@ -942,7 +894,7 @@ function donut(value, label, tone = 'team') {
 
 const TEAM_METRICS = {
   points:{label:'Puntos', short:'PTS', player:'pts', compare:true, higherBetter:true, value:(game, totals, side) => side === 'own' ? +game.us : +game.them, note:'Marcador oficial.'},
-  margin:{label:'Diferencia', short:'+/-', compare:true, higherBetter:true, value:(game, totals, side) => side === 'own' ? +game.us-(+game.them) : +game.them-(+game.us), note:'Puntos de Buen Consejo menos puntos del rival; resume el margen real de cada partido.'},
+  margin:{label:'Diferencia', short:'+/-', compare:true, higherBetter:true, value:(game, totals, side) => side === 'own' ? +game.us-(+game.them) : +game.them-(+game.us), note:'Puntos del equipo menos puntos del rival; resume el margen real de cada partido.'},
   p2m:{label:'Canastas de 2', short:'2P', player:'p2m', compare:true, higherBetter:true, value:(game, totals) => +totals.p2m || 0, note:'Canastas anotadas; no porcentaje porque los intentos de campo del acta no son fiables.'},
   p3m:{label:'Canastas de 3', short:'3P', player:'p3m', compare:true, higherBetter:true, value:(game, totals) => +totals.p3m || 0, note:'Triples anotados; las líneas coincidentes se separan y el rival se dibuja discontinuo.'},
   ftm:{label:'Tiros libres', short:'TL', player:'ftm', compare:true, higherBetter:true, value:(game, totals) => +totals.ftm || 0, note:'Tiros libres anotados.'},
@@ -950,7 +902,7 @@ const TEAM_METRICS = {
   ftp:{label:'Porcentaje TL', short:'TL%', player:'ftp', compare:true, percent:true, higherBetter:true, value:(game, totals) => totals.fta ? totals.ftm/totals.fta*100 : null, note:'Los partidos sin intentos quedan ausentes: no cuentan como 0% ni entran en la media.'},
   threeShare:{label:'Peso del triple', short:'3P PTS%', compare:true, percent:true, higherBetter:null, value:(game, totals, side) => {const pts=side==='own'?+game.us:+game.them;return pts?3*(+totals.p3m||0)/pts*100:null;}, note:'Porcentaje de los puntos que procede de triples. Describe el estilo, no si es mejor o peor.'},
   freeShare:{label:'Peso del tiro libre', short:'TL PTS%', compare:true, percent:true, higherBetter:null, value:(game, totals, side) => {const pts=side==='own'?+game.us:+game.them;return pts?(+totals.ftm||0)/pts*100:null;}, note:'Porcentaje de los puntos que procede del tiro libre. Describe el estilo anotador.'},
-  fouls:{label:'Faltas', short:'FAL', player:'fouls', compare:true, lowerBetter:true, per40:true, value:(game, totals) => +totals.fouls || 0, note:'Faltas cometidas. Menos es mejor; las faltas del rival equivalen a faltas recibidas por Buen Consejo.'},
+  fouls:{label:'Faltas', short:'FAL', player:'fouls', compare:true, lowerBetter:true, per40:true, value:(game, totals) => +totals.fouls || 0, note:'Faltas cometidas. Menos es mejor; las faltas del rival equivalen a faltas recibidas por el equipo.'},
   val:{label:'Valoración', short:'VAL', player:'val', compare:true, higherBetter:true, value:(game, totals) => +totals.val || 0, note:'Valoración publicada en el acta. La tarjeta principal conserva la referencia rival.'},
   ast:{label:'Asistencias', short:'AST', player:'ast', compare:true, optional:true, higherBetter:true, value:(game, totals) => +totals.ast || 0, note:'Asistencias publicadas en el acta. Solo aparece cuando el Excel contiene valores.'},
   rebTot:{label:'Rebotes totales', short:'REB', player:'rebTot', compare:true, optional:true, higherBetter:true, value:(game, totals) => +totals.rebTot || 0, note:'Rebotes totales publicados en el acta. Solo aparece cuando el Excel contiene valores fiables.'},
@@ -1014,7 +966,7 @@ function lineSegments(rows, side, x, y) {
 }
 
 function dualTrendSVG(rows, key, compact = false) {
-  if (compact && rows.length > 8) rows = rows.slice(-8);
+  if (compact && rows.length > 12) rows = rows.slice(-12);
   const valid = rows.flatMap(row => [row.own,row.opp]).filter(value => value !== null && Number.isFinite(+value));
   if (!valid.length) return '<div class="empty-chart">Sin datos</div>';
   const w=compact?760:Math.max(760,rows.length*76), h=compact?116:270, left=compact?10:42, bottom=compact?12:42;
@@ -1050,12 +1002,7 @@ function balanceVisual(key, rows) {
 }
 
 function metricMiniVisual(key, rows) {
-  if (statsMode==='compare' && TEAM_METRICS[key]?.compare) return balanceVisual(key,rows);
-  if (['points','val','margin'].includes(key)) return dualTrendSVG(rows,key,true);
-  if (['ftp','threeShare','freeShare'].includes(key)) return pairedRingsVisual(key,rows);
-  if (['p2m','fouls','fta'].includes(key)) return pairedBarsVisual(key,rows);
-  const shown=rows.length>8?rows.slice(-8):rows,max=Math.max(1,...shown.flatMap(row=>[+row.own||0,+row.opp||0]));
-  return `<div class="mini-columns">${shown.map(row=>`<span><i class="own" style="height:${(+row.own||0)/max*100}%"></i><i class="opp" style="height:${(+row.opp||0)/max*100}%"></i></span>`).join('')}</div>`;
+  return `<div class="metric-evolution" aria-label="Evolución por partido">${dualTrendSVG(rows,key,true)}<small>${rows.length} partido${rows.length===1?'':'s'} · toca para ampliar</small></div>`;
 }
 
 function teamMetricCard(key) {
@@ -1066,8 +1013,8 @@ function teamMetricCard(key) {
   const ownShown = mode === 'total' ? ownTotal : ownAverage, oppShown = mode === 'total' ? oppTotal : oppAverage;
   const modeLabel = ['ftp','threeShare','freeShare'].includes(key) ? 'temporada' : mode === 'total' ? 'total' : mode==='compare'?'diferencia media':'por partido';
   const detail = key === 'ftp' ? `TL convertidos ${sum(rows,row=>effectiveTotals(row.game,'own').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'own').fta)}` : `${rows.length} partido${rows.length===1?'':'s'} con acta`;
-  if (statsMode==='compare' && metric.compare) {const delta=key==='margin'?ownAverage:difference(ownAverage,oppAverage),shown=metric.percent?`${signed(delta)} pp`:signed(delta);return `<button class="stat-card stat-${key} comparison-card" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${key==='margin'?'Margen BC':'BC − rival'}</small></header><div class="comparison-value"><strong>${shown}</strong><span>media por partido</span></div>${metricMiniVisual(key,rows)}<footer>Rojo = favorable; azul = desfavorable<b>Ver detalle →</b></footer></button>`;}
-  if (!metric.compare) return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>Buen Consejo</small></header><div class="stat-values own-only"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><span>${modeLabel}</span></div><div class="single-trend">${sparkline(rows.map(row=>row.own),'team',260,70)}</div><footer>${detail}<b>Ver detalle →</b></footer></button>`;
+  if (statsMode==='compare' && metric.compare) {const delta=key==='margin'?ownAverage:difference(ownAverage,oppAverage),shown=metric.percent?`${signed(delta)} pp`:signed(delta);return `<button class="stat-card stat-${key} comparison-card" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${key==='margin'?'Margen BC':'BC − rival'}</small></header><div class="comparison-value"><strong>${shown}</strong><span>media por partido</span></div>${metricMiniVisual(key,rows)}<footer>Color del equipo = favorable; color rival = desfavorable<b>Ver detalle →</b></footer></button>`;}
+  if (!metric.compare) return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${esc(teamLabel())}</small></header><div class="stat-values own-only"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><span>${modeLabel}</span></div><div class="single-trend">${sparkline(rows.map(row=>row.own),'team',260,70)}</div><footer>${detail}<b>Ver detalle →</b></footer></button>`;
   const hint=metric.lowerBetter?'BC / Rival · menos':'BC / Rival';
   return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${hint}</small></header><div class="stat-values"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><strong>${metricValue(key,oppShown,mode==='total'?0:1)}</strong></div><div class="value-caption"><span>BC · ${modeLabel}</span><span>Rival · ${modeLabel}</span></div>${metricMiniVisual(key,rows)}<footer>${detail}<b>Ver detalle →</b></footer></button>`;
 }
@@ -1084,7 +1031,7 @@ function reimportBanner() {
 function renderMinutesCard(stats) {
   const options = [`<option value="season" ${minutesScope==='season'?'selected':''}>Temporada</option>`, `<option value="average" ${minutesScope==='average'?'selected':''}>Media por partido</option>`, ...stats.games.map((game,index)=>`<option value="game:${game.id}" ${minutesScope===`game:${game.id}`?'selected':''}>P${index+1} · ${esc(game.opponent)}</option>`)].join('');
   const label = minutesScope === 'season' ? 'Minutos totales' : minutesScope === 'average' ? 'Media por partido' : 'Partido concreto';
-  return `<article class="card visual-card minutes-card"><div class="card-title"><div><h3>Minutos</h3><span>${label}</span></div><select id="minutesScope" aria-label="Vista de minutos">${options}</select></div><div class="minutes-open">${minuteBars(stats.playerTotals,minutesScope)}</div><button class="text-link" data-detail="minutes">Ver las ${playerAgg().length} jugadoras, mapa y evolución →</button></article>`;
+  return `<article class="card visual-card minutes-card"><div class="card-title"><div><h3>Minutos</h3><span>${label}</span></div><select id="minutesScope" aria-label="Vista de minutos">${options}</select></div><div class="minutes-open">${minuteBars(stats.playerTotals,minutesScope)}</div><button class="text-link" data-detail="minutes">Ver ${genderTerms().plural.toLowerCase()}: ${playerAgg().length}, mapa y evolución →</button></article>`;
 }
 
 const LIVE_METRICS = {
@@ -1111,7 +1058,7 @@ function liveMetricCard(key) {
   const share=(ownTotal+oppTotal)?ownTotal/(ownTotal+oppTotal)*100:null, relation=ratio(ownTotal,oppTotal),balance=ownTotal-oppTotal;
   const insight=key==='ball'?`Balance ${signed(balance).replace(',0','')} · ROB/PER ${relation===null?'—':num(relation,2)}`:`Cuota REB O ${share===null?'—':pct(share)}`;
   const values=compareMode?`<div class="comparison-value"><strong>${signed(balance).replace(',0','')}</strong><span>${key==='ball'?'ROB − PER':'REB O BC − rival'}</span></div>`:`<div class="stat-values"><strong>${num(own,totalMode?0:1)}</strong><strong>${num(opp,totalMode?0:1)}</strong></div><div class="live-card-labels"><span>${metric.ownLabel}</span><span>${metric.oppLabel}</span></div>`;
-  const visual=compareMode?balanceVisual(`live-${key}`,rows):`<div class="mini-columns">${rows.slice(-8).map(row=>`<span><i class="own" style="height:${row.own/max*100}%"></i><i class="opp" style="height:${row.opp/max*100}%"></i></span>`).join('')}</div>`;
+  const visual=`<div class="metric-evolution">${dualTrendSVG(rows,key,true)}<small>${rows.length} partido${rows.length===1?'':'s'} con Directo · sin datos ≠ 0</small></div>`;
   return `<button class="stat-card live-stat-card ${compareMode?'comparison-card':''}" data-detail="live:${key}"><header><span>${metric.label}</span><small>Directo · ${compareMode?'balance total':totalMode?'total':'por partido'}</small></header>${values}${visual}<footer>${insight}<b>Ver detalle →</b></footer></button>`;
 }
 
@@ -1126,6 +1073,7 @@ function renderTeam() {
   const ownTotals=stats.own.reduce((out,row)=>{['p2m','p3m','ftm','fta','fouls','val'].forEach(key=>out[key]=(out[key]||0)+(+row[key]||0));return out;},{});
   const oppTotals=stats.opp.reduce((out,row)=>{['p2m','p3m','ftm','fta','fouls','val'].forEach(key=>out[key]=(out[key]||0)+(+row[key]||0));return out;},{});
   const current=currentStreak(stats.games), currentWins=current.startsWith('V');
+  const liveCards=recordedLiveGames().length?liveMetricCard('ball')+liveMetricCard('orb'):'';
   return head('team-page','Equipo',`<button class="btn" data-action="import-games">Importar acta</button>`,`${stats.played} partidos · ${state.team.season}`) + reimportBanner() + `
     <div class="summary-grid">
       <article class="score-summary card"><div><span>Balance</span><strong>${stats.wins}–${stats.losses}</strong><em>${pct(stats.wins/stats.played*100)}</em></div><div><span>Anota</span><strong>${num(stats.ppg)}</strong><em>por partido</em></div><div><span>Recibe</span><strong>${num(stats.papg)}</strong><em>por partido</em></div><div><span>Racha</span><strong>${current}</strong><em>${currentWins?'victorias':'derrotas'} seguidas</em></div></article>
@@ -1134,12 +1082,11 @@ function renderTeam() {
     <div class="section-title"><div><h2>Cómo anota el equipo</h2><p>Datos publicados por la FBM; sin porcentajes de campo.</p></div></div>
     <div class="analysis-grid feature-grid">
       <button class="card visual-card mix-card" data-detail="scoring-mix"><div class="card-title"><div><h3>Origen de los puntos</h3><span>2P · 3P · TL</span></div><small>BC / Rival</small></div>${scoringMixCompare(ownTotals,oppTotals)}</button>
-      <article class="card visual-card point-share"><div class="card-title"><div><h3>Reparto de puntos</h3><span>Contribución de las jugadoras</span></div><small>Vista rápida</small></div>${pointShareChart(stats.playerTotals,stats.ownPts)}<button class="text-link" data-detail="point-share">Ver las ${playerAgg().length} jugadoras →</button></article>
+      <article class="card visual-card point-share"><div class="card-title"><div><h3>Reparto de puntos</h3><span>Contribución de ${genderTerms().plural.toLowerCase()}</span></div><small>Vista rápida</small></div>${pointShareChart(stats.playerTotals,stats.ownPts)}<button class="text-link" data-detail="point-share">Ver ${genderTerms().plural.toLowerCase()}: ${playerAgg().length} →</button></article>
       ${renderMinutesCard(stats)}
-      ${renderLiveMetrics()}
     </div>
     <div class="section-title stats-title"><div><h2>Todas las estadísticas</h2><p>Elige por partido, totales o comparación. Toca una tarjeta para ver ratios, evolución y desglose.</p></div><div class="segmented" aria-label="Escala de las estadísticas"><button data-action="stats-mode" data-mode="average" class="${statsMode==='average'?'active':''}">Por partido</button><button data-action="stats-mode" data-mode="total" class="${statsMode==='total'?'active':''}">Totales</button><button data-action="stats-mode" data-mode="compare" class="${statsMode==='compare'?'active':''}">Comparar</button></div></div>
-    <div class="stats-grid">${availableTeamMetricKeys().map(teamMetricCard).join('')}</div>
+    <div class="stats-grid">${availableTeamMetricKeys().map(teamMetricCard).join('')}${liveCards}</div>
     <div class="section-title"><div><h2>Mapas</h2><p>Solo partidos con mapa importado o editado.</p></div></div>
     <div class="analysis-grid maps-grid">
       <button class="card visual-card map-card" data-detail="heat-attack"><div class="card-title"><div><h3>Ataque</h3><span>${stats.shotsFor.length} canastas</span></div></div>${courtHTML(stats.shotsFor,[],true)}${zoneBars(stats.shotsFor,'attack')}</button>
@@ -1159,11 +1106,11 @@ function currentStreak(games) {
 /* ── Main views ─────────────────────────────────────────────────── */
 function renderPlayers() {
   const players = playerAgg();
-  if (!players.length) return head('players-page', 'Jugadoras', `<button class="btn primary" data-action="import-roster">Importar plantilla</button>`) + `<div class="empty card"><h2>Sin jugadoras</h2></div></section>`;
+  if (!players.length) return head('players-page', genderTerms().plural, `<button class="btn primary" data-action="import-roster">Importar plantilla</button>`) + `<div class="empty card"><h2>Sin ${genderTerms().plural.toLowerCase()}</h2></div></section>`;
   const value=(p,key)=>p.gp ? (+p[key]||0)/p.gp : -Infinity;
   players.sort((a,b)=>(value(a,playerSort)-value(b,playerSort))*playerSortDir || namePretty(a.name).localeCompare(namePretty(b.name),'es'));
   const sortHead=(key,label)=>`<button data-action="sort-players" data-key="${key}" aria-sort="${playerSort===key?(playerSortDir===-1?'descending':'ascending'):'none'}">${label}${playerSort===key?(playerSortDir===-1?' ↓':' ↑'):''}</button>`;
-  return head('players-page', 'Jugadoras', `<button class="btn" data-action="import-roster">Actualizar plantilla</button>`, `${players.length} jugadoras`) + reimportBanner() + `<div class="player-table-head"><span></span><span>Jugadora</span><span></span>${sortHead('pts','PTS/P')}${sortHead('min','MIN/P')}${sortHead('val','VAL/P')}<span></span></div><div class="player-ranking">${players.map(p => {
+  return head('players-page', genderTerms().plural, `<button class="btn" data-action="import-roster">Actualizar plantilla</button>`, `${players.length} ${genderTerms().plural.toLowerCase()}`) + reimportBanner() + `<div class="player-table-head"><span></span><span>${genderTerms().singular}</span><span></span>${sortHead('pts','PTS/P')}${sortHead('min','MIN/P')}${sortHead('val','VAL/P')}<span></span></div><div class="player-ranking">${players.map(p => {
     const points = p.games.map(x => x.p.pts), ppg = p.gp ? p.pts / p.gp : null;
     return `<button class="player-rank" data-detail="player:${encodeURIComponent(norm(p.name))}"><span class="player-number">${esc(p.number || '—')}</span><span class="player-id"><b>${esc(namePretty(p.name))}</b><small>${p.gp ? `${p.gp} partidos` : 'Sin acta'}</small></span><span class="player-spark">${sparkline(points, 'player', 100, 30)}</span><span class="rank-metric" title="Puntos por partido"><b>${p.gp ? num(ppg) : '—'}</b><small>PTS/P</small></span><span class="rank-metric" title="Minutos por partido"><b>${p.gp ? num(p.min / p.gp) : '—'}</b><small>MIN/P</small></span><span class="rank-metric" title="Valoración por partido"><b>${p.gp ? num(p.val / p.gp) : '—'}</b><small>VAL/P</small></span><span class="rank-arrow">›</span></button>`;
   }).join('')}</div></section>`;
@@ -1190,16 +1137,19 @@ function renderLive() {
   const L = state.live;
   if (!L) {
     ensureDraftSelection(); const d = state.liveDraft;
-    return head('live-page', 'Directo', '', '') + `<div class="card live-setup"><div class="setup-fields"><label class="field">Rival<input id="rival" value="${esc(d.rival)}" placeholder="Nombre del rival" autocomplete="off"></label><label class="field">Fecha<input id="liveDate" type="date" value="${esc(d.date || today())}"></label></div><div class="roster-heading"><b>Convocadas</b><span id="selectedCount">${d.selected.length} convocadas</span></div>${state.roster.length ? `<div class="roster-grid">${state.roster.map(p => { const checked = d.selected.includes(p.id); return `<label class="roster-card ${checked ? 'selected' : ''}"><input type="checkbox" value="${p.id}" ${checked ? 'checked' : ''}><span class="check">${checked ? '✓' : ''}</span><strong>${esc(p.number || '—')}</strong><span class="roster-name">${esc(shortName(p.name))}</span></label>`; }).join('')}</div>` : `<div class="empty-inline">Importa la plantilla.</div>`}<div class="sticky-start"><button class="btn direct" data-action="start-live" ${state.settings.role === 'viewer' || !state.roster.length ? 'disabled' : ''}>Empezar</button><button class="btn" data-action="import-roster">Importar plantilla</button></div></div></section>`;
+    return head('live-page', 'Directo', '', '') + `<div class="card live-setup"><div class="setup-fields"><label class="field">Rival<input id="rival" value="${esc(d.rival)}" placeholder="Nombre del rival" autocomplete="off"></label><label class="field">Fecha<input id="liveDate" type="date" value="${esc(d.date || today())}"></label></div><div class="roster-heading"><b>Convocadas</b><span id="selectedCount">${d.selected.length} convocad${state.team.gender==='female'?'as':'os'}</span></div>${state.roster.length ? `<div class="roster-grid">${state.roster.map(p => { const checked = d.selected.includes(p.id); return `<label class="roster-card ${checked ? 'selected' : ''}"><input type="checkbox" value="${p.id}" ${checked ? 'checked' : ''}><span class="check">${checked ? '✓' : ''}</span><strong>${esc(p.number || '—')}</strong><span class="roster-name">${esc(shortName(p.name))}</span></label>`; }).join('')}</div>` : `<div class="empty-inline">Importa la plantilla.</div>`}<div class="sticky-start"><button class="btn direct" data-action="start-live" ${state.settings.role === 'viewer' || !state.roster.length ? 'disabled' : ''}>Empezar</button><button class="btn" data-action="import-roster">Importar plantilla</button></div></div></section>`;
   }
   const count = type => L.events.filter(e => e.type === type && !e.undone).length;
-  return `<section class="live-page"><div class="live-board"><div class="live-meta"><div><h1>${esc(L.opponent)}</h1><p>${L.players.length} convocadas · ${L.date}</p></div><span class="quarter-badge">Q${L.quarter}</span></div><div class="quarter" aria-label="Cuarto">${[1,2,3,4].map(q => `<button class="${q === L.quarter ? 'active' : ''}" data-action="quarter" data-q="${q}">${q}º</button>`).join('')}</div><div class="live-actions">${liveButton('steal','↗','Robo',count('steal'))}${liveButton('turnover','↘','Pérdida',count('turnover'))}${liveButton('orbFor','◎','Rebote ofensivo',count('orbFor'))}${liveButton('orbAgainst','◌','Rebote rival',count('orbAgainst'))}</div><div class="live-footer"><button class="btn" data-action="undo-live" ${L.events.some(e => !e.undone) ? '' : 'disabled'}>Deshacer</button><button class="btn danger" data-action="discard-live">Descartar</button><button class="btn direct" data-action="finish-live">Finalizar</button></div></div></section>`;
+  return `<section class="live-page"><div class="live-board"><div class="live-meta"><div><h1>${esc(L.opponent)}</h1><p>${L.players.length} convocad${state.team.gender==='female'?'as':'os'} · ${L.date}</p></div><span class="quarter-badge">Q${L.quarter}</span></div><div class="quarter" aria-label="Cuarto">${[1,2,3,4].map(q => `<button class="${q === L.quarter ? 'active' : ''}" data-action="quarter" data-q="${q}">${q}º</button>`).join('')}</div><div class="live-actions">${liveButton('steal','↗','Robo',count('steal'))}${liveButton('turnover','↘','Pérdida',count('turnover'))}${liveButton('orbFor','◎','Rebote ofensivo',count('orbFor'))}${liveButton('orbAgainst','◌','Rebote rival',count('orbAgainst'))}</div><div class="live-footer"><button class="btn" data-action="undo-live" ${L.events.some(e => !e.undone) ? '' : 'disabled'}>Deshacer</button><button class="btn danger" data-action="discard-live">Descartar</button><button class="btn direct" data-action="finish-live">Finalizar</button></div></div></section>`;
 }
 
 function liveButton(type, symbol, label, count) { return `<button class="live-action" data-action="add-live" data-type="${type}"><span class="symbol">${symbol}</span><b>${label}</b><strong>${count}</strong></button>`; }
 
 function render() {
+  applyTeamIdentity();$$('.team-players-label').forEach(node=>node.textContent=genderTerms().plural);
   $('#roleLabel').textContent = (state.settings.role || 'admin').toUpperCase();
+  const teamButton=$('#teamButton');if(teamButton){teamButton.querySelector('b').textContent=teamLabel();teamButton.querySelector('small').textContent=state.team.season||'Sin temporada';}
+  const brandMeta=$('.brand small');if(brandMeta)brandMeta.textContent=`${teamLabel()}${state.team.season?` · ${state.team.season}`:''}`;
   $('#view').innerHTML = view === 'team' ? renderTeam() : view === 'players' ? renderPlayers() : view === 'games' ? renderGames() : renderLive();
   document.body.dataset.view = view; document.body.dataset.role = state.settings.role || 'admin';
   document.body.classList.toggle('live-running', view === 'live' && !!state.live);
@@ -1265,20 +1215,31 @@ function playerTrendSVG(player,key) {
       ${row.value===null?`<circle class="missing" cx="${x(index)}" cy="${h-46}" r="7"/><text class="missing-label" x="${x(index)}" y="${h-57}" text-anchor="middle">sin tiros</text>`:`<circle cx="${x(index)}" cy="${y(row.value)}" r="8"/><text x="${x(index)}" y="${Math.max(15,y(row.value)-14)}" text-anchor="middle">${metricValue(key,row.value)}</text>`}
       <text class="game-index" x="${x(index)}" y="${h-18}" text-anchor="middle">P${index+1}</text><title>${esc(row.g.opponent)} · ${metric.label} ${row.value===null?'sin tiros':metricValue(key,row.value)}</title>
     </g>`).join('')}
-  </svg></div><div class="trend-legend"><span class="player">Jugadora</span><span class="average">Equipo · partido</span><span class="season">Equipo · temporada</span></div>`;
+  </svg></div><div class="trend-legend"><span class="player">${genderTerms().singular}</span><span class="average">Equipo · partido</span><span class="season">Equipo · temporada</span></div>`;
 }
 
-function openPlayerDetail(key,metricKey='pts') {
+function playerShareData(player, mode='average') {
+  const playerGames=player.games.map(item=>item.g).filter(game=>hasScore(game.us));
+  const teamPoints=sum(playerGames,game=>game.us);
+  if(mode==='season') return {points:sum(validGames(),game=>game.us)?player.pts/sum(validGames(),game=>game.us)*100:0, minutes:validGames().length?player.min/(validGames().length*200)*100:0, label:'temporada'};
+  const teamPpg=playerGames.length?teamPoints/playerGames.length:0;
+  return {points:player.gp&&teamPpg?(player.pts/player.gp)/teamPpg*100:0,minutes:player.gp?(player.min/player.gp)/200*100:0,label:'por partido'};
+}
+function robPerDisplay(steals,turnovers){return turnovers?num(steals/turnovers,2):steals?'∞':'—';}
+
+function openPlayerDetail(key,metricKey='pts',shareMode='average') {
   const player=playerAgg().find(item=>norm(item.name)===key); if(!player)return;
-  modalContext={type:'player',key,metric:metricKey};
+  modalContext={type:'player',key,metric:metricKey,shareMode};
   const metric=PLAYER_METRICS[metricKey]||PLAYER_METRICS.pts;
   const eligible=player.games.filter(({g,p})=>metric.value(p,g)!==null);
   const best=eligible.length?[...eligible].sort((a,b)=>(metric.value(b.p,b.g)||0)-(metric.value(a.p,a.g)||0))[0]:null;
-  const teamPts=sum(validGames(),game=>game.us), teamMinutes=validGames().length*200;
   const averages=[['PTS/P',player.gp?num(player.pts/player.gp):'—'],['PTS/40',player.min?num(player.pts/player.min*40):'—'],['MIN/P',player.gp?num(player.min/player.gp):'—'],['VAL/P',player.gp?num(player.val/player.gp):'—'],['FAL/P',player.gp?num(player.fouls/player.gp):'—'],['FAL/40',player.min?num(player.fouls/player.min*40):'—'],['+/- /P',player.gp?signed(player.pm/player.gp):'—'],['2P/P',player.gp?num(player.p2m/player.gp):'—'],['3P/P',player.gp?num(player.p3m/player.gp):'—'],['TL/P',player.gp?num(player.ftm/player.gp):'—'],['TL%',player.fta?pct(player.ftm/player.fta*100):'Sin tiros']];
-  const liveRatio=ratio(player.steals,player.turnovers), liveStats=[['Partidos con Directo',player.manualGp||0],['Robos',player.steals||0],['Robos/P',player.manualGp?num(player.steals/player.manualGp):'—'],['Pérdidas',player.turnovers||0],['Pérdidas/P',player.manualGp?num(player.turnovers/player.manualGp):'—'],['ROB/PER',liveRatio===null?'—':num(liveRatio,2)],['Balance',signed((player.steals||0)-(player.turnovers||0)).replace(',0','')],['REB O',player.orbLive||0],['REB O/P',player.manualGp?num(player.orbLive/player.manualGp):'—']];
+  const balance=(player.steals||0)-(player.turnovers||0);
+  const liveStats=player.manualGp?[['Directos',player.manualGp],['ROB',player.steals||0],['ROB/P',num(player.steals/player.manualGp)],['PER',player.turnovers||0],['PER/P',num(player.turnovers/player.manualGp)],['ROB/PER',robPerDisplay(player.steals||0,player.turnovers||0)],['Balance ROB−PER',signed(balance).replace(',0','')],['REB O',player.orbLive||0],['REB O/P',num(player.orbLive/player.manualGp)]]:[];
+  const allStats=[...averages,...liveStats],share=playerShareData(player,shareMode);
   const options=availablePlayerMetrics().map(([metricId,item])=>`<option value="${metricId}" ${metricId===metricKey?'selected':''}>${item.label}</option>`).join('');
-  openModal('Jugadora',namePretty(player.name),`<div class="player-summary"><div class="player-number large">${esc(player.number||'—')}</div><div><b>${player.gp} partidos</b><span>${best?`Mejor ${metric.label}: ${esc(best.g.opponent)}`:'Sin dato válido'}</span></div></div><div class="player-overview"><div class="detail-stats">${averages.map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}</div><div class="share-donuts">${donut(teamPts?player.pts/teamPts*100:0,'Cuota de puntos','player')}${donut(teamMinutes?player.min/teamMinutes*100:0,'Cuota de minutos','game')}</div></div><section class="manual-player-block ${player.manualGp?'':'is-empty'}"><div class="card-title"><div><h3>Robos, pérdidas y rebote ofensivo</h3><span>Las medias solo usan partidos con Directo en los que jugó.</span></div><small>${player.manualGp} con datos</small></div>${player.manualGp?`<div class="detail-stats manual-stats">${liveStats.map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}</div>`:noData()}</section><section class="trend-section"><div class="trend-head"><div><h3>Evolución</h3><p>Desliza si hay muchos partidos. Los huecos significan «sin datos», no cero.</p></div><select id="playerMetric">${options}</select></div><div id="playerTrend">${playerTrendSVG(player,metricKey)}</div></section><section><h3>Partidos</h3><div class="player-games">${chronological(player.games.map(item=>item.g)).map(g=>{const p=player.games.find(item=>item.g.id===g.id)?.p;return `<button data-detail="game:${g.id}"><span><b>${esc(g.opponent)}</b><small>${g.date||'Sin fecha'} · ${formatMinutes(p?.min)}</small></span><strong>${p?.pts||0} PTS</strong><em>${signed(p?.pm||0)}</em></button>`}).join('')}</div></section>`);
+  const directNote=player.manualGp?`<p class="inline-data-note ${balance<0?'negative':''}"><b>Directo integrado · ${player.manualGp} partido${player.manualGp===1?'':'s'}</b><span>ROB/PER es un cociente y nunca es negativo. El signo se muestra en «Balance ROB−PER»; si PER=0 aparece ∞ o — para evitar dividir entre cero.</span></p>`:'';
+  openModal(genderTerms().singular,namePretty(player.name),`<div class="player-summary"><div class="player-number large">${esc(player.number||'—')}</div><div><b>${player.gp} partidos</b><span>${best?`Mejor ${metric.label}: ${esc(best.g.opponent)}`:'Sin dato válido'}</span></div></div><div class="player-overview"><div class="detail-stats unified-player-stats">${allStats.map(([label,value])=>`<div class="${label.startsWith('Balance')&&balance<0?'negative-value':''}"><span>${label}</span><strong>${value}</strong></div>`).join('')}</div><div><div class="segmented share-mode" aria-label="Escala de las cuotas"><button data-action="player-share" data-mode="average" class="${shareMode==='average'?'active':''}">Por partido</button><button data-action="player-share" data-mode="season" class="${shareMode==='season'?'active':''}">Temporada</button></div><div class="share-donuts">${donut(share.points,`Cuota puntos · ${share.label}`,'player')}${donut(share.minutes,`Cuota minutos · ${share.label}`,'game')}</div></div></div>${directNote}<section class="trend-section"><div class="trend-head"><div><h3>Evolución</h3><p>Desliza si hay muchos partidos. Los huecos significan «sin datos», no cero.</p></div><select id="playerMetric">${options}</select></div><div id="playerTrend">${playerTrendSVG(player,metricKey)}</div></section><section><h3>Partidos</h3><div class="player-games">${chronological(player.games.map(item=>item.g)).map(g=>{const p=player.games.find(item=>item.g.id===g.id)?.p;return `<button data-detail="game:${g.id}"><span><b>${esc(g.opponent)}</b><small>${g.date||'Sin fecha'} · ${formatMinutes(p?.min)}</small></span><strong>${p?.pts||0} PTS</strong><em>${signed(p?.pm||0)}</em></button>`}).join('')}</div></section>`);
 }
 
 /* ── Match report and shot maps ─────────────────────────────────── */
@@ -1353,7 +1314,7 @@ function renderGameDetail() {
   }
   const warning = g.needsReimport || (!own && !players.length) ? `<div class="reimport-inline"><b>Faltan datos del rival</b><span>Vuelve a importar el acta. La actualización conserva Directo y mapas.</span><button class="btn" data-action="import-games">Reimportar</button></div>` : '';
   const manualNotice=own&&!manualAvailable?`<div class="manual-table-notice"><b>ROB · PER · REB O · REB R</b><span>Sin datos registrados todavía. Las columnas se muestran para distinguir ausencia de un cero real.</span></div>`:'';
-  $('#gameDetail').innerHTML = `<div class="score-hero"><div><span>${gameSides(g)} · ${g.date || 'Sin fecha'} · local–visitante</span><strong>${gameScore(g)}</strong></div><div class="result-pill ${g.us > g.them ? 'win' : 'loss'}">${g.us > g.them ? 'Victoria' : 'Derrota'}</div></div>${warning}${manualNotice}<div class="team-tabs"><button class="${own ? 'active' : ''}" data-action="game-team" data-side="own">Buen Consejo · ${g.us}</button><button class="${!own ? 'active' : ''}" data-action="game-team" data-side="opp">${esc(g.opponent)} · ${g.them}</button></div><div class="box-hint">Desliza la tabla</div><div class="box-wrap"><table class="boxscore"><thead><tr><th class="identity" rowspan="2" data-action="sort-box" data-key="number">Nº · Nombre</th>${groups.map(group => `<th colspan="${group.cols.length}">${group.label}</th>`).join('')}</tr><tr>${groups.map(group => group.cols.map(([k,label]) => `<th data-action="sort-box" data-key="${k}">${label}${modalContext.sort === k ? (modalContext.dir === 1 ? ' ↑' : ' ↓') : ''}</th>`).join('')).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="${r._teamUnassigned?'team-unassigned':''}"><td class="identity" title="${esc(namePretty(r.name))}"><b>${esc(r.number || '—')}</b><span>${esc(r._teamUnassigned?'Equipo / sin asignar':firstName(r.name))}</span></td>${columns.map(([k]) => `<td>${formatBox(r,k)}</td>`).join('')}</tr>`).join('')}<tr class="totals"><td class="identity"><b></b><span>TOTALES</span></td>${columns.map(([k]) => `<td>${formatBox(total,k)}</td>`).join('')}</tr></tbody></table></div><div class="game-map-block"><div class="map-switch"><button class="${modalContext.map === 'attack' ? 'active' : ''}" data-action="game-map" data-mode="attack">Ataque</button><button class="${modalContext.map === 'defense' ? 'active' : ''}" data-action="game-map" data-mode="defense">Defensa</button><button class="${modalContext.map === 'both' ? 'active' : ''}" data-action="game-map" data-mode="both">Juntos</button></div>${courtHTML(modalContext.map === 'defense' ? [] : g.shotsFor || [], modalContext.map === 'attack' ? [] : g.shotsAgainst || [], false)}<button class="btn" data-action="shot-for-game" data-id="${g.id}">Editar mapa</button></div>`;
+  $('#gameDetail').innerHTML = `<div class="score-hero"><div><span>${gameSides(g)} · ${g.date || 'Sin fecha'} · local–visitante</span><strong>${gameScore(g)}</strong></div><div class="result-pill ${g.us > g.them ? 'win' : 'loss'}">${g.us > g.them ? 'Victoria' : 'Derrota'}</div></div>${warning}${manualNotice}<div class="team-tabs"><button class="${own ? 'active' : ''}" data-action="game-team" data-side="own">${esc(teamLabel())} · ${g.us}</button><button class="${!own ? 'active' : ''}" data-action="game-team" data-side="opp">${esc(g.opponent)} · ${g.them}</button></div><div class="box-hint">Desliza la tabla</div><div class="box-wrap"><table class="boxscore"><thead><tr><th class="identity" rowspan="2" data-action="sort-box" data-key="number">${genderTerms().number} · Nombre</th>${groups.map(group => `<th colspan="${group.cols.length}">${group.label}</th>`).join('')}</tr><tr>${groups.map(group => group.cols.map(([k,label]) => `<th data-action="sort-box" data-key="${k}">${label}${modalContext.sort === k ? (modalContext.dir === 1 ? ' ↑' : ' ↓') : ''}</th>`).join('')).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="${r._teamUnassigned?'team-unassigned':''}"><td class="identity" title="${esc(namePretty(r.name))}"><b>${esc(r.number || '—')}</b><span>${esc(r._teamUnassigned?'Equipo / sin asignar':firstName(r.name))}</span></td>${columns.map(([k]) => `<td>${formatBox(r,k)}</td>`).join('')}</tr>`).join('')}<tr class="totals"><td class="identity"><b></b><span>TOTALES</span></td>${columns.map(([k]) => `<td>${formatBox(total,k)}</td>`).join('')}</tr></tbody></table></div><div class="game-map-block"><div class="map-switch"><button class="${modalContext.map === 'attack' ? 'active' : ''}" data-action="game-map" data-mode="attack">Ataque</button><button class="${modalContext.map === 'defense' ? 'active' : ''}" data-action="game-map" data-mode="defense">Defensa</button><button class="${modalContext.map === 'both' ? 'active' : ''}" data-action="game-map" data-mode="both">Juntos</button></div>${courtHTML(modalContext.map === 'defense' ? [] : g.shotsFor || [], modalContext.map === 'attack' ? [] : g.shotsAgainst || [], false)}<button class="btn" data-action="shot-for-game" data-id="${g.id}">Editar mapa</button></div>`;
 }
 
 function openScoringMixDetail() {
@@ -1374,10 +1335,10 @@ function metricPlayerBreakdown(key, mode='total') {
   const total=player=>+player[metric.player]||0;
   if (key==='fouls') {
     const rate=player=>player.min?player.fouls/player.min*40:0,max=Math.max(1,...players.map(rate));
-    return `<section class="detail-block"><h3>Faltas por jugadora</h3><p class="metric-explain">FAL/40 permite comparar cargas distintas de minutos. Menos es mejor.</p><div class="breakdown-bars">${[...players].sort((a,b)=>rate(a)-rate(b)).map(player=>`<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><i><b style="width:${rate(player)/max*100}%"></b></i><strong>${num(rate(player))} /40 · ${total(player)} total</strong></button>`).join('')}</div></section>`;
+    return `<section class="detail-block"><h3>Faltas por ${genderTerms().singular.toLowerCase()}</h3><p class="metric-explain">FAL/40 permite comparar cargas distintas de minutos. Menos es mejor.</p><div class="breakdown-bars">${[...players].sort((a,b)=>rate(a)-rate(b)).map(player=>`<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><i><b style="width:${rate(player)/max*100}%"></b></i><strong>${num(rate(player))} /40 · ${total(player)} total</strong></button>`).join('')}</div></section>`;
   }
   const value=player=>mode==='average'?total(player)/player.gp:total(player),max=Math.max(1,...players.map(value));
-  return `<section class="detail-block"><div class="card-title breakdown-title"><div><h3>${metric.label} por jugadora</h3><span>${mode==='average'?'Media por partido jugado':'Total de temporada'}</span></div><div class="segmented" aria-label="Escala del reparto"><button data-action="metric-breakdown" data-mode="total" class="${mode==='total'?'active':''}">Totales</button><button data-action="metric-breakdown" data-mode="average" class="${mode==='average'?'active':''}">Por partido</button></div></div><div class="breakdown-bars">${[...players].sort((a,b)=>value(b)-value(a)).map(player=>`<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><i><b style="width:${value(player)/max*100}%"></b></i><strong>${metricValue(key,value(player),mode==='total'?0:1)}${mode==='average'?' /P':''}</strong></button>`).join('')}</div></section>`;
+  return `<section class="detail-block"><div class="card-title breakdown-title"><div><h3>${metric.label} por ${genderTerms().singular.toLowerCase()}</h3><span>${mode==='average'?'Media por partido jugado':'Total de temporada'}</span></div><div class="segmented" aria-label="Escala del reparto"><button data-action="metric-breakdown" data-mode="total" class="${mode==='total'?'active':''}">Totales</button><button data-action="metric-breakdown" data-mode="average" class="${mode==='average'?'active':''}">Por partido</button></div></div><div class="breakdown-bars">${[...players].sort((a,b)=>value(b)-value(a)).map(player=>`<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><i><b style="width:${value(player)/max*100}%"></b></i><strong>${metricValue(key,value(player),mode==='total'?0:1)}${mode==='average'?' /P':''}</strong></button>`).join('')}</div></section>`;
 }
 
 function openTeamMetricDetail(key, breakdownMode='total') {
@@ -1387,17 +1348,17 @@ function openTeamMetricDetail(key, breakdownMode='total') {
   const ordered=[...ownValid].sort((a,b)=>metric.lowerBetter?a.own-b.own:b.own-a.own),best=ordered[0]||null,worst=ordered.at(-1)||null;
   const percentSummary=metric.percent?`<div class="metric-summary"><div><span>Temporada BC</span><strong>${metricValue(key,ownTotal,0)}</strong></div><div><span>Temporada rival</span><strong>${metricValue(key,oppTotal,0)}</strong></div><div><span>Media de partidos BC</span><strong>${metricValue(key,ownAvg)}</strong></div><div><span>Media de partidos rival</span><strong>${metricValue(key,oppAvg)}</strong></div></div>`:`<div class="metric-summary"><div><span>Total BC</span><strong>${metricValue(key,ownTotal,0)}</strong></div><div><span>Total rival</span><strong>${metricValue(key,oppTotal,0)}</strong></div><div><span>Media BC / partido</span><strong>${metricValue(key,ownAvg)}</strong></div><div><span>Media rival / partido</span><strong>${metricValue(key,oppAvg)}</strong></div></div>`;
   const bestLabel=metric.lowerBetter?'Mejor BC · menos':metric.higherBetter===null?'Mayor peso BC':'Mejor BC',worstLabel=metric.lowerBetter?'Peor BC · más':metric.higherBetter===null?'Menor peso BC':'Menor BC';
-  const ftpExtra=key==='ftp'?`<div class="attempt-summary"><b>Buen Consejo</b><span>${sum(rows,row=>effectiveTotals(row.game,'own').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'own').fta)} TL</span><b>Rival</b><span>${sum(rows,row=>effectiveTotals(row.game,'opp').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'opp').fta)} TL</span></div>`:'';
+  const ftpExtra=key==='ftp'?`<div class="attempt-summary"><b>${esc(teamLabel())}</b><span>${sum(rows,row=>effectiveTotals(row.game,'own').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'own').fta)} TL</span><b>Rival</b><span>${sum(rows,row=>effectiveTotals(row.game,'opp').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'opp').fta)} TL</span></div>`:'';
   const per40=metric.per40?(()=>{const ownMinutes=sum(rows,row=>effectiveTotals(row.game,'own').min),oppMinutes=sum(rows,row=>effectiveTotals(row.game,'opp').min);return `<div class="metric-summary per40-summary"><div><span>Faltas BC / 40 min</span><strong>${ownMinutes?num(ownTotal/ownMinutes*40):'—'}</strong></div><div><span>Faltas rival / 40 min</span><strong>${oppMinutes?num(oppTotal/oppMinutes*40):'—'}</strong></div></div>`;})():'';
   modalContext={type:'metric',key,breakdownMode};
-  openModal('Estadística',metric.label,`<p class="metric-explain">${metric.note} En el detalle, rojo es Buen Consejo y azul el rival.</p>${percentSummary}${per40}${ftpExtra}<section class="detail-block"><div class="card-title"><div><h3>Evolución por partido</h3><span>Desliza si hay muchos partidos · toca un punto para abrir el acta</span></div></div><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">Buen Consejo</span><span class="them">Rival</span></div></section><div class="best-worst"><div><span>${bestLabel}</span><b>${best?metricValue(key,best.own):'—'}</b><small>${best?esc(best.game.opponent):''}</small></div><div><span>${worstLabel}</span><b>${worst?metricValue(key,worst.own):'—'}</b><small>${worst?esc(worst.game.opponent):''}</small></div></div>${metricPlayerBreakdown(key,breakdownMode)}<section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${metricValue(key,row.own)} / ${metricValue(key,row.opp)}</strong><em title="Local–visitante">${gameScore(row.game)}</em></button>`).join('')}</div></section>`);
+  openModal('Estadística',metric.label,`<p class="metric-explain">${metric.note} En el detalle, el color elegido identifica al equipo y el color de contraste al rival.</p>${percentSummary}${per40}${ftpExtra}<section class="detail-block"><div class="card-title"><div><h3>Evolución por partido</h3><span>Desliza si hay muchos partidos · toca un punto para abrir el acta</span></div></div><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">Buen Consejo</span><span class="them">Rival</span></div></section><div class="best-worst"><div><span>${bestLabel}</span><b>${best?metricValue(key,best.own):'—'}</b><small>${best?esc(best.game.opponent):''}</small></div><div><span>${worstLabel}</span><b>${worst?metricValue(key,worst.own):'—'}</b><small>${worst?esc(worst.game.opponent):''}</small></div></div>${metricPlayerBreakdown(key,breakdownMode)}<section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${metricValue(key,row.own)} / ${metricValue(key,row.opp)}</strong><em title="Local–visitante">${gameScore(row.game)}</em></button>`).join('')}</div></section>`);
 }
 
 function openPointShareDetail() {
   const players=playerAgg().sort((a,b)=>(b.pts||0)-(a.pts||0)||namePretty(a.name).localeCompare(namePretty(b.name),'es'));
   const total=sum(validGames(),game=>game.us),max=Math.max(1,...players.map(player=>player.pts||0));
   modalContext={type:'point-share'};
-  openModal('Puntos','Reparto completo',`<p class="metric-explain">Las ${players.length} jugadoras de la plantilla. Una jugadora sin acta aparece con 0, no se elimina de la lista.</p><div class="breakdown-bars full-roster">${players.map(player=>`<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><i><b style="width:${(+player.pts||0)/max*100}%"></b></i><strong>${+player.pts||0} · ${pct(total?(+player.pts||0)/total*100:0)}</strong></button>`).join('')}</div>`);
+  openModal('Puntos','Reparto completo',`<p class="metric-explain">${genderTerms().plural}: ${players.length} en la plantilla. ${genderTerms().singular} sin acta aparece con 0, no se elimina de la lista.</p><div class="breakdown-bars full-roster">${players.map(player=>`<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><i><b style="width:${(+player.pts||0)/max*100}%"></b></i><strong>${+player.pts||0} · ${pct(total?(+player.pts||0)/total*100:0)}</strong></button>`).join('')}</div>`);
 }
 
 function liveEventPlayerName(event) {
@@ -1407,7 +1368,7 @@ function liveEventPlayerName(event) {
 
 function openLiveMetricDetail(key) {
   const metric=LIVE_METRICS[key]; if(!metric)return;
-  const rows=liveMetricRows(key);if(!rows.length){modalContext={type:'live-metric',key};return openModal('Directo',metric.label,`${noData()}<p class="metric-explain">Cuando registres un partido aquí aparecerán totales, medias, ratios, evolución, cuartos y desglose por jugadora. Los partidos anteriores siguen fuera del denominador.</p>`);}
+  const rows=liveMetricRows(key);if(!rows.length){modalContext={type:'live-metric',key};return openModal('Directo',metric.label,`${noData()}<p class="metric-explain">Cuando registres un partido aquí aparecerán totales, medias, ratios, evolución, cuartos y desglose por ${genderTerms().singular.toLowerCase()}. Los partidos anteriores siguen fuera del denominador.</p>`);}
   const ownTotal=sum(rows,row=>row.own),oppTotal=sum(rows,row=>row.opp),ownAvg=mean(rows,row=>row.own),oppAvg=mean(rows,row=>row.opp),games=recordedLiveGames();
   const quarters=[1,2,3,4].map(quarter=>{const events=games.flatMap(game=>(game.events||[]).filter(event=>!event.undone&&(+event.quarter||1)===quarter));return {quarter,own:events.filter(event=>event.type===metric.types[0]).length,opp:events.filter(event=>event.type===metric.types[1]).length};});
   const people=new Map();
@@ -1416,19 +1377,19 @@ function openLiveMetricDetail(key) {
   const relation=ratio(ownTotal,oppTotal), share=(ownTotal+oppTotal)?ownTotal/(ownTotal+oppTotal)*100:null, balance=ownTotal-oppTotal;
   const ratioCards=key==='ball'?[['Balance ROB−PER',signed(balance).replace(',0','')],['Ratio ROB/PER',relation===null?'—':num(relation,2)],['Acciones positivas',share===null?'—':pct(share)]]:[['Balance REB O',signed(balance).replace(',0','')],['Cuota REB O BC',share===null?'—':pct(share)],['Ratio BC/rival',relation===null?'—':num(relation,2)]];
   modalContext={type:'live-metric',key};
-  openModal('Directo',metric.label,`<p class="metric-explain">${metric.note} Los partidos sin registro manual quedan fuera de totales, medias y ratios: un dato ausente nunca se convierte en cero.</p><div class="coverage-note"><b>${rows.length} partido${rows.length===1?'':'s'} con registro</b><span>de ${validGames().length} disputados</span></div><div class="metric-summary"><div><span>Total · ${metric.ownLabel}</span><strong>${ownTotal}</strong></div><div><span>Total · ${metric.oppLabel}</span><strong>${oppTotal}</strong></div><div><span>Media · ${metric.ownLabel}</span><strong>${num(ownAvg)}</strong></div><div><span>Media · ${metric.oppLabel}</span><strong>${num(oppAvg)}</strong></div></div><div class="ratio-grid">${ratioCards.map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}</div><section class="detail-block"><h3>Evolución por partido</h3><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">${metric.ownLabel}</span><span class="them">${metric.oppLabel}</span></div></section><section class="detail-block"><h3>Por cuarto</h3><div class="quarter-breakdown">${quarters.map(row=>compareBar(`Q${row.quarter}`,row.own,row.opp,value=>num(value,0))).join('')}</div></section><section class="detail-block"><h3>${key==='orb'?'REB O BC por jugadora':'Robos y pérdidas por jugadora'}</h3>${playerRows.length?`<div class="manual-player-list">${playerRows.map(([name,value])=>`<div><span>${esc(name==='Equipo (sin asignar)'?name:shortName(name))}</span><b>${value.own} ${metric.types[0]==='steal'?'ROB':'REB O'}</b>${key==='ball'?`<b>${value.opp} PER</b><strong>${value.own-value.opp>0?'+':''}${value.own-value.opp}</strong>`:''}</div>`).join('')}</div>`:'<div class="empty-inline">Sin asignaciones individuales.</div>'}</section><section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${row.own} / ${row.opp}</strong><em>${metric.ownLabel} / ${metric.oppLabel}</em></button>`).join('')}</div></section>`);
+  openModal('Directo',metric.label,`<p class="metric-explain">${metric.note} Los partidos sin registro manual quedan fuera de totales, medias y ratios: un dato ausente nunca se convierte en cero.</p><div class="coverage-note"><b>${rows.length} partido${rows.length===1?'':'s'} con registro</b><span>de ${validGames().length} disputados</span></div><div class="metric-summary"><div><span>Total · ${metric.ownLabel}</span><strong>${ownTotal}</strong></div><div><span>Total · ${metric.oppLabel}</span><strong>${oppTotal}</strong></div><div><span>Media · ${metric.ownLabel}</span><strong>${num(ownAvg)}</strong></div><div><span>Media · ${metric.oppLabel}</span><strong>${num(oppAvg)}</strong></div></div><div class="ratio-grid">${ratioCards.map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}</div><section class="detail-block"><h3>Evolución por partido</h3><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">${metric.ownLabel}</span><span class="them">${metric.oppLabel}</span></div></section><section class="detail-block"><h3>Por cuarto</h3><div class="quarter-breakdown">${quarters.map(row=>compareBar(`Q${row.quarter}`,row.own,row.opp,value=>num(value,0))).join('')}</div></section><section class="detail-block"><h3>${key==='orb'?'REB O del equipo por ${genderTerms().singular.toLowerCase()}':'Robos y pérdidas por ${genderTerms().singular.toLowerCase()}'}</h3>${playerRows.length?`<div class="manual-player-list">${playerRows.map(([name,value])=>`<div><span>${esc(name==='Equipo (sin asignar)'?name:shortName(name))}</span><b>${value.own} ${metric.types[0]==='steal'?'ROB':'REB O'}</b>${key==='ball'?`<b>${value.opp} PER</b><strong>${value.own-value.opp>0?'+':''}${value.own-value.opp}</strong>`:''}</div>`).join('')}</div>`:'<div class="empty-inline">Sin asignaciones individuales.</div>'}</section><section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${row.own} / ${row.opp}</strong><em>${metric.ownLabel} / ${metric.oppLabel}</em></button>`).join('')}</div></section>`);
 }
 
 function minutesHeatmap(players,games) {
   const values=players.flatMap(player=>games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min||0)), max=Math.max(40,...values);
-  return `<div class="minutes-heatmap" style="--games:${games.length};--table-width:${145+74+60+games.length*52}px"><div class="heat-head"><span>Jugadora</span><b>Media</b><b>Cuota</b>${games.map((game,index)=>`<b title="${esc(game.opponent)}">P${index+1}</b>`).join('')}</div>${players.map(player=>{const perGame=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null), avg=player.gp?player.min/player.gp:0, share=games.length?player.min/(games.length*200)*100:0;return `<button class="heat-row" data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><b>${formatMinutes(avg)}</b><b>${num(share,0)}%</b>${perGame.map(value=>value===null?`<i class="heat-empty" title="No jugó">—</i>`:`<i style="--heat:${clamp(value/max)}" title="${formatMinutes(value)}">${Math.round(value)}</i>`).join('')}</button>`;}).join('')}</div>`;
+  return `<div class="minutes-heatmap" style="--games:${games.length};--table-width:${145+74+60+games.length*52}px"><div class="heat-head"><span>${genderTerms().singular}</span><b>Media</b><b>Cuota</b>${games.map((game,index)=>`<b title="${esc(game.opponent)}">P${index+1}</b>`).join('')}</div>${players.map(player=>{const perGame=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null), avg=player.gp?player.min/player.gp:0, share=games.length?player.min/(games.length*200)*100:0;return `<button class="heat-row" data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><b>${formatMinutes(avg)}</b><b>${num(share,0)}%</b>${perGame.map(value=>value===null?`<i class="heat-empty" title="No jugó">—</i>`:`<i style="--heat:${clamp(value/max)}" title="${formatMinutes(value)}">${Math.round(value)}</i>`).join('')}</button>`;}).join('')}</div>`;
 }
 
 function openMinutesDetail() {
   const games=validGames().sort((a,b)=>String(a.date).localeCompare(String(b.date))), players=playerAgg().sort((a,b)=>(b.min||0)-(a.min||0)||namePretty(a.name).localeCompare(namePretty(b.name),'es'));
   const appearances=sum(players,player=>player.gp), teamPlayerAverage=appearances?sum(players,player=>player.min)/appearances:0;
   modalContext={type:'minutes'};
-  openModal('Minutos','Carga y evolución',`<p class="metric-explain">Minutos de acta. La cuota compara los minutos de cada jugadora con los ${games.length*200} minutos de equipo disponibles.</p><div class="metric-summary three"><div><span>Partidos</span><strong>${games.length}</strong></div><div><span>Minutos equipo</span><strong>${formatMinutes(games.length*200)}</strong></div><div><span>Media jugadora-acta</span><strong>${formatMinutes(teamPlayerAverage)}</strong></div></div><section class="detail-block"><div class="card-title"><div><h3>Mapa de minutos</h3><span>Desliza lateralmente · toca una fila</span></div></div><div class="minutes-scroll" tabindex="0" aria-label="Tabla de minutos; desliza a derecha e izquierda">${minutesHeatmap(players,games)}</div></section><section class="detail-block"><div class="card-title"><div><h3>Evolución individual</h3><span>Mini gráfico, media y cuota de temporada</span></div></div><div class="minutes-evolution">${players.map(player=>{const series=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null),avg=player.gp?player.min/player.gp:0,share=games.length?player.min/(games.length*200)*100:0;return `<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span>${sparkline(series,'player',180,40)}<b>${formatMinutes(avg)} /P</b><strong>${num(share,0)}%</strong></button>`;}).join('')}</div></section>`);
+  openModal('Minutos','Carga y evolución',`<p class="metric-explain">Minutos de acta. La cuota compara los minutos de cada ${genderTerms().singular.toLowerCase()} con los ${games.length*200} minutos de equipo disponibles.</p><div class="metric-summary three"><div><span>Partidos</span><strong>${games.length}</strong></div><div><span>Minutos equipo</span><strong>${formatMinutes(games.length*200)}</strong></div><div><span>Media ${genderTerms().singular.toLowerCase()}-acta</span><strong>${formatMinutes(teamPlayerAverage)}</strong></div></div><section class="detail-block"><div class="card-title"><div><h3>Mapa de minutos</h3><span>Desliza lateralmente · toca una fila</span></div></div><div class="minutes-scroll" tabindex="0" aria-label="Tabla de minutos; desliza a derecha e izquierda">${minutesHeatmap(players,games)}</div></section><section class="detail-block"><div class="card-title"><div><h3>Evolución individual</h3><span>Mini gráfico, media y cuota de temporada</span></div></div><div class="minutes-evolution">${players.map(player=>{const series=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null),avg=player.gp?player.min/player.gp:0,share=games.length?player.min/(games.length*200)*100:0;return `<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span>${sparkline(series,'player',180,40)}<b>${formatMinutes(avg)} /P</b><strong>${num(share,0)}%</strong></button>`;}).join('')}</div></section>`);
 }
 
 function detail(id) {
@@ -1436,6 +1397,7 @@ function detail(id) {
   if (id==='minutes') return openMinutesDetail();
   if (id==='point-share') return openPointShareDetail();
   if (id==='scoring-mix') return openScoringMixDetail();
+  if (id==='score-chart') return openScoreChartDetail();
   if (id.startsWith('live:')) return openLiveMetricDetail(id.slice(5));
   if (id.startsWith('metric:')) return openTeamMetricDetail(id.slice(7));
   if (id.startsWith('player:')) return openPlayerDetail(decodeURIComponent(id.slice(7)));
@@ -1474,7 +1436,7 @@ function openShotDetail(gameId='') {
 }
 
 function shotPrompt() {
-  return `Analiza una captura del mapa de tiro de Afición FBM del partido de BUEN CONSEJO. Identifica los equipos por la cabecera: el equipo de arriba corresponde siempre a la mitad izquierda y el de abajo a la mitad derecha. Antes de asignar puntos, cruza tres señales: nombre en cabecera, color y lista de jugadoras; si no coinciden, pon checksAgree=false y explica conflict. Separa ownShots (BUEN CONSEJO) y opponentShots (rival). Convierte ambas mitades a una media pista con x e y entre 0 y 1 y la canasta arriba. No inventes lanzamientos. Responde solo JSON válido: {"court":"half","ownIdentification":{"team":"BUEN CONSEJO","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"opponentIdentification":{"team":"RIVAL","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"ownShots":[{"x":0.42,"y":0.18}],"opponentShots":[{"x":0.55,"y":0.22}]}.`;
+  return `Analiza una captura del mapa de tiro de Afición FBM del partido de ${teamLabel()}. Identifica los equipos por la cabecera: el equipo de arriba corresponde siempre a la mitad izquierda y el de abajo a la mitad derecha. Antes de asignar puntos, cruza tres señales: nombre en cabecera, color y lista de jugadoras; si no coinciden, pon checksAgree=false y explica conflict. Separa ownShots (${teamLabel()}) y opponentShots (rival). Convierte ambas mitades a una media pista con x e y entre 0 y 1 y la canasta arriba. No inventes lanzamientos. Responde solo JSON válido: {"court":"half","ownIdentification":{"team":"${teamLabel()}","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"opponentIdentification":{"team":"RIVAL","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"ownShots":[{"x":0.42,"y":0.18}],"opponentShots":[{"x":0.55,"y":0.22}]}.`;
 }
 function repaintShotCourt() {
   const wrap = $('#shotCourt');
@@ -1540,7 +1502,7 @@ function startLive() {
   const rival = (state.liveDraft.rival || '').trim();
   if (!rival) return toast('Escribe el rival');
   const ids = state.liveDraft.selected;
-  if (!ids.length) return toast('Selecciona al menos una jugadora');
+  if (!ids.length) return toast('Selecciona al menos una persona de la plantilla');
   const liveDate=state.liveDraft.dateManual&&state.liveDraft.date?state.liveDraft.date:today();
   state.live = {id:uid(), opponent:rival, date:liveDate, quarter:1, players:state.roster.filter(player => ids.includes(player.id)), events:[], startedAt:new Date().toISOString()};
   state.liveDraft.date=today();state.liveDraft.dateManual=false;
@@ -1552,7 +1514,7 @@ function startLive() {
 function addLive(type) {
   if (type === 'orbAgainst') return commitLiveEvent(type, null);
   const label = type === 'steal' ? 'Robo' : type === 'turnover' ? 'Pérdida' : 'Rebote ofensivo';
-  openModal('Directo', label, `<button class="team-choice" data-action="pick-live-player" data-id="" data-type="${type}"><strong>Equipo</strong><span>Sin jugadora</span></button><div class="player-grid">${state.live.players.map(player => `<button class="player-choice" data-action="pick-live-player" data-id="${player.id}" data-type="${type}"><strong>${esc(player.number||'—')}</strong><span>${esc(namePretty(player.name))}</span></button>`).join('')}</div>`);
+  openModal('Directo', label, `<button class="team-choice" data-action="pick-live-player" data-id="" data-type="${type}"><strong>Equipo</strong><span>Sin ${genderTerms().singular.toLowerCase()}</span></button><div class="player-grid">${state.live.players.map(player => `<button class="player-choice" data-action="pick-live-player" data-id="${player.id}" data-type="${type}"><strong>${esc(player.number||'—')}</strong><span>${esc(namePretty(player.name))}</span></button>`).join('')}</div>`);
 }
 
 function commitLiveEvent(type, playerId) {
@@ -1632,36 +1594,67 @@ function keepLivePending() {
   setView('games');
 }
 
-function openSettings(){openModal('Aplicación','Ajustes',`<label class="field">URL del Worker<input id="apiUrl" value="${esc(state.settings.api)}" placeholder="https://…workers.dev"></label><label class="field">Token<input id="apiToken" value="${esc(state.settings.token)}"></label><label class="field">Permiso<select id="apiRole"><option value="admin" ${state.settings.role==='admin'?'selected':''}>Administrador</option><option value="editor" ${state.settings.role==='editor'?'selected':''}>Editor</option><option value="viewer" ${state.settings.role==='viewer'?'selected':''}>Solo lectura</option></select></label><div class="action-row"><button class="btn primary" data-action="save-settings">Guardar</button><button class="btn" data-action="export-json">Exportar copia</button></div>${state.settings.role==='admin'&&state.settings.api?`<article class="settings-block"><h3>Compartir</h3><label class="field">Nombre<input id="inviteLabel"></label><div class="action-row"><button class="btn" data-action="create-invite" data-role="editor">Enlace de edición</button><button class="btn" data-action="create-invite" data-role="viewer">Enlace de lectura</button></div><div id="inviteResult"></div></article>`:''}`);}
-function saveSettings(){state.settings.api=$('#apiUrl').value.trim().replace(/\/$/,'');state.settings.token=$('#apiToken').value.trim();state.settings.role=$('#apiRole').value;save();closeModal();syncNow();render();}
-async function createInvite(role){try{const response=await fetch(`${state.settings.api}/api/invites`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.settings.token}`},body:JSON.stringify({role,label:$('#inviteLabel')?.value||''})}),json=await response.json();if(!response.ok)throw Error(json.error||'No se pudo crear');const link=`${location.origin}${location.pathname}?api=${encodeURIComponent(state.settings.api)}&token=${encodeURIComponent(json.token)}&role=${role}`;$('#inviteResult').innerHTML=`<label class="field">Enlace<textarea id="inviteLink" rows="3" readonly>${esc(link)}</textarea></label><button class="btn" data-action="copy-invite">Copiar</button>`;}catch(error){toast(error.message);}}
+function serviceUrl(){return String(localStorage.getItem('estadisticas_service_api')||APP_CONFIG.serviceApi||state.settings.api||'').trim().replace(/\/$/,'');}
+function workspaceStatus(item){const settings=item.data?.settings||{};return settings.teamId?'Nube privada':settings.api?'Nube · compatible':'Solo en este dispositivo';}
+function openTeams(){
+  const rows=workspaceBook.workspaces.map(item=>`<div class="workspace-row ${item.id===workspaceBook.activeId?'active':''}"><button data-action="switch-team" data-id="${item.id}"><span><b>${esc(item.data?.team?.name||item.name||'Mi equipo')}</b><small>${esc(item.data?.team?.season||'Sin temporada')} · ${workspaceStatus(item)}</small></span><strong>${item.id===workspaceBook.activeId?'Activo':'Abrir'}</strong></button>${workspaceBook.workspaces.length>1?`<button class="icon-button danger" data-action="remove-team" data-id="${item.id}" aria-label="Quitar del dispositivo">×</button>`:''}</div>`).join('');
+  openModal('Equipos','Cambiar o añadir equipo',`<p class="metric-explain">Cada equipo es un espacio independiente. Su plantilla, partidos, Directo y sincronización nunca se mezclan con los demás.</p><div class="workspace-list">${rows}</div><section class="settings-block"><h3>Crear equipo privado</h3><div class="setup-fields"><label class="field">Nombre del equipo<input id="newTeamName" placeholder="Ej.: Infantil A"></label><label class="field">Temporada<input id="newTeamSeason" placeholder="26/27"></label><label class="field">Categoría<select id="newTeamGender">${genderOptions('',true)}</select></label><label class="field">Color del equipo<select id="newTeamColor">${colorOptions('blue')}</select></label></div><button class="btn primary wide" data-action="create-team">Crear y abrir</button><p class="muted">Si hay servidor v11 configurado se crea en nube; si no, queda privado en este dispositivo y podrás conectarlo después.</p></section>`);
+}
+function switchWorkspace(id){
+  if(id===workspaceBook.activeId){closeModal();return;}
+  persistWorkspace();const target=workspaceBook.workspaces.find(item=>item.id===id);if(!target)return;
+  workspaceBook.activeId=id;state=sanitise(target.data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();syncNow();window.scrollTo(0,0);
+}
+async function createWorkspace(){
+  const name=($('#newTeamName')?.value||'').trim(),season=($('#newTeamSeason')?.value||'').trim(),gender=$('#newTeamGender')?.value||'',color=$('#newTeamColor')?.value||'blue';if(!name)return toast('Escribe el nombre del equipo');if(!gender)return toast('Elige femenino, masculino o mixto/neutro');
+  persistWorkspace();let data=blank(name,season,gender,color),cloud=false;const api=serviceUrl();
+  if(api){try{const response=await fetch(`${api}/api/v3/teams`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({name,season,gender,color})});const json=await response.json();if(!response.ok)throw Error(json.error||'Servidor no preparado');data.settings={...data.settings,api,token:json.admin.token,role:'admin',teamId:json.team.id,syncMode:'team'};cloud=true;}catch(error){console.warn('Equipo creado solo en local:',error.message);}}
+  const id=uid();workspaceBook.workspaces.push({id,name,data,legacy:false});workspaceBook.activeId=id;state=sanitise(data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();if(cloud){state.ops.push({id:uid(),at:new Date().toISOString(),type:'set-team',payload:{team:state.team}});save();syncNow();}toast(cloud?'Equipo privado creado en la nube':'Equipo privado creado en este dispositivo');
+}
+function removeWorkspace(id){
+  if(workspaceBook.workspaces.length<2)return;const item=workspaceBook.workspaces.find(row=>row.id===id);if(!item)return;
+  if(id===workspaceBook.activeId){const next=workspaceBook.workspaces.find(row=>row.id!==id);workspaceBook.activeId=next.id;}
+  workspaceBook.workspaces=workspaceBook.workspaces.filter(row=>row.id!==id);state=sanitise(activeWorkspace().data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));openTeams();render();toast('Quitado solo de este dispositivo');
+}
+function openSettings(){
+  const cloud=state.settings.teamId?'Equipo v11 aislado en nube':state.settings.api?'Conexión existente compatible':'Equipo local';
+  openModal('Aplicación','Ajustes',`<article class="team-settings-summary"><b>${esc(teamLabel())}</b><span>${esc(state.team.season||'Sin temporada')} · ${cloud}</span></article><div class="setup-fields"><label class="field">Nombre del equipo<input id="teamName" value="${esc(teamLabel())}"></label><label class="field">Temporada<input id="teamSeason" value="${esc(state.team.season||'')}"></label><label class="field">Categoría<select id="teamGender">${genderOptions(state.team.gender)}</select></label><label class="field">Color propio<select id="teamColor">${colorOptions(state.team.color)}</select></label></div><label class="field">Servidor de sincronización<input id="serviceApi" value="${esc(serviceUrl())}" placeholder="https://…workers.dev"></label><details class="advanced-settings"><summary>Conexión avanzada de este equipo</summary><label class="field">URL del Worker<input id="apiUrl" value="${esc(state.settings.api)}" placeholder="https://…workers.dev"></label><label class="field">Token<input id="apiToken" value="${esc(state.settings.token)}"></label><label class="field">Permiso<select id="apiRole"><option value="admin" ${state.settings.role==='admin'?'selected':''}>Administrador</option><option value="editor" ${state.settings.role==='editor'?'selected':''}>Editor</option><option value="viewer" ${state.settings.role==='viewer'?'selected':''}>Solo lectura</option></select></label></details><div class="action-row"><button class="btn primary" data-action="save-settings">Guardar</button><button class="btn" data-action="export-json">Exportar este equipo</button></div>${state.settings.role==='admin'&&state.settings.api?`<article class="settings-block"><h3>Compartir este equipo</h3><p class="muted">El enlace solo abre este equipo. Elige edición para anotar o lectura para consultar.</p><label class="field">Nombre del enlace<input id="inviteLabel" placeholder="Ej.: Cuerpo técnico"></label><div class="action-row"><button class="btn" data-action="create-invite" data-role="editor">Crear enlace de edición</button><button class="btn" data-action="create-invite" data-role="viewer">Crear enlace de lectura</button></div><div id="inviteResult"></div><button class="btn" data-action="load-invites">Ver o revocar enlaces</button><div id="inviteManager"></div></article>`:''}`);
+}
+function saveSettings(){
+  const previous=deepSignature(state.team);state.team.name=($('#teamName')?.value||teamLabel()).trim()||'Mi equipo';state.team.season=($('#teamSeason')?.value||'').trim();state.team.gender=$('#teamGender')?.value||'neutral';state.team.color=$('#teamColor')?.value||'blue';
+  const service=($('#serviceApi')?.value||'').trim().replace(/\/$/,'');if(service)localStorage.setItem('estadisticas_service_api',service);else localStorage.removeItem('estadisticas_service_api');
+  state.settings.api=($('#apiUrl')?.value||state.settings.api||'').trim().replace(/\/$/,'');state.settings.token=($('#apiToken')?.value||state.settings.token||'').trim();state.settings.role=$('#apiRole')?.value||state.settings.role||'admin';if(previous!==deepSignature(state.team)&&state.settings.role!=='viewer')record('set-team',{team:state.team});else save();closeModal();syncNow();render();
+}
+async function createInvite(role){
+  try{const teamPath=state.settings.teamId?`/api/v3/teams/${encodeURIComponent(state.settings.teamId)}/invites`:'/api/invites';const response=await fetch(`${state.settings.api}${teamPath}`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.settings.token}`},body:JSON.stringify({role,label:$('#inviteLabel')?.value||''})}),json=await response.json();if(!response.ok)throw Error(json.error||'No se pudo crear');const q=new URLSearchParams({api:state.settings.api,token:json.token,role,team:state.settings.teamId||'',name:teamLabel(),season:state.team.season||'',gender:state.team.gender||'neutral',color:state.team.color||'blue'});const link=`${location.origin}${location.pathname}#${q.toString()}`;$('#inviteResult').innerHTML=`<label class="field">Enlace<textarea id="inviteLink" rows="3" readonly>${esc(link)}</textarea></label><button class="btn" data-action="copy-invite">Copiar enlace</button>`;}catch(error){toast(error.message);}
+}
+async function loadInvites(){
+  const box=$('#inviteManager');if(!box)return;box.innerHTML='<p class="muted">Cargando…</p>';
+  try{const path=state.settings.teamId?`/api/v3/teams/${encodeURIComponent(state.settings.teamId)}/invites`:'/api/invites',response=await fetch(`${state.settings.api}${path}`,{headers:{'Authorization':`Bearer ${state.settings.token}`,'Accept':'application/json'}}),json=await response.json();if(!response.ok)throw Error(json.error||'No se pudieron leer');const rows=(json.invites||[]).filter(item=>!item.revoked_at);box.innerHTML=rows.length?`<div class="invite-list">${rows.map(item=>`<div><span><b>${esc(item.label||'Sin nombre')}</b><small>${item.role==='editor'?'Edición':item.role==='viewer'?'Lectura':'Propietario'}</small></span>${item.role==='admin'?'':`<button class="btn danger" data-action="revoke-invite" data-id="${esc(item.id)}">Revocar</button>`}</div>`).join('')}</div>`:'<p class="muted">No hay enlaces activos.</p>';}catch(error){box.innerHTML=`<p class="muted">${esc(error.message)}</p>`;}
+}
+async function revokeInvite(id){try{const path=state.settings.teamId?`/api/v3/teams/${encodeURIComponent(state.settings.teamId)}/invites/${encodeURIComponent(id)}`:`/api/invites/${encodeURIComponent(id)}`,response=await fetch(`${state.settings.api}${path}`,{method:'DELETE',headers:{'Authorization':`Bearer ${state.settings.token}`}}),json=await response.json();if(!response.ok)throw Error(json.error||'No se pudo revocar');toast('Enlace revocado');loadInvites();}catch(error){toast(error.message);}}
 function scheduleSync(){clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,700);}
-function applyRemote(row){const event=row.event||row;if(state.ops.some(x=>x.id===event.id))return false;const p=event.payload||{};if(event.type==='set-roster')state.roster=mergeRoster(state.roster,p.roster||[]);if(event.type==='replace-game'){const i=state.games.findIndex(g=>g.id===p.game.id);i<0?state.games.push(sanitise({...blank(),games:[p.game]}).games[0]):state.games[i]=sanitise({...blank(),games:[p.game]}).games[0];}if(event.type==='merge-game'&&p.game){const merged=sanitise({...blank(),games:[p.game]}).games[0],i=state.games.findIndex(g=>g.id===(p.targetId||merged.id));i<0?state.games.push(merged):state.games[i]=merged;state.games=state.games.filter(game=>game.id!==p.sourceId);}if(event.type==='live-upsert')state.live=p.live;if(event.type==='live-event'&&state.live?.id===p.liveId&&!state.live.events.some(e=>e.id===p.event.id))state.live.events.push(p.event);if(event.type==='live-undo'&&state.live?.id===p.liveId){const e=state.live.events.find(e=>e.id===p.eventId);if(e)e.undone=true;}if(event.type==='shot-set'){const g=state.games.find(g=>g.id===p.gameId);if(g){g.shotsFor=p.shotsFor||[];g.shotsAgainst=p.shotsAgainst||[];}}return true;}
+
+function applyRemote(row){const event=row.event||row;if(state.ops.some(x=>x.id===event.id))return false;const p=event.payload||{};if(event.type==='set-roster')state.roster=mergeRoster(state.roster,p.roster||[]);if(event.type==='set-team'&&p.team)state.team={...state.team,...p.team};if(event.type==='replace-game'){const i=state.games.findIndex(g=>g.id===p.game.id);i<0?state.games.push(sanitise({...blank(),games:[p.game]}).games[0]):state.games[i]=sanitise({...blank(),games:[p.game]}).games[0];}if(event.type==='merge-game'&&p.game){const merged=sanitise({...blank(),games:[p.game]}).games[0],i=state.games.findIndex(g=>g.id===(p.targetId||merged.id));i<0?state.games.push(merged):state.games[i]=merged;state.games=state.games.filter(game=>game.id!==p.sourceId);}if(event.type==='live-upsert')state.live=p.live;if(event.type==='live-event'&&state.live?.id===p.liveId&&!state.live.events.some(e=>e.id===p.event.id))state.live.events.push(p.event);if(event.type==='live-undo'&&state.live?.id===p.liveId){const e=state.live.events.find(e=>e.id===p.eventId);if(e)e.undone=true;}if(event.type==='shot-set'){const g=state.games.find(g=>g.id===p.gameId);if(g){g.shotsFor=p.shotsFor||[];g.shotsAgainst=p.shotsAgainst||[];}}return true;}
 async function syncNow(){
   if(syncing||!state.settings.api||!state.settings.token)return;
+  const workspaceId=workspaceBook.activeId,teamId=state.settings.teamId||'',base=teamId?`/api/v3/teams/${encodeURIComponent(teamId)}/events`:'/api/events';
   syncing=true;paintSync(true);
   try{
     if(state.ops.length&&state.settings.role!=='viewer'){
       const sent=[...state.ops],sentIds=new Set(sent.map(event=>event.id));
-      const response=await fetch(`${state.settings.api}/api/events`,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':`Bearer ${state.settings.token}`},body:JSON.stringify({events:sent})});
-      if(!response.ok)throw Error('No se pudo enviar');
-      state.ops=state.ops.filter(event=>!sentIds.has(event.id));
-      save();
+      const response=await fetch(`${state.settings.api}${base}`,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':`Bearer ${state.settings.token}`},body:JSON.stringify({events:sent})});
+      if(!response.ok)throw Error('No se pudo enviar');if(workspaceBook.activeId!==workspaceId)return;
+      state.ops=state.ops.filter(event=>!sentIds.has(event.id));save();
     }
     const before=deepSignature({roster:state.roster,games:state.games,live:state.live});
-    const response=await fetch(`${state.settings.api}/api/events?since=${state.lastSeq}`,{cache:'no-store',headers:{'Accept':'application/json','Authorization':`Bearer ${state.settings.token}`}});
-    if(!response.ok)throw Error('No se pudo leer');
-    const contentType=response.headers.get('content-type')||'';
-    if(!contentType.includes('application/json'))throw Error('La sincronización recibió una respuesta no válida');
-    const json=await response.json();
-    if(!Array.isArray(json.events))throw Error('La sincronización recibió datos incompletos');
-    json.events.forEach(applyRemote);state.lastSeq=json.lastSeq||state.lastSeq;save();
-    $('#syncStatus').classList.add('online');
-    const changed=before!==deepSignature({roster:state.roster,games:state.games,live:state.live});
-    const editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
-    if(changed&&!editing)render();else if(changed)renderAfterEdit=true;
+    const response=await fetch(`${state.settings.api}${base}?since=${state.lastSeq}`,{cache:'no-store',headers:{'Accept':'application/json','Authorization':`Bearer ${state.settings.token}`}});
+    if(!response.ok)throw Error('No se pudo leer');const contentType=response.headers.get('content-type')||'';if(!contentType.includes('application/json'))throw Error('La sincronización recibió una respuesta no válida');
+    const json=await response.json();if(!Array.isArray(json.events))throw Error('La sincronización recibió datos incompletos');if(workspaceBook.activeId!==workspaceId)return;
+    json.events.forEach(applyRemote);state.lastSeq=json.lastSeq||state.lastSeq;save();$('#syncStatus').classList.add('online');
+    const changed=before!==deepSignature({roster:state.roster,games:state.games,live:state.live}),editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);if(changed&&!editing)render();else if(changed)renderAfterEdit=true;
   }catch(error){console.warn(error);$('#syncStatus').classList.remove('online');}
-  finally{syncing=false;paintSync();if(state.ops.length&&state.settings.role!=='viewer')scheduleSync();}
+  finally{syncing=false;paintSync();if(workspaceBook.activeId===workspaceId&&state.ops.length&&state.settings.role!=='viewer')scheduleSync();}
 }
 
 function paintSync(busy=false){const s=$('#syncStatus');if(!s)return;s.querySelector('b').textContent=busy?'Sincronizando':state.settings.api?'Conectado':'Local';s.classList.toggle('online',!!state.settings.api&&!busy);}
@@ -1669,21 +1662,22 @@ function paintSync(busy=false){const s=$('#syncStatus');if(!s)return;s.querySele
 async function copyText(text){try{await navigator.clipboard.writeText(text);}catch(error){const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.append(area);area.select();if(!document.execCommand('copy'))throw error;area.remove();}toast('Copiado');}
 function exportJSON(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download=`estadisticas-${today()}.json`;a.click();URL.revokeObjectURL(a.href);}
 function install(){if(installPrompt){installPrompt.prompt();installPrompt=null;}else openModal('Instalar','Instalar aplicación','<p>En Chrome abre el menú y pulsa «Instalar aplicación».</p>');}
-function applyTheme(theme){theme=theme==='dark'?'dark':'light';document.documentElement.dataset.theme=theme;const color=theme==='dark'?'#0b0f16':'#f3f5f8',meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=color;document.documentElement.style.backgroundColor=color;document.body.style.backgroundColor=color;}
+function applyTheme(theme){theme=theme==='dark'?'dark':'light';document.documentElement.dataset.theme=theme;const color=theme==='dark'?'#0b0f16':'#f3f5f8',meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=color;document.documentElement.style.backgroundColor=color;document.body.style.backgroundColor=color;applyTeamIdentity();}
 
-function updateDraftFromInput(target){if(target.id==='rival')state.liveDraft.rival=target.value;if(target.id==='liveDate'){state.liveDraft.date=target.value;state.liveDraft.dateManual=true;}if(target.matches('.roster-card input')){const set=new Set(state.liveDraft.selected);target.checked?set.add(target.value):set.delete(target.value);state.liveDraft.selected=[...set];const card=target.closest('.roster-card');card.classList.toggle('selected',target.checked);card.querySelector('.check').textContent=target.checked?'✓':'';$('#selectedCount').textContent=`${set.size} convocadas`;}save();}
+function updateDraftFromInput(target){if(target.id==='rival')state.liveDraft.rival=target.value;if(target.id==='liveDate'){state.liveDraft.date=target.value;state.liveDraft.dateManual=true;}if(target.matches('.roster-card input')){const set=new Set(state.liveDraft.selected);target.checked?set.add(target.value):set.delete(target.value);state.liveDraft.selected=[...set];const card=target.closest('.roster-card');card.classList.toggle('selected',target.checked);card.querySelector('.check').textContent=target.checked?'✓':'';$('#selectedCount').textContent=`${set.size} convocad${state.team.gender==='female'?'as':'os'}`;}save();}
 
 document.addEventListener('input',e=>{if(view==='live'&&!state.live&&(e.target.id==='rival'||e.target.id==='liveDate'))updateDraftFromInput(e.target);});
-document.addEventListener('change',e=>{if(view==='live'&&!state.live&&(e.target.id==='liveDate'||e.target.matches('.roster-card input')))updateDraftFromInput(e.target);if(e.target.matches('#heatOpponent,#heatHome'))renderHeatFiltered();if(e.target.id==='playerMetric'&&modalContext?.type==='player')openPlayerDetail(modalContext.key,e.target.value);if(e.target.id==='minutesScope'){minutesScope=e.target.value;render();}});
+document.addEventListener('change',e=>{if(view==='live'&&!state.live&&(e.target.id==='liveDate'||e.target.matches('.roster-card input')))updateDraftFromInput(e.target);if(e.target.matches('#heatOpponent,#heatHome'))renderHeatFiltered();if(e.target.id==='playerMetric'&&modalContext?.type==='player')openPlayerDetail(modalContext.key,e.target.value,modalContext.shareMode||'average');if(e.target.id==='minutesScope'){minutesScope=e.target.value;render();}});
 document.addEventListener('click',async e=>{
   const go=e.target.closest('[data-go]');if(go)return setView(go.dataset.go);
   const d=e.target.closest('[data-detail]');if(d)return detail(d.dataset.detail);
   const a=e.target.closest('[data-action]');if(!a)return;const act=a.dataset.action;
   const write=new Set(['import-games','import-roster','confirm-import','start-live','quarter','add-live','pick-live-player','undo-live','discard-live','confirm-discard-live','finish-live','confirm-live-merge','keep-live-pending','merge-pending-manual','open-shot','shot-for-game','shot-kind','swap-shot-teams','delete-selected-shot','clear-shots','apply-shot-json','save-shots']);
   if(state.settings.role==='viewer'&&write.has(act))return toast('Enlace de solo lectura');
-  if(act==='close-modal')return closeModal();if(act==='toggle-theme'){const th=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(th);localStorage.setItem('estadisticas_theme',th);render();return;}if(act==='install')return install();if(act==='open-settings'||act==='open-sync')return openSettings();if(act==='save-settings')return saveSettings();if(act==='export-json')return exportJSON();if(act==='create-invite')return createInvite(a.dataset.role);if(act==='copy-invite')return copyText($('#inviteLink').value);
+  if(act==='close-modal')return closeModal();if(act==='toggle-theme'){const th=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(th);localStorage.setItem('estadisticas_theme',th);render();return;}if(act==='install')return install();if(act==='open-teams')return openTeams();if(act==='switch-team')return switchWorkspace(a.dataset.id);if(act==='create-team')return createWorkspace();if(act==='remove-team')return removeWorkspace(a.dataset.id);if(act==='open-settings'||act==='open-sync')return openSettings();if(act==='save-settings')return saveSettings();if(act==='load-invites')return loadInvites();if(act==='revoke-invite')return revokeInvite(a.dataset.id);if(act==='export-json')return exportJSON();if(act==='create-invite')return createInvite(a.dataset.role);if(act==='copy-invite')return copyText($('#inviteLink').value);
   if(act==='stats-mode'){statsMode=['average','total','compare'].includes(a.dataset.mode)?a.dataset.mode:'average';return render();}
   if(act==='metric-breakdown'&&modalContext?.type==='metric')return openTeamMetricDetail(modalContext.key,a.dataset.mode==='average'?'average':'total');
+   if(act==='player-share'&&modalContext?.type==='player')return openPlayerDetail(modalContext.key,modalContext.metric,a.dataset.mode==='season'?'season':'average');
   if(act==='import-games'||act==='import-roster'){fileMode=act==='import-roster'?'roster':'games';importPendingId=act==='import-games'?(a.dataset.pendingId||''):'';$('#fileInput').value='';return $('#fileInput').click();}if(act==='confirm-import')return commitImport();
   if(act==='start-live')return startLive();if(act==='quarter'){state.live.quarter=+a.dataset.q;record('live-upsert',{live:state.live});return render();}if(act==='add-live')return addLive(a.dataset.type);if(act==='pick-live-player')return commitLiveEvent(a.dataset.type,a.dataset.id||null);if(act==='undo-live')return undoLive();if(act==='discard-live')return requestDiscardLive();if(act==='confirm-discard-live')return discardLive();if(act==='finish-live')return finishLive();if(act==='confirm-live-merge')return confirmLiveMerge(a.dataset.id);if(act==='keep-live-pending')return keepLivePending();if(act==='merge-pending-manual')return mergePendingManual(a.dataset.id,$('#pendingTarget')?.value);
   if(act==='sort-players'){const key=a.dataset.key;if(playerSort===key)playerSortDir*=-1;else{playerSort=key;playerSortDir=-1;}return render();}
@@ -1699,14 +1693,27 @@ document.addEventListener('focusout',()=>setTimeout(()=>{if(renderAfterEdit&&!['
 document.addEventListener('keydown',e=>{const modal=$('#modal');if(e.key==='Escape'&&!modal.hidden){closeModal();return;}if(e.key==='Tab'&&!modal.hidden){const focusable=$$('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',$('.modal-sheet')).filter(item=>item.offsetParent!==null);if(focusable.length){const first=focusable[0],last=focusable.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-detail],[data-action="trend-game"]'))e.target.click();});
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn);
-const query=new URLSearchParams(location.search);if(query.get('api')&&query.get('token')){state.settings.api=query.get('api');state.settings.token=query.get('token');state.settings.role=query.get('role')||'viewer';save();history.replaceState({},'',location.pathname);}
-repairPendingGames();paintSync();render();if(state.settings.api){syncNow();setInterval(syncNow,5000);}
-window.__ESTADISTICAS__={getState:()=>state,setState:s=>{state=sanitise(s);repairPendingGames();save();render();},foldShots,splitLegacyShots,parseGame,validateTotals,effectiveTotals,teamStats,playerAgg,teamMetricRows,aggregateMetric,playerMetricRows,playerSeasonReference,liveMetricRows,validGames,hasManualData,currentStreak,syncNow,repairPendingGames,automaticPendingMatch,mergePendingManual,gameScore,PLAYER_METRICS,TEAM_METRICS,LIVE_METRICS,APP_VERSION,STORE};
+function importSharedTeamFromQuery(){
+  const query=new URLSearchParams(location.search),fragment=new URLSearchParams(location.hash.replace(/^#/,'')),source=query.get('api')?query:fragment,api=source.get('api'),token=source.get('token');if(!api||!token)return;
+  persistWorkspace();const teamId=source.get('team')||'',name=source.get('name')||'Equipo compartido',season=source.get('season')||'',gender=source.get('gender')||'neutral',color=source.get('color')||'blue';
+  let item=teamId?workspaceBook.workspaces.find(row=>row.data?.settings?.teamId===teamId):null;
+  if(!item){const current=activeWorkspace(),isBlank=workspaceBook.workspaces.length===1&&!current.data?.games?.length&&!current.data?.roster?.length&&!current.data?.settings?.token;if(isBlank)item=current;else{item={id:uid(),name,data:blank(name,season,gender,color),legacy:!teamId};workspaceBook.workspaces.push(item);}}
+  item.data=sanitise(item.data||blank(name,season));item.data.team.name=name;item.data.team.season=season;item.data.team.gender=GENDERS[gender]?gender:'neutral';item.data.team.color=PALETTES[color]?color:'blue';item.data.settings={...item.data.settings,api:api.replace(/\/$/,''),token,role:source.get('role')||'viewer',teamId,syncMode:teamId?'team':'legacy'};workspaceBook.activeId=item.id;state=sanitise(item.data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));history.replaceState({},'',location.pathname);
+}
+importSharedTeamFromQuery();repairPendingGames();paintSync();render();if(state.settings.api){syncNow();setInterval(syncNow,5000);}
+window.__ESTADISTICAS__={getState:()=>state,getWorkspaceBook:()=>workspaceBook,switchWorkspace,createWorkspace,setState:s=>{state=sanitise(s);repairPendingGames();save();render();},foldShots,splitLegacyShots,parseGame,detectGender,genderTerms,applyTeamIdentity,validateTotals,effectiveTotals,teamStats,playerAgg,teamMetricRows,aggregateMetric,playerMetricRows,playerSeasonReference,liveMetricRows,recordedLiveGames,validGames,hasManualData,currentStreak,syncNow,repairPendingGames,automaticPendingMatch,mergePendingManual,gameScore,PLAYER_METRICS,TEAM_METRICS,LIVE_METRICS,APP_VERSION,STORE};
 
 ===== END FILE: app.js =====
 
+===== BEGIN FILE: config.js =====
+// URL pública del Worker v11. No pongas tokens aquí.
+window.ESTADISTICAS_CONFIG = { serviceApi: '' };
+
+===== END FILE: config.js =====
+
 ===== BEGIN FILE: configurar.html =====
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Configurar Estadísticas</title><style>:root{font-family:Arial,sans-serif;background:#f3f1ec;color:#172128}body{margin:0}.wrap{max-width:720px;margin:auto;padding:32px 16px}.card{background:#fffefa;border:1px solid #dcdcd5;border-radius:14px;padding:18px;margin:12px 0}h1{font-size:34px;letter-spacing:-.04em}label{display:block;font-size:12px;font-weight:bold;margin:12px 0 5px}input{width:100%;box-sizing:border-box;padding:11px;border:1px solid #aeb4b3;border-radius:8px}button{margin-top:14px;padding:11px 14px;border:0;border-radius:8px;background:#172128;color:white;font-weight:bold}textarea{width:100%;box-sizing:border-box;min-height:72px;padding:9px}.ok{color:#167c78}.bad{color:#b7473d}</style></head><body><main class="wrap"><small>ESTADÍSTICAS v9 · CONFIGURACIÓN INICIAL</small><h1>Crear los tres enlaces</h1><p>Este asistente se usa una sola vez. El secreto no se guarda.</p><section class="card"><label>URL del Worker</label><input id="worker" placeholder="https://estadisticas.tu-subdominio.workers.dev"><label>Secreto SETUP_SECRET</label><input id="secret" type="password"><label>URL pública de la app</label><input id="app" placeholder="https://tu-usuario.github.io/estadisticas/"><button id="go">Crear enlaces</button><p id="status"></p></section><section id="result" hidden class="card"><h2>Guárdalos ahora</h2><div id="links"></div></section></main><script>const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));document.querySelector('#go').onclick=async()=>{const w=document.querySelector('#worker').value.trim().replace(/\/$/,''),s=document.querySelector('#secret').value,a=document.querySelector('#app').value.trim();const st=document.querySelector('#status');st.textContent='Creando…';try{const r=await fetch(w+'/api/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret:s})});const j=await r.json();if(!r.ok)throw Error(j.error||'Error');const items=[['Administrador',j.admin],['Edición',j.editor],['Solo lectura',j.viewer]];document.querySelector('#links').innerHTML=items.map(([name,x])=>{const link=a+'?api='+encodeURIComponent(w)+'&token='+encodeURIComponent(x.token)+'&role='+x.role;return '<label>'+name+'</label><textarea readonly>'+esc(link)+'</textarea>'}).join('');document.querySelector('#result').hidden=false;st.className='ok';st.textContent='✓ Enlaces creados. Copia el de administrador para ti.'}catch(e){st.className='bad';st.textContent=e.message}}</script></body></html>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Conectar Estadísticas v11</title><style>:root{font-family:Arial,sans-serif;color:#10233f;background:#f3f5f8}*{box-sizing:border-box}main{max-width:720px;margin:auto;padding:24px 14px}section{background:#fff;border:1px solid #d4dce6;border-radius:16px;padding:18px;margin:12px 0}h1{font-size:clamp(30px,7vw,48px);letter-spacing:-.05em;margin:4px 0}p{color:#526173;line-height:1.5}label{display:grid;gap:5px;font-size:11px;font-weight:800}input{min-height:44px;border:1px solid #aeb9c7;border-radius:10px;padding:10px;font:inherit}button{min-height:42px;border:0;border-radius:10px;background:#10233f;color:white;padding:10px 14px;font-weight:800;cursor:pointer}.row{display:flex;gap:8px;flex-wrap:wrap}.ok{color:#16805a}.bad{color:#b42331}.note{border-left:4px solid #d97706;padding:10px;background:#fff8e8}.small{font-size:11px}</style></head><body><main><small>ESTADÍSTICAS v11</small><h1>Conectar equipos privados</h1><p>Este asistente no configura tokens ni toca tus datos. Solo crea el archivo público <code>config.js</code> con la dirección del Worker v11 para que cualquier persona pueda crear su propio equipo privado.</p><section><h2>1. Pega la dirección del Worker</h2><label>URL del Worker<input id="url" placeholder="https://tu-worker.workers.dev" autocomplete="off"></label><p class="small">La dirección no es una contraseña. No pegues aquí ningún token ni enlace de administrador.</p><div class="row"><button id="check">Comprobar Worker</button><button id="download">Descargar config.js</button></div><p id="status"></p></section><section><h2>2. Publica un solo archivo</h2><ol><li>Descarga <code>config.js</code>.</li><li>Sustituye en GitHub el <code>config.js</code> de la raíz.</li><li>Pulsa <b>Commit changes</b>.</li><li>No cambies ni borres <code>assets/</code>.</li></ol></section><div class="note"><b>Buen Consejo sigue funcionando aunque no hagas esto.</b><br><span class="small">La v11 conserva su almacenamiento, token, enlaces y rutas v2. Este paso solo activa la creación automática de equipos nuevos.</span></div></main><script>const $=s=>document.querySelector(s),clean=()=>$('#url').value.trim().replace(/\/$/,'');$('#check').onclick=async()=>{const status=$('#status');try{const url=clean();if(!/^https:\/\//i.test(url))throw Error('La dirección debe empezar por https://');const response=await fetch(url+'/health',{cache:'no-store'}),data=await response.json();if(!response.ok||data.version!=='w3'||!data.multiteam)throw Error('El Worker responde, pero aún no es la versión multiequipo v11.');status.className='ok';status.textContent='✓ Worker v11 preparado. Puedes descargar config.js.'}catch(error){status.className='bad';status.textContent=error.message}};$('#download').onclick=()=>{const url=clean();if(!/^https:\/\//i.test(url)){const status=$('#status');status.className='bad';status.textContent='Escribe primero una dirección https:// válida.';return}const text=`// URL pública del Worker v11. No pongas tokens aquí.\nwindow.ESTADISTICAS_CONFIG = { serviceApi: ${JSON.stringify(url)} };\n`,a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/javascript'}));a.download='config.js';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),0)};</script></body></html>
+
 ===== END FILE: configurar.html =====
 
 ===== BEGIN FILE: index.html =====
@@ -1716,7 +1723,7 @@ window.__ESTADISTICAS__={getState:()=>state,setState:s=>{state=sanitise(s);repai
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f3f5f8">
-  <meta name="description" content="Estadísticas v10 de Buen Consejo">
+  <meta name="description" content="Estadísticas v11 multiequipo">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -1743,6 +1750,7 @@ window.__ESTADISTICAS__={getState:()=>state,setState:s=>{state=sanitise(s);repai
         <span><b>Estadísticas</b><small>Buen Consejo · 26/27</small></span>
       </button>
       <div class="top-actions">
+        <button class="team-switch" id="teamButton" data-action="open-teams" aria-label="Cambiar equipo"><span>⇄</span><span><b>Buen Consejo</b><small>26/27</small></span></button>
         <button class="status" id="syncStatus" data-action="open-sync"><span></span><b>Local</b></button>
         <button class="top-action-button" data-action="install" aria-label="Instalar"><b>⇩</b><span>Instalar</span></button>
         <button class="top-action-button" data-action="toggle-theme" aria-label="Cambiar tema"><b>◐</b><span>Tema</span></button>
@@ -1753,16 +1761,16 @@ window.__ESTADISTICAS__={getState:()=>state,setState:s=>{state=sanitise(s);repai
       <nav>
         <button data-go="live"><span>●</span><span><b>Directo</b><small>Partido</small></span></button>
         <button data-go="team" aria-current="page"><span>▦</span><span><b>Equipo</b><small>Temporada</small></span></button>
-        <button data-go="players"><span>♙</span><span><b>Jugadoras</b><small>Rendimiento</small></span></button>
+        <button data-go="players"><span>♙</span><span><b class="team-players-label">Jugadores</b><small>Rendimiento</small></span></button>
         <button data-go="games"><span>□</span><span><b>Partidos</b><small>Actas y mapas</small></span></button>
       </nav>
-      <footer><b id="roleLabel">ADMIN</b><small>v10</small></footer>
+      <footer><b id="roleLabel">ADMIN</b><small>v11</small></footer>
     </aside>
     <main id="main" tabindex="-1"><div id="view"></div></main>
     <nav class="bottom-nav" aria-label="Secciones">
       <button data-go="live"><span>●</span><b>Directo</b></button>
       <button data-go="team" aria-current="page"><span>▦</span><b>Equipo</b></button>
-      <button data-go="players"><span>♙</span><b>Jugadoras</b></button>
+      <button data-go="players"><span>♙</span><b class="team-players-label">Jugadores</b></button>
       <button data-go="games"><span>□</span><b>Partidos</b></button>
     </nav>
     <div class="safe-area-guard" aria-hidden="true"></div>
@@ -1770,6 +1778,7 @@ window.__ESTADISTICAS__={getState:()=>state,setState:s=>{state=sanitise(s);repai
   <div id="modal" class="modal" hidden aria-hidden="true"><div class="modal-backdrop" data-action="close-modal"></div><section class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><header><div><small id="modalKicker"></small><h2 id="modalTitle"></h2></div><button class="icon-button" data-action="close-modal" aria-label="Cerrar">×</button></header><div id="modalBody"></div></section></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <input id="fileInput" type="file" accept=".xlsx" multiple hidden>
+  <script src="config.js"></script>
   <script src="assets/jszip.min.js"></script>
   <script src="app.js"></script>
 </body>
@@ -1779,9 +1788,9 @@ window.__ESTADISTICAS__={getState:()=>state,setState:s=>{state=sanitise(s);repai
 
 ===== BEGIN FILE: manifest.json =====
 {
-  "name": "Estadísticas · Buen Consejo",
+  "name": "Estadísticas · Multiequipo",
   "short_name": "Estadísticas",
-  "description": "Estadísticas v10 de Buen Consejo · Temporada 26/27",
+  "description": "Estadísticas v11 · equipos privados y estadísticas de baloncesto",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -2445,11 +2454,37 @@ button.card{appearance:none;-webkit-appearance:none;background:var(--paper);colo
 .boxscore tr.team-unassigned td{background:color-mix(in srgb,var(--orange) 9%,var(--paper));font-weight:800}.boxscore tr.team-unassigned .identity span{white-space:normal;font-size:9px;line-height:1.05}
 @media(max-width:560px){.chart-window-label{top:0}}
 
+/* v11 · multiequipo, evolución coherente y gráficos desplazables */
+.team-switch{height:38px;max-width:210px;border:1px solid var(--line);background:var(--paper);border-radius:10px;display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--ink);text-align:left}
+.team-switch>span:first-child{color:var(--green);font-size:17px;font-weight:900}.team-switch b,.team-switch small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.team-switch b{font-size:10px;max-width:150px}.team-switch small{font-size:8px;color:var(--muted)}
+.workspace-list{display:grid;gap:7px}.workspace-row{display:grid;grid-template-columns:1fr auto;gap:6px}.workspace-row>button:first-child{width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);border-radius:11px;background:var(--paper-2);padding:11px;text-align:left}.workspace-row.active>button:first-child{border-color:var(--green);background:var(--green-soft)}.workspace-row b,.workspace-row small{display:block}.workspace-row small{color:var(--muted);font-size:9px}.workspace-row strong{font-size:9px;color:var(--green)}
+.team-settings-summary{display:flex;justify-content:space-between;gap:12px;margin-bottom:13px;padding:13px;border:1px solid var(--green);border-radius:12px;background:var(--green-soft)}.team-settings-summary span{color:var(--muted);font-size:10px}.advanced-settings{margin:12px 0;padding:11px;border:1px solid var(--line);border-radius:11px}.advanced-settings summary{cursor:pointer;font-size:10px;font-weight:900;color:var(--muted)}.advanced-settings[open] summary{margin-bottom:11px}
+.score-chart-frame{min-width:0}.score-chart-scroller{width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;touch-action:pan-x pan-y;padding:2px 0 5px;cursor:zoom-in}.score-chart-scroller .score-chart{width:100%;height:222px}.score-chart-frame.expanded .score-chart-scroller{cursor:default}.score-chart-frame.expanded .score-chart{height:282px}.score-chart .score-margin{font-size:15px;font-weight:950;paint-order:stroke;stroke:var(--paper);stroke-width:5px}.chart-window-label{color:var(--muted);font-size:9px;text-align:center;margin:0 0 3px}.score-chart-scroller::-webkit-scrollbar,.trend-scroller::-webkit-scrollbar{height:7px}.score-chart-scroller::-webkit-scrollbar-thumb,.trend-scroller::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:99px}
+.metric-evolution{display:grid;align-content:center;min-height:72px}.metric-evolution small{display:block;margin-top:-2px;text-align:center;color:var(--muted);font-size:8px}.dual-trend.compact polyline{stroke-width:2.5}.dual-trend.compact circle{stroke-width:2}
+.inline-data-note{display:flex;justify-content:space-between;gap:12px;margin:12px 0;padding:10px 12px;border-left:3px solid var(--green);border-radius:0 10px 10px 0;background:var(--paper-2)}.inline-data-note b{font-size:10px}.inline-data-note span{max-width:680px;color:var(--muted);font-size:9px}.inline-data-note.negative{border-left-color:var(--red)}.negative-value{border-color:color-mix(in srgb,var(--red) 55%,var(--line))!important}.negative-value strong{color:var(--red)}.share-mode{margin:0 auto 10px;max-width:240px}.unified-player-stats{align-self:stretch}
+@media(max-width:920px){.team-switch{max-width:165px}.team-switch b{max-width:105px}}
+@media(max-width:560px){.brand>span:last-child{display:none}.team-switch{max-width:150px}.team-switch b{max-width:95px}.score-chart-scroller .score-chart{height:205px}.score-chart .score-margin{font-size:16px}.inline-data-note{display:grid}.setup-fields{grid-template-columns:1fr}.top-actions{gap:4px}.status{display:none}}
+@media(max-width:380px){.team-switch{max-width:125px}.team-switch b{max-width:73px}.team-switch{padding:0 7px}}
+.invite-list{display:grid;gap:6px;margin-top:9px}.invite-list>div{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2)}.invite-list b,.invite-list small{display:block}.invite-list small{font-size:8px;color:var(--muted)}
+.score-overview{margin:10px 0 14px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--paper-2)}.score-overview>span{display:block;margin-bottom:5px;color:var(--muted);font-size:9px;font-weight:800}.score-overview svg{display:block;width:100%;height:118px}.score-overview polyline{fill:none;stroke-width:3;vector-effect:non-scaling-stroke}.score-overview .score-us{stroke:var(--red)}.score-overview .score-them{stroke:var(--blue)}.score-overview circle.win{fill:var(--green)}.score-overview circle.loss{fill:var(--red)}
+
+/* v11 · identidad accesible por equipo. Azul/naranja es la paleta universal por defecto. */
+:root{--team:#006AA6;--rival:#A65300}
+.score-chart .score-us,.score-chart polyline.score-us{stroke:var(--team);fill:var(--team)}.score-chart .score-them,.score-chart polyline.score-them{stroke:var(--rival);fill:var(--rival)}
+.score-chart circle.score-us{stroke:var(--paper);fill:var(--team)}.score-chart circle.score-them{stroke:var(--paper);fill:var(--rival)}.score-chart .score-label.us{fill:var(--team)}.score-chart .score-label.them{fill:var(--rival)}
+.chart-legend .us:before{background:var(--team)}.chart-legend .them:before{background:var(--rival)}
+.dual-trend polyline.own{stroke:var(--team)}.dual-trend polyline.opp{stroke:var(--rival)}.dual-trend circle.own{fill:var(--team)}.dual-trend circle.opp{fill:var(--rival)}
+.stat-values strong:first-child{color:var(--team)}.stat-values strong:last-child{color:var(--rival)}.compare-values b:first-child{color:var(--team)}.compare-values b:last-child{color:var(--rival)}.compare-track .own{background:var(--team)}.compare-track .opp{background:var(--rival)}
+.paired-bars .own,.mini-columns .own{background:var(--team)}.paired-bars .opp,.mini-columns .opp{background:var(--rival)}.mini-rings .own{--color:var(--team)}.mini-rings .opp{--color:var(--rival)}
+.shot-svg{fill:var(--team)}.shot-svg.against{fill:var(--rival)}.own-dot{background:var(--team)}.against-dot{background:var(--rival)}.zone-bar>i>b{background:var(--team)}.zone-list.defense .zone-bar>i>b{background:var(--rival)}
+.score-overview .score-us{stroke:var(--team)}.score-overview .score-them{stroke:var(--rival)}
+.score-chart polyline.score-us{stroke:var(--team);fill:none!important}.score-chart polyline.score-them{stroke:var(--rival);fill:none!important}
+
 ===== END FILE: styles.css =====
 
 ===== BEGIN FILE: sw.js =====
-const CACHE='estadisticas-v10-20261116-audit2';
-const ASSETS=['./','./index.html','./styles.css','./app.js','./manifest.json','./configurar.html','./actualizar.html','./assets/jszip.min.js','./assets/icon-192.png','./assets/icon-512.png','./assets/icon-maskable-512.png'];
+const CACHE='estadisticas-v11-20261116-final2';
+const ASSETS=['./','./index.html','./styles.css','./app.js','./config.js','./manifest.json','./configurar.html','./actualizar.html','./assets/jszip.min.js','./assets/icon-192.png','./assets/icon-512.png','./assets/icon-maskable-512.png'];
 
 self.addEventListener('install',event=>event.waitUntil(
   caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())
@@ -5923,683 +5958,399 @@ self.addEventListener('fetch',event=>{
 
 ===== BEGIN FILE: tests/smoke.py =====
 #!/usr/bin/env python3
-"""Functional regression suite for Estadísticas v10."""
+"""Regresión funcional de Estadísticas v11: móvil, gráficos, Directo y multiequipo."""
 from pathlib import Path
 from threading import Thread
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from functools import partial
-import copy
-import json
-import time
-import os
-import tempfile
-import zipfile
 from playwright.sync_api import sync_playwright
+import copy, json, os
 
-ROOT = Path(__file__).resolve().parents[1]
-STATE = json.loads((ROOT / 'tests/fixtures/real_3_partidos.json').read_text(encoding='utf-8'))
-DEHESA_FIXTURE = json.loads((ROOT / 'tests/fixtures/dehesa_directo_sanitizado.json').read_text(encoding='utf-8'))
-
-def dehesa_events():
-    return copy.deepcopy(DEHESA_FIXTURE['pendingGame']['events'])
-
-def row_live_values(page):
-    return page.locator('.boxscore tbody tr').evaluate_all("rows => Object.fromEntries(rows.map(row => { const cells=[...row.querySelectorAll('td')].map(cell=>cell.innerText.trim()); return [cells[0].split(String.fromCharCode(10)).join(' '), cells.slice(-4)]; }))")
+ROOT=Path(__file__).resolve().parents[1]
+STATE=json.loads((ROOT/'tests/fixtures/real_3_partidos.json').read_text(encoding='utf-8'))
+DEHESA=json.loads((ROOT/'tests/fixtures/dehesa_directo_sanitizado.json').read_text(encoding='utf-8'))
+REAL_PATH=os.environ.get('ESTADISTICAS_REAL_BACKUP','')
+REAL=json.loads(Path(REAL_PATH).read_text(encoding='utf-8')) if REAL_PATH else None
 
 class Quiet(SimpleHTTPRequestHandler):
-    def log_message(self, *args):
-        pass
+    def log_message(self,*args): pass
+server=ThreadingHTTPServer(('127.0.0.1',0),partial(Quiet,directory=ROOT))
+Thread(target=server.serve_forever,daemon=True).start()
+URL=f'http://127.0.0.1:{server.server_port}/'
 
-server = ThreadingHTTPServer(('127.0.0.1', 0), partial(Quiet, directory=ROOT))
-Thread(target=server.serve_forever, daemon=True).start()
-url = f'http://127.0.0.1:{server.server_port}/'
+def clean_state(value):
+    out=copy.deepcopy(value)
+    out['settings']={**out.get('settings',{}),'api':'','token':'','role':'admin','teamId':''}
+    out['ops']=[];out['lastSeq']=0
+    return out
+
+def long_season(base,count=25):
+    out=clean_state(base); template=copy.deepcopy(out['games'][0]);out['games']=[]
+    for i in range(count):
+        game=copy.deepcopy(template);game['id']=f'visual-{i+1}';game['opponent']=f'Fixture visual {i+1:02d}';game['date']=f'2026-{9+i//20:02d}-{1+i%20:02d}';game['us']=45+(i*7)%35;game['them']=43+(i*11)%37;game['events']=[];out['games'].append(game)
+    return out
 
 try:
-    with sync_playwright() as playwright:
-        fallback = Path('/opt/pw-browsers/chromium-1228/chrome-linux64/chrome')
-        browser = playwright.chromium.launch(headless=True, executable_path=str(fallback) if fallback.exists() else None)
+  with sync_playwright() as pw:
+    browser=pw.chromium.launch(headless=True,executable_path='/opt/pw-browsers/chromium-1228/chrome-linux64/chrome')
+    # Tres tamaños, claro/oscuro y datos sin Directo.
+    for width,height in [(360,640),(390,844),(412,915)]:
+      page=browser.new_page(viewport={'width':width,'height':height});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+      page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state(STATE))
+      assert page.evaluate('window.__ESTADISTICAS__.APP_VERSION')=='v11'
+      assert page.locator('[data-logo="aro-vector"]').count()==1
+      assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='female'
+      assert page.evaluate('window.__ESTADISTICAS__.getState().team.color')=='red'
+      assert page.locator('.team-players-label').first.inner_text()=='Jugadoras'
+      colors=page.evaluate("() => {const root=getComputedStyle(document.documentElement),us=getComputedStyle(document.querySelector('.score-label.us')),them=getComputedStyle(document.querySelector('.score-label.them'));return {team:root.getPropertyValue('--team').trim(),rival:root.getPropertyValue('--rival').trim(),us:us.fill,them:them.fill}}")
+      assert colors['us']!=colors['them']
+      assert page.locator('.live-stat-card').count()==0
+      assert page.locator('.live-data-block').count()==0
+      assert page.locator('.stats-grid .stat-card').count()>=11
+      assert page.locator('.stat-card .dual-trend.compact').count()>=11
+      assert page.locator('.score-margin').count()==3
+      assert float(page.locator('.score-margin').first.evaluate("e=>getComputedStyle(e).fontSize.replace('px','')"))>=15
+      assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth+1')
+      page.click('[data-action="toggle-theme"]');assert page.locator('html').get_attribute('data-theme')=='dark'
+      assert not errors,errors
+      page.close()
 
-        for width, height in [(360, 640), (390, 844), (412, 915)]:
-            page = browser.new_page(viewport={'width': width, 'height': height}, device_scale_factor=1)
-            errors = []
-            page.on('pageerror', lambda error: errors.append(str(error)))
-            page.goto(url, wait_until='networkidle')
-            assert page.locator('[data-logo="aro-vector"]').count() == 1
-            assert page.locator('.brand-mark svg text').count() == 0
-            assert page.locator('.brand-mark svg').get_attribute('viewBox') == '0 0 512 512'
-            page.evaluate('(state) => window.__ESTADISTICAS__.setState(state)', STATE)
+    # Copia real: Directo integrado, Eider, ratio y cuotas explícitas.
+    if REAL:
+      page=browser.new_page(viewport={'width':390,'height':844});page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state(REAL))
+      assert page.evaluate('window.__ESTADISTICAS__.getState().games.length')==4
+      assert page.evaluate('window.__ESTADISTICAS__.recordedLiveGames().length')==1
+      assert page.locator('.stats-grid .live-stat-card').count()==2
+      assert page.locator('.live-data-block').count()==0
+      assert page.locator('.live-stat-card .dual-trend.compact').count()==2
+      page.click('.bottom-nav [data-go="players"]');page.locator('.player-rank',has_text='Eider').click()
+      assert page.locator('.share-mode',has_text='Por partido').is_visible()
+      assert page.locator('.donut',has_text='Cuota puntos · por partido').is_visible()
+      assert page.locator('.detail-stats',has_text='ROB/PER').is_visible()
+      assert page.locator('.detail-stats',has_text='Balance ROB−PER').is_visible()
+      assert page.locator('.negative-value',has_text='-2').is_visible()
+      assert page.locator('.inline-data-note',has_text='nunca es negativo').is_visible()
+      page.click('[data-action="player-share"][data-mode="season"]')
+      assert page.locator('.donut',has_text='temporada').count()==2
+      page.close()
 
-            # Panel completo: estadísticas oficiales y manuales siempre visibles.
-            assert page.locator('.stats-grid:not(.live-stats-grid) .stat-card').count() == 11
-            assert page.locator('.stat-winRate').count() == 0
-            assert page.locator('.live-stat-card').count() == 2
-            assert page.locator('.live-stat-card.is-empty').count() == 2
-            assert page.locator('.live-data-block', has_text='Sin datos registrados todavía').is_visible()
-            assert page.locator('.stat-val .stat-values').is_visible()
-            assert page.locator('.stat-val', has_text='por partido').is_visible()
-            assert page.locator('.margin-chart').count() == 0
-            assert page.locator('.score-chart .score-margin').count() == 3
-            assert page.locator('.score-chart .score-difference').count() == 1
-            assert page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1')
+    # 25 partidos: todos los puntos, desplazamiento y vista ampliada.
+    page=browser.new_page(viewport={'width':390,'height':844});page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',long_season(STATE))
+    assert page.locator('.score-chart g[data-detail^="game:"]').count()==25
+    dims=page.locator('.score-chart-scroller').evaluate('e=>({client:e.clientWidth,scroll:e.scrollWidth})');assert dims['scroll']>dims['client']
+    page.locator('.score-chart-scroller').evaluate('e=>e.scrollLeft=500');assert page.locator('.score-chart-scroller').evaluate('e=>e.scrollLeft')>0
+    page.locator('.score-chart-scroller').click(position={'x':8,'y':8});assert page.locator('#modalTitle',has_text='Marcador completo').is_visible()
+    assert page.locator('.modal .score-chart g[data-detail^="game:"]').count()==25
+    page.close()
 
-            stats = page.evaluate('window.__ESTADISTICAS__.teamStats()')
-            assert stats['topScorer']['name'] == 'ELZAURDI CARRERA, SARA'
-            assert stats['topScorer']['pts'] == 36
-            assert stats['foulsDrawn'] == 59
-            point_rows = page.evaluate('window.__ESTADISTICAS__.teamMetricRows("points")')
-            assert [(row['own'], row['opp']) for row in point_rows] == [(40, 65), (64, 36), (61, 48)]
-            three_share = page.evaluate('window.__ESTADISTICAS__.aggregateMetric("threeShare", window.__ESTADISTICAS__.teamMetricRows("threeShare"), "own", "total")')
-            assert round(three_share, 3) == round(24 / 165 * 100, 3)
+    # Multiequipo local: cambio e aislamiento total.
+    page=browser.new_page(viewport={'width':390,'height':844});page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state(STATE))
+    original_id=page.evaluate('window.__ESTADISTICAS__.getWorkspaceBook().activeId')
+    page.click('[data-action="open-teams"]');page.fill('#newTeamName','Equipo aislado');page.fill('#newTeamSeason','27/28');page.click('[data-action="create-team"]');assert 'Elige femenino' in page.locator('#toast').inner_text()
+    page.select_option('#newTeamGender','male');page.select_option('#newTeamColor','blue');page.click('[data-action="create-team"]')
+    assert page.evaluate('window.__ESTADISTICAS__.getState().games.length')==0
+    assert page.evaluate('window.__ESTADISTICAS__.getWorkspaceBook().workspaces.length')==2
+    isolated_id=page.evaluate('window.__ESTADISTICAS__.getWorkspaceBook().activeId');assert isolated_id!=original_id
+    isolated=clean_state(STATE);isolated['team']={'name':'Equipo aislado','season':'27/28','gender':'male','color':'blue'};isolated['games']=isolated['games'][:1]
+    page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',isolated);page.click('.bottom-nav [data-go="players"]');assert page.locator('.team-players-label').first.inner_text()=='Jugadores';page.evaluate('(id)=>window.__ESTADISTICAS__.switchWorkspace(id)',original_id)
+    assert page.evaluate('window.__ESTADISTICAS__.getState().games.length')==3
+    assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='female'
+    page.evaluate('(id)=>window.__ESTADISTICAS__.switchWorkspace(id)',isolated_id);assert page.evaluate('window.__ESTADISTICAS__.getState().games.length')==1
+    page.click('[data-action="open-teams"]');page.fill('#newTeamName','Equipo sin detectar');page.select_option('#newTeamGender','neutral');page.select_option('#newTeamColor','purple');page.click('[data-action="create-team"]')
+    assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='neutral'
+    page.click('.bottom-nav [data-go="players"]');assert page.locator('.team-players-label').first.inner_text()=='Jugadores'
+    page.close()
 
-            # Portada seleccionable: medias y totales sin cambiar de contexto.
-            page.click('[data-action="stats-mode"][data-mode="total"]')
-            point_values = page.locator('.stat-points .stat-values strong').all_inner_texts()
-            assert point_values == ['165', '149']
-            assert page.locator('[data-action="stats-mode"][data-mode="total"]').get_attribute('class') == 'active'
-            page.click('[data-action="stats-mode"][data-mode="average"]')
-            page.click('[data-action="stats-mode"][data-mode="compare"]')
-            assert page.locator('.stats-grid:not(.live-stats-grid) .comparison-card').count() == 11
-            assert page.locator('.stat-ftp .comparison-value', has_text='pp').is_visible()
-            assert page.locator('[data-action="stats-mode"][data-mode="compare"]').get_attribute('class') == 'active'
-            page.click('[data-action="stats-mode"][data-mode="average"]')
+    # Enlace v11: crea/abre solo su equipo y aplica el rol lector.
+    context=browser.new_context(viewport={'width':390,'height':844})
+    page=context.new_page();page.route('https://sync.test/**',lambda route:route.fulfill(status=200,content_type='application/json',body='{"events":[],"lastSeq":0}'))
+    page.goto(URL+'?api=https%3A%2F%2Fsync.test&token=token-prueba&role=viewer&team=team-prueba&name=Equipo%20Compartido&season=27%2F28&gender=male&color=purple',wait_until='networkidle')
+    settings=page.evaluate('window.__ESTADISTICAS__.getState().settings');assert settings['teamId']=='team-prueba' and settings['role']=='viewer'
+    assert page.evaluate('window.__ESTADISTICAS__.getState().team.name')=='Equipo Compartido'
+    assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='male'
+    assert page.evaluate('window.__ESTADISTICAS__.getState().team.color')=='purple'
+    assert page.locator('[data-action="import-games"]:visible').count()==0
+    assert 'token=' not in page.url
+    context.close()
 
-            # Series coincidentes: los dos puntos se separan y la línea rival se distingue.
-            page.locator('[data-detail="metric:p3m"]').click()
-            own_y = float(page.locator('.dual-trend:not(.compact) circle.own').nth(1).get_attribute('cy'))
-            opp_y = float(page.locator('.dual-trend:not(.compact) circle.opp').nth(1).get_attribute('cy'))
-            assert own_y != opp_y
-            assert page.locator('.trend-scroller').is_visible()
-            page.click('[data-action="metric-breakdown"][data-mode="average"]')
-            assert page.locator('[data-action="metric-breakdown"][data-mode="average"]').get_attribute('class') == 'active'
-            assert '/P' in page.locator('.breakdown-bars strong').first.inner_text()
-            page.locator('.modal-sheet .icon-button').click()
-            page.wait_for_timeout(20)
-            assert page.evaluate('document.activeElement?.dataset?.detail') == 'metric:p3m'
+    # Migración exacta del almacén v10: un equipo, mismos datos, sin recrear enlace.
+    if REAL:
+      legacy=copy.deepcopy(REAL)
+      context=browser.new_context(viewport={'width':390,'height':844})
+      context.add_init_script(script="localStorage.setItem('estadisticas_shared_v2', JSON.stringify("+json.dumps(legacy)+")); localStorage.removeItem('estadisticas_multiteam_v11');")
+      page=context.new_page();page.goto(URL,wait_until='domcontentloaded')
+      assert page.evaluate('window.__ESTADISTICAS__.getWorkspaceBook().workspaces.length')==1
+      assert page.evaluate('window.__ESTADISTICAS__.getState().games.length')==4
+      assert page.evaluate('window.__ESTADISTICAS__.getState().settings.token.length>0')
+      assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='female'
+      assert page.evaluate('window.__ESTADISTICAS__.getState().team.color')=='red'
+      context.close()
 
-            # Reparto completo: las 14 jugadoras, incluidas las de 0.
-            page.locator('[data-detail="point-share"]').click()
-            assert page.locator('.full-roster button').count() == len(STATE['roster']) == 14
-            assert page.locator('.full-roster', has_text='0 · 0%').count() >= 1
-            page.locator('.modal-sheet .icon-button').click()
+    # Creación en nube simulada: el propietario recibe un espacio aislado v11.
+    context=browser.new_context(viewport={'width':390,'height':844})
+    context.add_init_script(script="localStorage.setItem('estadisticas_service_api','https://sync.test')")
+    page=context.new_page()
+    def cloud(route):
+      request=route.request
+      if request.method=='POST' and request.url.endswith('/api/v3/teams'):
+        route.fulfill(status=201,content_type='application/json',body='{"team":{"id":"cloud-1","name":"Nube A","season":"27/28"},"admin":{"token":"admin-prueba","role":"admin"}}')
+      else: route.fulfill(status=200,content_type='application/json',body='{"events":[],"lastSeq":0}')
+    page.route('https://sync.test/**',cloud);page.goto(URL,wait_until='networkidle')
+    page.click('[data-action="open-teams"]');page.fill('#newTeamName','Nube A');page.fill('#newTeamSeason','27/28');page.select_option('#newTeamGender','female');page.select_option('#newTeamColor','teal');page.click('[data-action="create-team"]')
+    page.wait_for_function("window.__ESTADISTICAS__.getState().settings.teamId==='cloud-1'")
+    cloud_settings=page.evaluate('window.__ESTADISTICAS__.getState().settings')
+    assert cloud_settings['teamId']=='cloud-1' and cloud_settings['role']=='admin'
+    assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='female'
+    assert page.evaluate('window.__ESTADISTICAS__.getState().team.color')=='teal'
+    context.close()
 
-            # Minutos: vistas de temporada/partido y tabla completa que se desplaza realmente.
-            options = page.locator('#minutesScope option').all_inner_texts()
-            assert options[0:2] == ['Temporada', 'Media por partido'] and len(options) == 5
-            page.select_option('#minutesScope', index=2)
-            assert page.locator('.minutes-card .minute-bars button').count() == len(STATE['games'][0]['players'])
-            page.locator('[data-detail="minutes"]').click()
-            assert page.locator('.minutes-heatmap .heat-row').count() == 14
-            assert page.locator('.minutes-heatmap .heat-head').inner_text().split()[1:3] == ['Media', 'Cuota']
-            assert page.locator('.minutes-evolution button').count() == 14
-            sizes = page.locator('.minutes-scroll').evaluate('e => ({client:e.clientWidth, scroll:e.scrollWidth})')
-            assert sizes['scroll'] > sizes['client']
-            page.locator('.minutes-scroll').evaluate('e => e.scrollLeft = 120')
-            assert page.locator('.minutes-scroll').evaluate('e => e.scrollLeft') > 0
-            page.locator('.modal-sheet .icon-button').click()
+    # Importación real de los tres Excel de partido y la plantilla, si se facilitan.
+    excel_dir=os.environ.get('ESTADISTICAS_EXCEL_DIR','')
+    if excel_dir:
+      books=sorted(str(path) for path in Path(excel_dir).glob('estadisticaPartido*.xlsx'))
+      roster=next(iter(Path(excel_dir).glob('jugadores*.xlsx')),None)
+      assert len(books)>=3 and roster
+      page=browser.new_page(viewport={'width':390,'height':844});page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state({'version':11,'team':{'name':'Buen Consejo','season':'26/27','gender':'neutral','color':'blue'}}))
+      assert page.evaluate("window.__ESTADISTICAS__.detectGender([['2ª Div Aut Fem ORO']])")=='female'
+      assert page.evaluate("window.__ESTADISTICAS__.detectGender([['Junior Masculino A']])")=='male'
+      assert page.evaluate("window.__ESTADISTICAS__.detectGender([['Junior Preferente']])") is None
+      page.click('[data-action="import-games"]');page.set_input_files('#fileInput',books);page.wait_for_selector('[data-action="confirm-import"]');page.click('[data-action="confirm-import"]')
+      assert page.evaluate('window.__ESTADISTICAS__.validGames().length')==3
+      page.click('.bottom-nav [data-go="players"]');page.click('[data-action="import-roster"]');page.set_input_files('#fileInput',str(roster));page.wait_for_function("window.__ESTADISTICAS__.getState().team.gender==='female'")
+      assert page.evaluate('window.__ESTADISTICAS__.getState().roster.length')>=10
+      assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='female'
+      page.close()
 
-            # Faltas: menor partido como mejor y ratios normalizados por 40 minutos.
-            page.locator('[data-detail="metric:fouls"]').click()
-            assert page.locator('.best-worst', has_text='Mejor BC · menos').is_visible()
-            assert page.locator('.best-worst div').first.locator('b').inner_text() == '13,0'
-            assert page.locator('.per40-summary', has_text='Faltas BC / 40 min').is_visible()
-            assert page.locator('.breakdown-bars', has_text='/40').is_visible()
-            page.locator('.modal-sheet .icon-button').click()
+    # actualizar.html: petición realista que modifica dos archivos en una sola respuesta.
+    page=browser.new_page(viewport={'width':1280,'height':900});page.goto(URL+'actualizar.html',wait_until='networkidle');page.set_input_files('#repoFolder',str(ROOT));page.wait_for_function("document.querySelector('#fileSummary').classList.contains('ok')")
+    patch={'version':'v11','files':[{'path':'config.js','changes':[{'find':"window.ESTADISTICAS_CONFIG = { serviceApi: '' };",'replace':"window.ESTADISTICAS_CONFIG = { serviceApi: '' };\n// Cambio multiarchivo de prueba validado."}]},{'path':'docs/NOTA_MULTIARCHIVO.md','content':'# Prueba\nArchivo nuevo creado junto con un cambio en config.js.\n'}]}
+    page.fill('#answer',json.dumps(patch,ensure_ascii=False));page.click('#build');page.wait_for_function("document.querySelector('#status').classList.contains('ok')")
+    with page.expect_download() as download_info: page.click('#download')
+    download=download_info.value;target=Path(download.suggested_filename);download.save_as(target)
+    import zipfile
+    with zipfile.ZipFile(target) as archive:
+      names=set(archive.namelist());assert {'config.js','docs/NOTA_MULTIARCHIVO.md','PROYECTO_ESTADISTICAS.md'}<=names
+    target.unlink(missing_ok=True);page.close()
 
-            # Valoración: gráfica y media por partido no vacías.
-            page.locator('[data-detail="metric:val"]').click()
-            assert page.locator('.metric-summary', has_text='Media BC / partido').is_visible()
-            assert page.locator('.dual-trend:not(.compact) circle.own').count() == 3
-            page.locator('.modal-sheet .icon-button').click()
-
-            # Individual: TL ausente, FAL/40 y VAL/P.
-            assert page.evaluate('window.__ESTADISTICAS__.PLAYER_METRICS.ftp.value({ftm:0,fta:0})') is None
-            page.locator('.bottom-nav [data-go="players"]').click()
-            page.locator('.player-rank', has_text='Lara').click()
-            assert page.locator('.detail-stats', has_text='FAL/40').is_visible()
-            assert page.locator('.detail-stats', has_text='VAL/P').is_visible()
-            assert page.locator('.manual-player-block', has_text='Sin datos registrados todavía').is_visible()
-            page.select_option('#playerMetric', 'ftp')
-            assert page.locator('.player-trend .missing').count() >= 1
-            assert page.locator('.player-trend .team-average').count() >= 1
-            assert page.locator('.player-trend .team-season').count() == 1
-            page.locator('.modal-sheet .icon-button').click()
-
-            # Mapa: textarea visible, JSON validado y puntos separados ataque/defensa.
-            page.locator('.bottom-nav [data-go="games"]').click()
-            away_row = page.locator('.game-row', has_text='C.B. LAS ROZAS')
-            assert away_row.locator('.game-score').inner_text().replace(' ', '') == '36–64'
-            page.locator('[data-action="open-shot"]').click()
-            assert page.locator('#shotJson').is_visible()
-            assert page.locator('[data-action="copy-shot-prompt"]').is_visible()
-            payload = {"court":"half","ownIdentification":{"team":"BUEN CONSEJO","side":"left","color":"rojo","checksAgree":True,"conflict":""},"opponentIdentification":{"team":"RIVAL","side":"right","color":"azul","checksAgree":True,"conflict":""},"ownShots":[{"x":.42,"y":.18}],"opponentShots":[{"x":.55,"y":.22}]}
-            page.fill('#shotJson', json.dumps(payload))
-            page.click('[data-action="apply-shot-json"]')
-            assert page.locator('#shotCourt .shot-svg:not(.against)').count() == 1
-            assert page.locator('#shotCourt .shot-svg.against').count() == 1
-            assert page.locator('#shotCourt .shot-svg').first.get_attribute('r') == '24'
-            assert page.locator('#shotCourt .court').evaluate('e => getComputedStyle(e).touchAction') == 'none'
-            assert 'revisa la pista' in page.locator('#shotAssignment').inner_text()
-            page.locator('.modal-sheet .icon-button').click()
-
-            # Directo llena el espacio útil y conserva Equipo (sin jugadora).
-            page.locator('.bottom-nav [data-go="live"]').click()
-            expected_today = page.evaluate("() => {const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}")
-            assert page.input_value('#liveDate') == expected_today and page.input_value('#liveDate') != '2026-11-11'
-            page.fill('#rival', 'Rival de prueba')
-            page.click('[data-action="start-live"]')
-            assert page.evaluate('window.__ESTADISTICAS__.getState().live.date') == expected_today
-            board = page.locator('.live-board').bounding_box()
-            actions = page.locator('.live-actions').bounding_box()
-            assert board['height'] <= height and actions['height'] > height * .35
-            assert page.evaluate('document.documentElement.scrollHeight <= document.documentElement.clientHeight + 1')
-            page.click('[data-action="add-live"][data-type="steal"]')
-            page.click('.team-choice')
-            event = page.evaluate('window.__ESTADISTICAS__.getState().live.events.at(-1)')
-            assert event['playerId'] is None and event['type'] == 'steal'
-            page.click('[data-action="discard-live"]')
-            page.click('[data-action="confirm-discard-live"]')
-            assert page.evaluate('window.__ESTADISTICAS__.getState().live') is None
-
-            # Franja: navegación y guardia siguen las superficies de cada tema.
-            light = page.evaluate("""() => ({nav:getComputedStyle(document.querySelector('.bottom-nav')).backgroundColor,guard:getComputedStyle(document.querySelector('.safe-area-guard')).backgroundColor,meta:document.querySelector('meta[name=theme-color]').content})""")
-            assert light['nav'] == light['guard'] == 'rgb(255, 255, 255)'
-            page.click('[data-action="toggle-theme"]')
-            dark = page.evaluate("""() => ({html:getComputedStyle(document.documentElement).backgroundColor,body:getComputedStyle(document.body).backgroundColor,nav:getComputedStyle(document.querySelector('.bottom-nav')).backgroundColor,guard:getComputedStyle(document.querySelector('.safe-area-guard')).backgroundColor,meta:document.querySelector('meta[name=theme-color]').content,scheme:getComputedStyle(document.documentElement).colorScheme})""")
-            assert dark['html'] == dark['body'] == 'rgb(11, 15, 22)'
-            assert dark['nav'] == dark['guard'] == 'rgb(20, 27, 37)'
-            assert dark['meta'] == '#0b0f16' and dark['scheme'] == 'dark'
-            page.locator('.bottom-nav [data-go="team"]').click()
-            assert page.locator('.mix-card').evaluate('e => getComputedStyle(e).backgroundColor') == 'rgb(20, 27, 37)'
-            page.locator('.bottom-nav [data-go="games"]').click()
-            page.locator('.game-row').first.click()
-            headers = ' '.join(page.locator('.boxscore thead').all_inner_texts())
-            assert all(label in headers for label in ['DIRECTO', 'ROB', 'PER', 'REB O', 'REB R'])
-            assert page.locator('.manual-table-notice', has_text='Sin datos registrados todavía').is_visible()
-            page.locator('.modal-sheet .icon-button').click()
-            assert not errors, errors
-            page.close()
-
-        # Métricas de Directo: solo partidos con eventos; nada de ceros por partidos no registrados.
-        page = browser.new_page(viewport={'width': 390, 'height': 844})
-        page.goto(url, wait_until='networkidle')
-        live_state = copy.deepcopy(STATE)
-        live_state['games'][0]['events'] = [
-            {'id':'e1','type':'steal','quarter':1,'playerId':None,'playerName':None},
-            {'id':'e2','type':'turnover','quarter':2,'playerId':None,'playerName':None},
-            {'id':'e3','type':'orbFor','quarter':3,'playerId':None,'playerName':None},
-            {'id':'e4','type':'orbAgainst','quarter':4,'playerId':None,'playerName':None},
-        ]
-        live_state['games'][1]['events'] = [{'id':'e5','type':'steal','quarter':1,'playerId':None,'playerName':None}]
-        page.evaluate('(state) => window.__ESTADISTICAS__.setState(state)', live_state)
-        assert page.locator('.live-stat-card').count() == 2
-        assert page.evaluate('window.__ESTADISTICAS__.liveMetricRows("ball").length') == 2
-        page.locator('[data-detail="live:ball"]').click()
-        assert page.locator('.metric-summary', has_text='Robos BC').is_visible()
-        assert page.locator('.metric-explain', has_text='No es una estadística completa del rival').is_visible()
-        assert page.locator('.manual-player-list', has_text='Equipo').is_visible()
-        sara_rows = page.evaluate("""() => {const p=window.__ESTADISTICAS__.playerAgg().find(x=>x.name.includes('SARA'));return window.__ESTADISTICAS__.playerMetricRows(p,'liveSteals').map(r=>r.value)}""")
-        assert sara_rows == [0, 0, None]
-        page.locator('.modal-sheet .icon-button').click()
-        page.locator('.bottom-nav [data-go="games"]').click()
-        page.locator('.game-row', has_text='ENSANCHE').click()
-        headers = ' '.join(page.locator('.boxscore thead').all_inner_texts())
-        assert all(label in headers for label in ['DIRECTO', 'ROB', 'PER', 'REB O', 'REB R'])
-        assert page.locator('.boxscore tbody tr').first.inner_text().count('0') >= 3
-        page.close()
-
-        # Pendientes de Directo: no son 0-0, no alteran balance, racha ni numeración.
-        page = browser.new_page(viewport={'width': 390, 'height': 844})
-        page.goto(url, wait_until='networkidle')
-        pending_state = copy.deepcopy(STATE)
-        pending_state['games'].insert(1, {'id':'pending','opponent':'PENDIENTE','date':'2026-10-20','us':None,'them':None,'players':[],'events':[{'id':'p1','type':'steal','quarter':1}],'source':'live-pending','availability':{'manual':True}})
-        page.evaluate('(state) => window.__ESTADISTICAS__.setState(state)', pending_state)
-        assert page.evaluate('window.__ESTADISTICAS__.validGames().length') == 3
-        assert page.evaluate('window.__ESTADISTICAS__.teamStats().played') == 3
-        assert page.evaluate('window.__ESTADISTICAS__.currentStreak(window.__ESTADISTICAS__.validGames())') == 'V2'
-        assert page.locator('#minutesScope option').all_inner_texts()[2:] == ['P1 · ENSANCHE DE VALLECAS PANGOSTUDIO.COM', 'P2 · C.B. LAS ROZAS', 'P3 · OLIMPICO 64']
-        page.locator('.bottom-nav [data-go="games"]').click()
-        pending_row = page.locator('.game-row', has_text='PENDIENTE')
-        assert pending_row.locator('.game-result').inner_text() == 'P'
-        assert 'Pendiente de acta' in pending_row.inner_text()
-        pending_row.click()
-        assert page.locator('.pending-hero', has_text='Esperando acta').is_visible()
-        assert page.locator('#gameDetail', has_text='No cuenta en estadísticas').is_visible()
-        page.close()
-
-        # v10: el Directo de La Dehesa fechado cuatro días antes se repara al cargar.
-        page = browser.new_page(viewport={'width': 390, 'height': 844})
-        page.goto(url, wait_until='networkidle')
-        dehesa = copy.deepcopy(STATE)
-        dehesa['roster'] = copy.deepcopy(DEHESA_FIXTURE['roster'])
-        acta=copy.deepcopy(DEHESA_FIXTURE['actaGame']);acta['id']='dehesa-acta';acta['events']=[];acta['availability']={**acta.get('availability',{}),'manual':False};dehesa['games'].append(acta)
-        dehesa['games'].append({'id':'dehesa-live','opponent':'La dehesa','date':'2026-11-11','us':None,'them':None,'players':[],'events':dehesa_events(),'source':'live-pending','availability':{'manual':True}})
-        page.evaluate('(state) => window.__ESTADISTICAS__.setState(state)', dehesa)
-        repaired = page.evaluate('window.__ESTADISTICAS__.getState()')
-        assert not any(game.get('source') == 'live-pending' for game in repaired['games'])
-        game = next(game for game in repaired['games'] if game['id'] == 'dehesa-acta')
-        assert len(game['events']) == 53 and game['availability']['manual'] is True
-        assert any(op['type'] == 'merge-game' and op['payload']['sourceId'] == 'dehesa-live' for op in repaired['ops'])
-        page.locator('.bottom-nav [data-go="games"]').click()
-        row = page.locator('.game-row', has_text='LA DEHESA CDSCM')
-        assert row.locator('.game-score').inner_text().replace(' ', '') == '66–69'
-        assert page.locator('.game-row', has_text='Pendiente de acta').count() == 0
-        row.click()
-        assert page.locator('.score-hero strong').inner_text() == '66–69'
-        live_rows = row_live_values(page)
-        expected = {
-            '7 Sara':['10','1','1','—'], '10 Lucía':['2','2','2','—'], '19 Julia':['2','2','0','—'],
-            '13 Teresa':['1','0','2','—'], '16 Alba':['1','0','0','—'], '12 Lara':['1','1','0','—'],
-            '65 Gloria':['1','0','2','—'], '9 Beatriz':['0','3','0','—'], '6 Eider':['0','2','3','—'],
-            '8 Claudia':['0','1','1','—'], 'Equipo / sin asignar':['3','1','1','7'], 'TOTALES':['21','13','12','7']
-        }
-        for label, values in expected.items():
-            key = next(name for name in live_rows if label in name)
-            assert live_rows[key] == values, (label, live_rows[key])
-        for index in range(3):
-            individual=sum(int(values[index]) for label,values in expected.items() if label not in ['Equipo / sin asignar','TOTALES'] and values[index] != '—')
-            assert individual + int(expected['Equipo / sin asignar'][index]) == int(expected['TOTALES'][index])
-        page.locator('.modal-sheet .icon-button').click()
-        page.locator('.bottom-nav [data-go="team"]').click()
-        assert page.locator('.coverage-badge', has_text='1 de 4 con datos').is_visible()
-        stats=page.evaluate('window.__ESTADISTICAS__.teamStats()')
-        assert [stats['steals'],stats['turnovers'],stats['orbLive'],stats['oppOrbLive']] == [21,13,12,7]
-        page.locator('[data-detail="live:ball"]').click()
-        assert page.locator('.manual-player-list', has_text='Equipo (sin asignar)').is_visible()
-        page.locator('.modal-sheet .icon-button').click()
-        page.locator('.bottom-nav [data-go="players"]').click()
-        page.locator('.player-rank', has_text='Sara').click()
-        manual_text=page.locator('.manual-player-block').inner_text()
-        assert 'Robos\n10' in manual_text and 'Pérdidas\n1' in manual_text and 'REB O\n1' in manual_text
-        page.close()
-
-        # El selector manual une un pendiente a un acta concreta y deduplica IDs.
-        page = browser.new_page(viewport={'width': 390, 'height': 844})
-        page.goto(url, wait_until='networkidle')
-        manual_state = copy.deepcopy(STATE)
-        manual_state['games'].append({'id':'manual-pending','opponent':'Nombre distinto','date':'2026-09-01','us':None,'them':None,'players':[],'events':[{'id':'same','type':'steal','quarter':1},{'id':'same','type':'steal','quarter':1},{'id':'unique','type':'turnover','quarter':2}],'source':'live-pending','availability':{'manual':True}})
-        page.evaluate('(state) => window.__ESTADISTICAS__.setState(state)', manual_state)
-        page.locator('.bottom-nav [data-go="games"]').click()
-        page.locator('.game-row', has_text='Nombre distinto').click()
-        page.select_option('#pendingTarget', STATE['games'][0]['id'])
-        page.click('[data-action="merge-pending-manual"]')
-        merged = page.evaluate('(id) => window.__ESTADISTICAS__.getState().games.find(game=>game.id===id)', STATE['games'][0]['id'])
-        assert [event['id'] for event in merged['events']] == ['same', 'unique']
-        assert page.locator('.game-row', has_text='Nombre distinto').count() == 0
-        page.close()
-
-        # Importación real opcional: usa el Excel de La Dehesa cuando se facilita.
-        real_xlsx = os.environ.get('ESTADISTICAS_REAL_XLSX')
-        if real_xlsx and Path(real_xlsx).is_file():
-            page = browser.new_page(viewport={'width': 390, 'height': 844})
-            page.goto(url, wait_until='networkidle')
-            real_state = copy.deepcopy(STATE)
-            real_state['roster'] = copy.deepcopy(DEHESA_FIXTURE['roster'])
-            real_state['games'].append({'id':'real-live','opponent':'La dehesa','date':'2026-11-11','us':None,'them':None,'players':[],'events':dehesa_events(),'source':'live-pending','availability':{'manual':True}})
-            page.evaluate('(state) => window.__ESTADISTICAS__.setState(state)', real_state)
-            page.locator('.bottom-nav [data-go="games"]').click()
-            with page.expect_file_chooser() as chooser_info:
-                page.click('[data-action="import-games"]')
-            chooser_info.value.set_files(real_xlsx)
-            page.wait_for_selector('[data-action="confirm-import"]')
-            page.fill('[data-import-date="0"]', '2026-11-15')
-            assert page.locator('[data-import-pending="0"] option:checked').get_attribute('value') == 'real-live'
-            page.click('[data-action="confirm-import"]')
-            imported = page.evaluate("window.__ESTADISTICAS__.getState().games.find(game=>game.opponent==='LA DEHESA CDSCM')")
-            assert imported['home'] is False and imported['us'] == 69 and imported['them'] == 66
-            assert len(imported['events']) == 53
-            assert [sum(1 for event in imported['events'] if event['type']==kind) for kind in ['steal','turnover','orbFor','orbAgainst']] == [21,13,12,7]
-            assert imported['source'] == 'fbm'
-            page.close()
-
-        # Migración de la copia real: conserva configuración sin exponerla y repara La Dehesa.
-        real_backup_path = os.environ.get('ESTADISTICAS_REAL_BACKUP')
-        if real_backup_path and Path(real_backup_path).is_file():
-            backup=json.loads(Path(real_backup_path).read_text(encoding='utf-8'))
-            expected_api=backup.get('settings',{}).get('api',''); expected_token=backup.get('settings',{}).get('token','')
-            page=browser.new_page(viewport={'width':390,'height':844})
-            page.goto(url,wait_until='networkidle')
-            page.evaluate('(state)=>window.__ESTADISTICAS__.setState(state)',backup)
-            assert page.evaluate('(value)=>window.__ESTADISTICAS__.getState().settings.api===value',expected_api)
-            assert page.evaluate('(value)=>window.__ESTADISTICAS__.getState().settings.token===value',expected_token)
-            migrated=page.evaluate('window.__ESTADISTICAS__.getState()')
-            assert migrated['version']==10 and not any(game.get('source')=='live-pending' for game in migrated['games'])
-            game=next(game for game in migrated['games'] if game.get('opponent')=='LA DEHESA CDSCM')
-            assert len(game.get('events',[]))==53
-            page.evaluate("window.__ESTADISTICAS__.getState().settings.api='';window.__ESTADISTICAS__.getState().settings.token='' ")
-            page.close()
-
-        # Sincronización: una operación creada mientras se envía no se borra con el lote anterior.
-        page = browser.new_page(viewport={'width': 390, 'height': 844})
-        def sync_route(route):
-            if route.request.method == 'POST':
-                assert 'initial-op' in (route.request.post_data or '')
-                time.sleep(.12)
-            route.fulfill(status=200, content_type='application/json', body=json.dumps({'events': [], 'lastSeq': 0}))
-        page.route('https://sync.test/**', sync_route)
-        page.goto(url, wait_until='networkidle')
-        sync_state = copy.deepcopy(STATE)
-        sync_state['settings']['api'] = 'https://sync.test'
-        sync_state['settings']['token'] = 'token'
-        sync_state['ops'] = [{'id':'initial-op','at':'2026-11-12T09:00:00Z','type':'set-roster','payload':{'roster':[]}}]
-        page.evaluate('(state) => window.__ESTADISTICAS__.setState(state)', sync_state)
-        page.evaluate("""() => {setTimeout(()=>window.__ESTADISTICAS__.getState().ops.push({id:'late-op',at:new Date().toISOString(),type:'set-roster',payload:{roster:[]}}),20);return window.__ESTADISTICAS__.syncNow()}""")
-        assert [item['id'] for item in page.evaluate('window.__ESTADISTICAS__.getState().ops')] == ['late-op']
-        page.close()
-
-        # Veinticinco partidos: el detalle crece y se desplaza en vez de comprimir etiquetas.
-        page = browser.new_page(viewport={'width': 390, 'height': 844})
-        page.goto(url, wait_until='networkidle')
-        long_state = copy.deepcopy(STATE)
-        template = long_state['games'][0]
-        long_state['games'] = []
-        for index in range(25):
-            game = copy.deepcopy(template)
-            game['id'] = f'long-{index}'
-            game['date'] = f'2026-{10 + index // 20:02d}-{1 + index % 20:02d}'
-            game['opponent'] = f'RIVAL {index + 1}'
-            game['us'], game['them'] = 40 + index % 9, 38 + index % 7
-            long_state['games'].append(game)
-        page.evaluate('(state) => window.__ESTADISTICAS__.setState(state)', long_state)
-        page.locator('[data-detail="metric:points"]').click()
-        chart=page.locator('.score-chart')
-        assert chart.locator('g').count() == 8
-        assert page.locator('.chart-window-label').inner_text() == 'Últimos 8 de 25'
-        xs=[float(value) for value in chart.locator('circle.score-us').evaluate_all("nodes=>nodes.map(node=>node.getAttribute('cx'))")]
-        assert min(xs) <= 55 and max(xs) >= 700 and max(xs)-min(xs) > 640
-        assert chart.locator('text.game-label', has_text='P25').count() == 1
-        assert page.locator('.chart-wrap').evaluate('e=>e.scrollWidth <= e.clientWidth + 1')
-        page.close()
-
-        # Tabla de minutos: la misma rejilla en 4 y 25 partidos, tres móviles y ambos temas.
-        for game_count in [4,25]:
-            matrix_state=copy.deepcopy(STATE); template=matrix_state['games'][0]; matrix_state['games']=[]
-            for index in range(game_count):
-                game=copy.deepcopy(template);game['id']=f'min-{game_count}-{index}';game['date']=f'2026-{9+index//20:02d}-{1+index%20:02d}';game['opponent']=f'RIVAL M{index+1}';matrix_state['games'].append(game)
-            for width,height in [(360,640),(390,844),(412,915)]:
-                for dark in [False,True]:
-                    page=browser.new_page(viewport={'width':width,'height':height})
-                    page.goto(url,wait_until='networkidle');page.evaluate('(state)=>window.__ESTADISTICAS__.setState(state)',matrix_state)
-                    if dark: page.click('[data-action="toggle-theme"]')
-                    page.locator('[data-detail="minutes"]').click()
-                    head=page.locator('.heat-head > *');row=page.locator('.heat-row').first.locator(':scope > *')
-                    assert head.count()==row.count()==3+game_count
-                    for index in range(min(4,head.count())):
-                        hb=head.nth(index).bounding_box();rb=row.nth(index).bounding_box()
-                        assert abs(hb['x']-rb['x'])<.6 and abs(hb['width']-rb['width'])<.6
-                    assert head.nth(0).inner_text()=='Jugadora' and head.nth(1).inner_text()=='Media' and head.nth(2).inner_text()=='Cuota' and head.nth(3).inner_text()=='P1'
-                    size=page.locator('.minutes-scroll').evaluate('e=>({client:e.clientWidth,scroll:e.scrollWidth})')
-                    assert size['scroll']>size['client']
-                    page.locator('.minutes-scroll').evaluate('e=>e.scrollLeft=e.scrollWidth')
-                    assert page.locator('.minutes-scroll').evaluate('e=>e.scrollLeft')>0
-                    page.close()
-
-        # Escritorio: migración v5/v6 a v7, rival completo y scroll del acta.
-        page = browser.new_page(viewport={'width': 1440, 'height': 980})
-        page.goto(url, wait_until='networkidle')
-        page.evaluate("(state) => localStorage.setItem('estadisticas_shared_v2', JSON.stringify(state))", STATE)
-        page.reload(wait_until='networkidle')
-        migrated = page.evaluate('window.__ESTADISTICAS__.getState()')
-        assert migrated['version'] == 10 and len(migrated['games']) == 3 and len(migrated['roster']) == 14
-        assert page.evaluate("localStorage.getItem('estadisticas_shared_v2') !== null")
-        page.locator('.sidebar [data-go="games"]').click()
-        page.locator('.game-row').first.click()
-        page.click('[data-action="game-team"][data-side="opp"]')
-        assert page.locator('.boxscore tbody tr').count() >= 10
-        assert page.locator('.box-wrap').evaluate('e => getComputedStyle(e).overflowX') == 'auto'
-        page.close()
-
-        # Actualizador v10: contexto actual explícito + petición realista multiarchivo + ZIP.
-        page = browser.new_page(viewport={'width': 1280, 'height': 900})
-        page.goto(url + 'actualizar.html', wait_until='networkidle')
-        page.set_input_files('#repoFolder', str(ROOT))
-        page.wait_for_function("document.querySelector('#fileSummary').classList.contains('ok')")
-        with page.expect_download() as context_download:
-            page.click('#context')
-        context_target=Path(tempfile.gettempdir())/'CONTEXTO_ACTUAL_ESTADISTICAS.md'
-        context_download.value.save_as(context_target)
-        context_text=context_target.read_text(encoding='utf-8')
-        assert 'BEGIN FILE: app.js' in context_text and 'BEGIN FILE: styles.css' in context_text and 'no supongas que conoces github' in context_text.lower()
-        patch={'version':'v10','files':[
-            {'path':'README.md','changes':[{'find':'# Estadísticas · Buen Consejo v10','replace':'# Estadísticas · Buen Consejo v10\n'}]},
-            {'path':'styles.css','changes':[{'find':'@font-face{font-family:InterFallback;src:local("Arial")}', 'replace':'@font-face{font-family:InterFallback;src:local("Arial")}\n/* actualización multiarchivo probada */'}]},
-            {'path':'sw.js','changes':[{'find':"const CACHE='estadisticas-v10-20261116-audit2';",'replace':"const CACHE='estadisticas-v10-20261116-audit2-prueba';"}]},
-            {'path':'docs/PRUEBA_ACTUALIZADOR.md','content':'# Prueba\nCambio multiarchivo.'}
-        ]}
-        page.fill('#answer', json.dumps(patch,ensure_ascii=False))
-        page.click('#build')
-        page.wait_for_function("document.querySelector('#download').disabled === false")
-        assert page.locator('#status').get_attribute('class') == 'status ok'
-        with page.expect_download() as download_info: page.click('#download')
-        target = Path(tempfile.gettempdir())/'actualizacion-estadisticas-v10-prueba.zip'
-        download_info.value.save_as(target)
-        with zipfile.ZipFile(target) as archive:
-            assert {'README.md','styles.css','sw.js','docs/PRUEBA_ACTUALIZADOR.md','PROYECTO_ESTADISTICAS.md','LEEME_ACTUALIZACION.txt'}.issubset(archive.namelist())
-            assert b'No tienes que sustituir archivos de conocimiento' in archive.read('LEEME_ACTUALIZACION.txt')
-        context_target.unlink(missing_ok=True);target.unlink(missing_ok=True)
-        browser.close()
-
-    print('OK · v10: Directo unido, local–visitante, tablas, comparación y manual visible sin inventar ceros, comparación, series largas, actas, mapas, temas y migración')
+    browser.close()
 finally:
-    server.shutdown()
+  server.shutdown()
+print('OK · v11: móvil, temas, Directo, cuotas, ratio, 25 partidos, multiequipo, género, colores, enlaces, Excel, actualizador y migración')
 
 ===== END FILE: tests/smoke.py =====
 
 ===== BEGIN FILE: tools/capture.py =====
 #!/usr/bin/env python3
-"""Capturas finales v10: datos reales de La Dehesa y fixtures visuales explícitos."""
+"""Capturas reales de la interfaz v11; elimina conexión y credenciales antes de renderizar."""
 from pathlib import Path
 from threading import Thread
-from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+from http.server import ThreadingHTTPServer,SimpleHTTPRequestHandler
 from functools import partial
-import copy, json, os
 from playwright.sync_api import sync_playwright
-
-ROOT=Path(__file__).resolve().parents[1]; OUT=ROOT/'captures'; OUT.mkdir(exist_ok=True)
-for old in OUT.glob('*.png'): old.unlink()
-BASE=json.loads((ROOT/'tests/fixtures/real_3_partidos.json').read_text(encoding='utf-8'))
-DEHESA_FIXTURE=json.loads((ROOT/'tests/fixtures/dehesa_directo_sanitizado.json').read_text(encoding='utf-8'))
-REAL=Path(os.environ.get('ESTADISTICAS_REAL_XLSX',''))
-
-def events_53(): return copy.deepcopy(DEHESA_FIXTURE['pendingGame']['events'])
-
-def fallback_dehesa():
-    data=copy.deepcopy(BASE); data['roster']=copy.deepcopy(DEHESA_FIXTURE['roster']); template=copy.deepcopy(DEHESA_FIXTURE['actaGame'])
-    template.update({'id':'dehesa-acta','events':events_53(),'availability':{**template.get('availability',{}),'manual':True}})
-    data['games'].append(template); return data
-
-def visual_season(count):
-    """Fixture visual: repite partidos ya presentes; no representa resultados adicionales."""
-    source=fallback_dehesa()['games']; data=copy.deepcopy(BASE); data['games']=[]
-    for index in range(count):
-        game=copy.deepcopy(source[index%len(source)]);game['id']=f'visual-{count}-{index+1}';game['opponent']=f'PRUEBA P{index+1:02d}';game['date']=f'2026-{9+index//20:02d}-{1+index%20:02d}';data['games'].append(game)
-    return data
-
+import argparse,copy,json
+parser=argparse.ArgumentParser();parser.add_argument('--root',default=str(Path(__file__).resolve().parents[1]));parser.add_argument('--backup');parser.add_argument('--out',default='captures');args=parser.parse_args()
+ROOT=Path(args.root).resolve();OUT=Path(args.out).resolve();OUT.mkdir(parents=True,exist_ok=True)
+base=json.loads(Path(args.backup).read_text(encoding='utf-8')) if args.backup else json.loads((ROOT/'tests/fixtures/real_3_partidos.json').read_text(encoding='utf-8'))
+def clean(value):
+ out=copy.deepcopy(value);out['settings']={**out.get('settings',{}),'api':'','token':'','role':'admin','teamId':''};out['ops']=[];out['lastSeq']=0;return out
+state=clean(base)
+def long_state(value):
+ out=clean(value);template=copy.deepcopy(out['games'][0]);out['games']=[]
+ for i in range(25):
+  g=copy.deepcopy(template);g['id']=f'visual-{i+1}';g['opponent']=f'Fixture visual {i+1:02d}';g['date']=f'2026-{9+i//20:02d}-{1+i%20:02d}';g['us']=45+(i*7)%35;g['them']=43+(i*11)%37;g['events']=[];out['games'].append(g)
+ return out
 class Quiet(SimpleHTTPRequestHandler):
-    def log_message(self,*args): pass
+ def log_message(self,*args):pass
 server=ThreadingHTTPServer(('127.0.0.1',0),partial(Quiet,directory=ROOT));Thread(target=server.serve_forever,daemon=True).start();url=f'http://127.0.0.1:{server.server_port}/'
-
-def page_for(browser,state,theme='light',viewport=(390,844)):
-    context=browser.new_context(viewport={'width':viewport[0],'height':viewport[1]},device_scale_factor=1)
-    page=context.new_page();page.goto(url,wait_until='networkidle');page.evaluate('(state)=>window.__ESTADISTICAS__.setState(state)',state)
-    if page.evaluate('document.documentElement.dataset.theme')!=theme:page.click('[data-action="toggle-theme"]')
-    return context,page
-
-def snap(page,name,full=False):page.screenshot(path=OUT/name,full_page=full)
-
-def import_real(browser):
-    if not REAL.is_file(): return fallback_dehesa()
-    state=copy.deepcopy(BASE);state['roster']=copy.deepcopy(DEHESA_FIXTURE['roster']);state['games'].append({'id':'dehesa-live','opponent':'La dehesa','date':'2026-11-11','us':None,'them':None,'players':[],'opponentPlayers':[],'events':events_53(),'source':'live-pending','availability':{'manual':True}})
-    context,page=page_for(browser,state)
-    page.set_input_files('#fileInput',str(REAL));page.wait_for_selector('[data-action="confirm-import"]');page.fill('[data-import-date="0"]','2026-11-15');page.click('[data-action="confirm-import"]');page.wait_for_timeout(120)
-    result=page.evaluate('window.__ESTADISTICAS__.getState()');context.close();return result
-
 try:
-  with sync_playwright() as pw:
-    fallback=Path('/opt/pw-browsers/chromium-1228/chrome-linux64/chrome');browser=pw.chromium.launch(headless=True,executable_path=str(fallback) if fallback.exists() else None)
-    dehesa=import_real(browser)
-    # Equipo real y temas.
-    for name,theme,size in [('01_equipo_dehesa_claro.png','light',(390,844)),('02_equipo_dehesa_oscuro.png','dark',(390,844)),('03_equipo_360x640.png','light',(360,640)),('04_equipo_412x915.png','dark',(412,915))]:
-        context,page=page_for(browser,dehesa,theme,size);snap(page,name);context.close()
-    # Marcador: 4 partidos reales y fixture de 25, en ambos temas.
-    for name,state,theme in [('05_marcador_4_claro.png',dehesa,'light'),('06_marcador_4_oscuro.png',dehesa,'dark'),('07_marcador_25_claro.png',visual_season(25),'light'),('08_marcador_25_oscuro.png',visual_season(25),'dark')]:
-        context,page=page_for(browser,state,theme);snap(page,name);context.close()
-    # Acta real: reparto individual y fila Equipo/sin asignar.
-    context,page=page_for(browser,dehesa,'light',(412,915));page.locator('.bottom-nav [data-go="games"]').click();snap(page,'09_partidos_dehesa_66_69.png');page.locator('.game-row',has_text='LA DEHESA CDSCM').click();page.locator('.box-wrap').evaluate('e=>e.scrollLeft=e.scrollWidth');snap(page,'10_acta_reparto_individual.png');page.locator('.modal-sheet').evaluate('e=>e.scrollTop=e.scrollHeight');snap(page,'11_acta_equipo_sin_asignar.png');context.close()
-    # Minutos: 4/25, 360/390/412, claro/oscuro, con desplazamiento horizontal visible.
-    shot_no=12
-    for count in [4,25]:
-      state=dehesa if count==4 else visual_season(25)
-      for width,height in [(360,640),(390,844),(412,915)]:
-       for theme in ['light','dark']:
-        context,page=page_for(browser,state,theme,(width,height));page.locator('[data-detail="minutes"]').click();page.locator('.minutes-scroll').evaluate('e=>e.scrollLeft=0');snap(page,f'{shot_no:02d}_minutos_{count}_{width}x{height}_{theme}.png');shot_no+=1;context.close()
-    # Flujo de actualización honesto.
-    context=browser.new_context(viewport={'width':1280,'height':1000});page=context.new_page();page.goto(url+'actualizar.html',wait_until='networkidle');snap(page,f'{shot_no:02d}_actualizar_flujo_real.png');context.close()
-    browser.close()
+ with sync_playwright() as pw:
+  browser=pw.chromium.launch(headless=True,executable_path='/opt/pw-browsers/chromium-1228/chrome-linux64/chrome')
+  page=browser.new_page(viewport={'width':390,'height':844},device_scale_factor=1);page.goto(url,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',state)
+  page.screenshot(path=str(OUT/'01_equipo_claro_390x844.png'),full_page=False)
+  if page.locator('.live-stat-card').count(): page.locator('.live-stat-card').first.scroll_into_view_if_needed();page.screenshot(path=str(OUT/'02_directo_integrado_claro.png'),full_page=False)
+  page.click('.bottom-nav [data-go="players"]');row=page.locator('.player-rank',has_text='Eider');(row if row.count() else page.locator('.player-rank').first).click();page.screenshot(path=str(OUT/'03_jugadora_cuotas_ratio.png'),full_page=True);page.click('.modal-sheet .icon-button')
+  page.click('.bottom-nav [data-go="team"]');page.click('[data-action="toggle-theme"]');page.screenshot(path=str(OUT/'04_equipo_oscuro_390x844.png'),full_page=False)
+  page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',long_state(state));page.locator('.score-evolution').scroll_into_view_if_needed();page.screenshot(path=str(OUT/'05_marcador_25_desplazable.png'),full_page=False)
+  page.locator('.score-chart-scroller').click(position={'x':8,'y':8});page.screenshot(path=str(OUT/'06_marcador_ampliado.png'),full_page=False);page.click('.modal-sheet .icon-button')
+  page.click('[data-action="open-teams"]');page.screenshot(path=str(OUT/'07_selector_multiequipo.png'),full_page=False)
+  page2=browser.new_page(viewport={'width':360,'height':640});page2.goto(url,wait_until='networkidle');page2.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',state);page2.click('.bottom-nav [data-go="live"]');page2.screenshot(path=str(OUT/'08_directo_360x640.png'),full_page=False)
+  male=clean(state);male['team']={'name':'Equipo masculino de prueba','season':'27/28','gender':'male','color':'blue'}
+  page3=browser.new_page(viewport={'width':390,'height':844});page3.goto(url,wait_until='networkidle');page3.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',male);page3.screenshot(path=str(OUT/'09_paleta_universal_equipo.png'),full_page=False);page3.click('.bottom-nav [data-go="players"]');page3.screenshot(path=str(OUT/'10_masculino_jugadores.png'),full_page=False)
+  browser.close()
 finally:server.shutdown()
-print(f'OK · {len(list(OUT.glob("*.png")))} capturas finales en {OUT}')
+print(f'OK · {len(list(OUT.glob("*.png")))} capturas v11 en {OUT}')
 
 ===== END FILE: tools/capture.py =====
 
 ===== BEGIN FILE: tools/generar_guia_pdf.py =====
 #!/usr/bin/env python3
-"""Genera la guía final v10 con las capturas creadas por tools/capture.py."""
+"""Genera la guía PDF v11 con capturas reales sanitizadas."""
 from pathlib import Path
-import sys
-from PIL import Image as PILImage
+import argparse
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import getSampleStyleSheet,ParagraphStyle
 from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,PageBreak,Image,Table,TableStyle,KeepTogether
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle, Image
-ROOT=Path(__file__).resolve().parents[1];OUT=Path(sys.argv[1]).resolve() if len(sys.argv)>1 else ROOT/'GUIA_ESTADISTICAS_v10.pdf';OUT.parent.mkdir(parents=True,exist_ok=True)
-FONT=Path('/usr/share/fonts/dejavu-sans-fonts');pdfmetrics.registerFont(TTFont('DV',str(FONT/'DejaVuSans.ttf')));pdfmetrics.registerFont(TTFont('DV-B',str(FONT/'DejaVuSans-Bold.ttf')))
-INK=colors.HexColor('#10233f');RED=colors.HexColor('#ed304c');GREEN=colors.HexColor('#18a985');BLUE=colors.HexColor('#2563a9');LINE=colors.HexColor('#d7dee8');MUTED=colors.HexColor('#526173');ORANGE=colors.HexColor('#d97706')
-ss=getSampleStyleSheet();ss.add(ParagraphStyle(name='Cover',fontName='DV-B',fontSize=31,leading=35,textColor=INK,alignment=TA_CENTER,spaceAfter=8));ss.add(ParagraphStyle(name='Sub',fontName='DV',fontSize=11,leading=15,textColor=MUTED,alignment=TA_CENTER));ss.add(ParagraphStyle(name='H1',fontName='DV-B',fontSize=19,leading=23,textColor=INK,spaceAfter=8));ss.add(ParagraphStyle(name='H2',fontName='DV-B',fontSize=11,leading=14,textColor=INK,spaceAfter=3));ss.add(ParagraphStyle(name='Body',fontName='DV',fontSize=8.6,leading=12.5,textColor=INK,spaceAfter=4));ss.add(ParagraphStyle(name='Small',fontName='DV',fontSize=7.2,leading=9.5,textColor=MUTED));ss.add(ParagraphStyle(name='Badge',fontName='DV-B',fontSize=10,textColor=colors.white,alignment=TA_CENTER));ss.add(ParagraphStyle(name='Code10',fontName='DV',fontSize=7.7,leading=10.7,textColor=INK,backColor=colors.HexColor('#eef2f6'),borderPadding=7))
+from PIL import Image as PILImage
+parser=argparse.ArgumentParser();parser.add_argument('--captures',required=True);parser.add_argument('--output',required=True);args=parser.parse_args();CAP=Path(args.captures);OUT=Path(args.output);OUT.parent.mkdir(parents=True,exist_ok=True)
+font='/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf';bold='/usr/share/fonts/dejavu-sans-fonts/DejaVuSans-Bold.ttf';pdfmetrics.registerFont(TTFont('DV',font));pdfmetrics.registerFont(TTFont('DV-B',bold))
+styles=getSampleStyleSheet();styles.add(ParagraphStyle(name='TitleDV',fontName='DV-B',fontSize=27,leading=31,textColor=colors.HexColor('#10233f'),spaceAfter=12));styles.add(ParagraphStyle(name='H1DV',fontName='DV-B',fontSize=20,leading=24,textColor=colors.HexColor('#10233f'),spaceAfter=9));styles.add(ParagraphStyle(name='H2DV',fontName='DV-B',fontSize=13,leading=16,textColor=colors.HexColor('#16805a'),spaceBefore=8,spaceAfter=5));styles.add(ParagraphStyle(name='BodyDV',fontName='DV',fontSize=9.5,leading=14,textColor=colors.HexColor('#25344a'),spaceAfter=6));styles.add(ParagraphStyle(name='SmallDV',fontName='DV',fontSize=7.5,leading=10,textColor=colors.HexColor('#5e6c80')));styles.add(ParagraphStyle(name='CoverDV',fontName='DV',fontSize=12,leading=18,textColor=colors.HexColor('#526173'),alignment=TA_CENTER))
 def footer(canvas,doc):
- canvas.saveState();canvas.setStrokeColor(LINE);canvas.line(18*mm,14*mm,A4[0]-18*mm,14*mm);canvas.setFont('DV',7);canvas.setFillColor(MUTED);canvas.drawString(18*mm,9*mm,'Estadísticas v10 - Buen Consejo 26/27');canvas.drawRightString(A4[0]-18*mm,9*mm,str(doc.page));canvas.restoreState()
-def shot(name,width,maxh=112*mm):
- p=ROOT/'captures'/name
- if not p.exists():raise FileNotFoundError(f'Falta {p}; ejecuta python tools/capture.py')
- with PILImage.open(p) as image:w,h=image.size
- item=Image(str(p),width=width,height=width*h/w);item._restrictSize(width,maxh);item.hAlign='CENTER';return item
-def pair(a,b,w=60*mm,h=112*mm):return Table([[shot(a,w,h),shot(b,w,h)]],colWidths=[82*mm,82*mm],style=[('VALIGN',(0,0),(-1,-1),'TOP'),('ALIGN',(0,0),(-1,-1),'CENTER')])
-def step(number,title,text,tone=INK):
- badge=Table([[Paragraph(str(number),ss['Badge'])]],colWidths=[9*mm],rowHeights=[9*mm]);badge.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,-1),tone),('VALIGN',(0,0),(-1,-1),'MIDDLE')]))
- table=Table([[badge,[Paragraph(title,ss['H2']),Paragraph(text,ss['Body'])]]],colWidths=[13*mm,151*mm]);table.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),4),('TOPPADDING',(0,0),(-1,-1),1),('BOTTOMPADDING',(0,0),(-1,-1),3)]));return table
-def callout(title,text,tone=GREEN):
- table=Table([[Paragraph(title,ss['H2']),Paragraph(text,ss['Body'])]],colWidths=[42*mm,120*mm]);table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,-1),colors.HexColor('#eef3f8')),('BOX',(0,0),(-1,-1),.7,tone),('LINEBEFORE',(0,0),(0,-1),4,tone),('VALIGN',(0,0),(-1,-1),'MIDDLE'),('LEFTPADDING',(0,0),(-1,-1),8),('RIGHTPADDING',(0,0),(-1,-1),8),('TOPPADDING',(0,0),(-1,-1),6),('BOTTOMPADDING',(0,0),(-1,-1),6)]));return table
-story=[Spacer(1,17*mm),Paragraph('GUÍA DE USO, PUBLICACIÓN Y MANTENIMIENTO',ss['Small']),Spacer(1,4*mm),Paragraph('Estadísticas v10',ss['Cover']),Paragraph('Buen Consejo - temporada 26/27 - auditoría final',ss['Sub']),Spacer(1,9*mm),callout('Cambio crítico','El Directo real de La Dehesa conserva el reparto individual. Los eventos sin identidad aparecen solo como Equipo / sin asignar. La suma total es 21 ROB, 13 PER, 12 REB O BC y 7 REB O rival.',RED),Spacer(1,8*mm),shot('10_acta_reparto_individual.png',70*mm,120*mm),PageBreak()]
-story += [Paragraph('1. Publicar sin perder datos',ss['H1']),step(1,'Guarda una copia','En Ajustes pulsa Exportar copia antes de publicar.'),step(2,'Sube el código','Abre 1_CODIGO_GITHUB y sube su contenido a la raíz del repositorio.'),step(3,'Conserva assets','No borres assets. El ZIP no incluye iconos ni jszip.min.js y no cambia el logo.'),step(4,'Publica','Pulsa Commit changes y espera a GitHub Pages.'),step(5,'Reabre','Cierra por completo y abre de nuevo la PWA para tomar la caché audit2.'),step(6,'Comprueba','La Dehesa debe aparecer una vez, fuera, 66-69, Victoria, con Directo unido.'),Spacer(1,5*mm),callout('Sincronización','La configuración ya guardada en cada móvil se conserva tal cual. worker.js no cambia y no hay ningún paso adicional.',GREEN),PageBreak()]
-story += [Paragraph('2. Reparto real de La Dehesa',ss['H1']),Paragraph('La identidad del evento pertenece a la plantilla, no a la fila importada del acta. v10 resuelve playerId contra la plantilla y empareja la fila por nombre normalizado o dorsal único. playerName sirve de respaldo. Un evento sin playerId y sin playerName nunca se atribuye a una jugadora.',ss['Body']),pair('10_acta_reparto_individual.png','11_acta_equipo_sin_asignar.png',59*mm,118*mm),Spacer(1,4*mm),callout('Cuadre obligatorio','Individual + Equipo / sin asignar = 21 ROB, 13 PER, 12 REB O BC y 7 REB O rival. Los 7 rebotes rivales son de equipo.',ORANGE),PageBreak()]
-story += [Paragraph('3. Minutos: una sola rejilla',ss['H1']),Paragraph('El orden es Jugadora, Media, Cuota, P1...Pn. La cabecera y cada fila usan exactamente la misma plantilla y el mismo ancho total. El desplazamiento horizontal empieza después de Cuota.',ss['Body']),pair('12_minutos_4_360x640_light.png','13_minutos_4_360x640_dark.png',59*mm,113*mm),Spacer(1,3*mm),pair('18_minutos_25_360x640_light.png','19_minutos_25_360x640_dark.png',59*mm,113*mm),PageBreak()]
-story += [Paragraph('4. Marcador útil en temporadas largas',ss['H1']),Paragraph('Con hasta 8 partidos se ven todos. Con más, la tarjeta muestra los últimos 8, ocupa todo el ancho y avisa de la ventana temporal. El detalle estadístico mantiene series desplazables para revisar toda la temporada.',ss['Body']),pair('05_marcador_4_claro.png','06_marcador_4_oscuro.png',59*mm,110*mm),Spacer(1,3*mm),pair('07_marcador_25_claro.png','08_marcador_25_oscuro.png',59*mm,110*mm),PageBreak()]
-story += [Paragraph('5. Gemini y Claude: qué saben realmente',ss['H1']),callout('Hecho','Gemini y Claude no conocen automáticamente tu GitHub. Solo conocen sus instrucciones y los archivos adjuntos al chat.',BLUE),Spacer(1,4*mm),step(1,'Solo una vez','Crea el Gem o Proyecto y pega las instrucciones incluidas en 2_GEMINI o 3_CLAUDE.'),step(2,'Carga la versión actual','En actualizar.html elige la carpeta vigente o el ZIP actual del repositorio.'),step(3,'Genera un contexto','Pulsa Descargar contexto actual para la IA.'),step(4,'Adjunta y pide','Abre un chat nuevo, adjunta CONTEXTO_ACTUAL_ESTADISTICAS.md y escribe el cambio.'),step(5,'Pega el JSON','La IA devuelve un solo JSON multiarchivo. El actualizador lo comprueba y genera el ZIP.'),step(6,'Sin mantenimiento oculto','No sustituyas PROYECTO_ESTADISTICAS.md en el conocimiento. La próxima vez genera otro contexto desde el código publicado.'),Spacer(1,5*mm),shot('24_actualizar_flujo_real.png',164*mm,120*mm),PageBreak()]
-story += [Paragraph('6. Comprobaciones finales',ss['H1']),step(1,'Datos reales','La copia real migra sin perder la configuración local y el Excel real importa 66-69.'),step(2,'Unión','53 eventos, un partido, deduplicación por ID y merge-game idempotente.'),step(3,'Tres vistas','Acta, Equipo y Jugadoras muestran el reparto correcto; los nulos no contaminan individuales.'),step(4,'Responsive','360x640, 390x844 y 412x915; claro y oscuro; 4 y 25 partidos.'),step(5,'Interfaz','Marcador, Diferencia, tablas, Comparar, ausencia de Victorias, mapas y temas.'),step(6,'Privacidad','La copia real y la configuración privada no están en el ZIP, capturas ni documentación.'),Spacer(1,6*mm),Paragraph('python tools/validate.py . --excel-dir /ruta/al/excel<br/>ESTADISTICAS_REAL_XLSX=/ruta/acta.xlsx ESTADISTICAS_REAL_BACKUP=/ruta/copia.json python tests/smoke.py',ss['Code10']),PageBreak()]
-story += [Paragraph('7. Lista exacta de publicación',ss['H1']),step(1,'Descarga','Descomprime Estadisticas_v10_Buen_Consejo_Auditoria_Final.zip.'),step(2,'GitHub','Sube todo lo que hay dentro de 1_CODIGO_GITHUB, conservando carpetas.'),step(3,'No borres','Mantén assets y cualquier otro archivo que no venga sustituido.'),step(4,'Commit','Confirma la subida y espera a que termine GitHub Pages.'),step(5,'Móvil','Cierra la PWA, vuelve a abrirla y revisa La Dehesa, Minutos y Marcador.'),step(6,'Futuras actualizaciones','Usa actualizar.html y el contexto actual generado en cada ocasión.'),Spacer(1,7*mm),callout('Resultado','La corrección ya no depende de una captura fabricada: la prueba usa el reparto real sanitizado y, cuando se facilitan, la copia y el Excel reales.',GREEN)]
-doc=SimpleDocTemplate(str(OUT),pagesize=A4,rightMargin=18*mm,leftMargin=18*mm,topMargin=16*mm,bottomMargin=19*mm,title='Guía Estadísticas v10 - auditoría final',author='Microsoft Copilot para Diego Ramirez',subject='Uso, publicación y mantenimiento de la PWA Estadísticas v10');doc.build(story,onFirstPage=footer,onLaterPages=footer);print(f'OK · {OUT}')
+ canvas.saveState();canvas.setStrokeColor(colors.HexColor('#dbe1e9'));canvas.line(18*mm,13*mm,192*mm,13*mm);canvas.setFont('DV',7);canvas.setFillColor(colors.HexColor('#647083'));canvas.drawString(18*mm,8*mm,'Estadísticas v11 · guía de uso y publicación');canvas.drawRightString(192*mm,8*mm,str(doc.page));canvas.restoreState()
+def shot(name,maxw=82*mm,maxh=150*mm):
+ path=CAP/name
+ with PILImage.open(path) as im:w,h=im.size
+ scale=min(maxw/w,maxh/h);return Image(str(path),width=w*scale,height=h*scale)
+def bullets(items):return [Paragraph('• '+item,styles['BodyDV']) for item in items]
+def two(left,right,widths=(86*mm,86*mm)):
+ t=Table([[left,right]],colWidths=list(widths),hAlign='LEFT');t.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),5)]));return t
+story=[]
+story += [Spacer(1,23*mm),Paragraph('ESTADÍSTICAS v11',styles['TitleDV']),Paragraph('Guía simple · multiequipo, gráficos y publicación',styles['CoverDV']),Spacer(1,12*mm),shot('01_equipo_claro_390x844.png',70*mm,125*mm),Spacer(1,8*mm),Paragraph('PWA local-first · versión 11 · 16/11/2026',styles['CoverDV']),PageBreak()]
+story += [Paragraph('1. Lo primero que debes hacer',styles['H1DV']),Paragraph('<b>Antes de publicar:</b> abre la app actual y usa Ajustes → Exportar este equipo. Guarda esa copia fuera de GitHub.',styles['BodyDV']),Paragraph('Publicación segura',styles['H2DV']),*bullets(['Descomprime el ZIP de esta entrega.','Sube a la raíz de GitHub todo el contenido de 1_CODIGO_GITHUB.','No borres assets: no está dentro del ZIP y debe seguir en el repositorio.','Pulsa Commit changes, espera a GitHub Pages, cierra por completo la PWA y vuelve a abrirla.','Comprueba primero Buen Consejo. La migración conserva el almacén estadisticas_shared_v2, la conexión y los enlaces existentes.']),Paragraph('Para activar equipos nuevos en nube',styles['H2DV']),Paragraph('Publicar el código no obliga a tocar Cloudflare. El selector multiequipo local ya funciona. Solo si quieres que cualquier persona cree y comparta su propio equipo, sigue 5_CLOUDFLARE y genera config.js con configurar.html.',styles['BodyDV']),PageBreak()]
+story += [Paragraph('2. Jugadoras: cuotas y Directo',styles['H1DV']),two([Paragraph('<b>Ahora queda claro el denominador</b>',styles['H2DV']),*bullets(['Por partido es la vista inicial.','Cuota de puntos: PTS/P de la jugadora respecto a los puntos por partido del equipo en sus partidos.','Cuota de minutos: MIN/P respecto a 200 minutos de jugadora disponibles por partido.','Temporada mantiene la alternativa basada en totales.']),Paragraph('<b>ROB/PER no puede ser negativo</b>',styles['H2DV']),Paragraph('Es un cociente. El signo se muestra en Balance ROB−PER. Si no hay pérdidas, aparece ∞ cuando existen robos o — cuando ambos son cero. Así no hay división por cero.',styles['BodyDV'])],shot('03_jugadora_cuotas_ratio.png',78*mm,175*mm)),PageBreak()]
+story += [Paragraph('3. Equipo: Directo integrado y evolución',styles['H1DV']),two(shot('02_directo_integrado_claro.png',78*mm,170*mm),[Paragraph('<b>Una sola zona de estadísticas</b>',styles['H2DV']),*bullets(['Robos/pérdidas y rebote ofensivo aparecen junto al resto.','Si no hay ningún partido con Directo, esas tarjetas no aparecen.','Un partido sin Directo es ausencia, no cero, y queda fuera de medias y ratios.','Todas las tarjetas usan evolución BC/rival por partido.','Toca una tarjeta para ampliar, ver valores, cuartos y desglose.']),Paragraph('La vista oscura mantiene el mismo significado y contraste.',styles['BodyDV']),shot('04_equipo_oscuro_390x844.png',72*mm,82*mm)]),PageBreak()]
+story += [Paragraph('4. Marcador con temporadas largas',styles['H1DV']),two(shot('05_marcador_25_desplazable.png',78*mm,165*mm),[Paragraph('<b>En la tarjeta</b>',styles['H2DV']),*bullets(['Están los 25 partidos; no se recortan a los últimos ocho.','Desliza horizontalmente.','Las diferencias usan etiquetas más grandes.','Toca un punto para abrir el acta.','Toca un espacio libre del gráfico para ampliar.']),Paragraph('<b>En la ampliación</b>',styles['H2DV']),Paragraph('Primero se ve una miniatura de la temporada completa. Debajo queda el gráfico detallado desplazable y la lista de partidos con resultado y diferencia.',styles['BodyDV']),shot('06_marcador_ampliado.png',70*mm,78*mm)]),PageBreak()]
+story += [Paragraph('5. Varios equipos sin mezclar datos',styles['H1DV']),two([Paragraph('<b>Cambiar</b>',styles['H2DV']),Paragraph('Pulsa el nombre del equipo en la barra superior. Cada fila indica temporada y si está solo en el dispositivo o en nube privada.',styles['BodyDV']),Paragraph('<b>Crear</b>',styles['H2DV']),*bullets(['Escribe nombre y temporada.','Elige Femenino, Masculino o Mixto/neutro cuando aún no hay Excel. Al importar, la app intenta detectar Fem/Femenino o Masc/Masculino.','Elige color propio. Azul/naranja es la paleta universal accesible; Buen Consejo conserva rojo/azul.','Si el Worker v11 está configurado, se crea un espacio privado en nube. Si no, queda local.']),Paragraph('<b>Quitar</b>',styles['H2DV']),Paragraph('La X quita el equipo solo de ese dispositivo. No borra automáticamente los datos de nube.',styles['BodyDV'])],shot('07_selector_multiequipo.png',78*mm,170*mm)),PageBreak()]
+story += [Paragraph('6. Compartir y permisos',styles['H1DV']),Paragraph('En Ajustes del equipo, el propietario puede crear un enlace de <b>edición</b> o <b>lectura</b>. El enlace solo abre ese equipo; no da acceso a los demás.',styles['BodyDV']),Paragraph('Editor',styles['H2DV']),*bullets(['Ve estadísticas y actas.','Puede importar, anotar Directo y editar mapas.','No puede crear ni revocar enlaces.']),Paragraph('Lector',styles['H2DV']),*bullets(['Ve los datos sincronizados.','No puede importar, anotar ni editar.']),Paragraph('Revocar',styles['H2DV']),Paragraph('Usa «Ver o revocar enlaces» en Ajustes. Los enlaces nuevos guardan el token después de #; esa parte no se envía a GitHub Pages y se elimina de la barra al abrirse.',styles['BodyDV']),Paragraph('Importante',styles['H2DV']),Paragraph('Quien tenga un enlace puede usar su permiso hasta que lo revoques. Compártelo como compartirías una contraseña.',styles['BodyDV']),shot('08_directo_360x640.png',74*mm,100*mm),PageBreak()]
+story += [Paragraph('7. Cloudflare: solo para equipos nuevos en nube',styles['H1DV']),Paragraph('<b>No recrees D1, no llames otra vez a /api/setup y no cambies los tokens de Buen Consejo.</b>',styles['BodyDV']),*bullets(['Abre el Worker actual en Cloudflare.','Conserva el binding D1 DB.','Pega 5_CLOUDFLARE/worker.js y despliega.','Abre TU_WORKER/health: debe indicar w3, w2-compatible y multiteam.','Abre 1_CODIGO_GITHUB/configurar.html, pega la URL del Worker y compruébala.','Descarga config.js y sustituye solo ese archivo en GitHub.']),Paragraph('Compatibilidad',styles['H2DV']),Paragraph('Las tablas y rutas v2 siguen presentes. Buen Consejo continúa en ellas con el mismo token. Los equipos nuevos usan teams, team_access_tokens y team_events.',styles['BodyDV']),Paragraph('Límite antes de difusión masiva',styles['H2DV']),Paragraph('La creación pública necesita límites antiabuso, borrado en nube y recuperación segura del propietario antes de considerarse un servicio oficial.',styles['BodyDV']),PageBreak()]
+story += [Paragraph('8. Actualizar con Gemini o Claude',styles['H1DV']),Paragraph('Configuración única',styles['H2DV']),*bullets(['Crea el Gem/Proyecto.','Pega las instrucciones v11 de 2_GEMINI o 3_CLAUDE.','No subas el código ni PROYECTO_ESTADISTICAS.md al conocimiento. Quedarían antiguos.','Si se exige conocimiento, usa solo GEM_GEMINI.md o PROYECTO_CLAUDE.md.']),Paragraph('Cada actualización',styles['H2DV']),*bullets(['Abre actualizar.html de la versión publicada.','Carga la carpeta actual o el ZIP de GitHub.','Descarga CONTEXTO_ACTUAL_ESTADISTICAS.md.','Chat nuevo: adjunta ese contexto y escribe tu petición.','Copia el JSON multiarchivo en actualizar.html.','Comprueba, descarga el ZIP de actualización y sube sus archivos a GitHub.']),Paragraph('Prueba realizada',styles['H2DV']),Paragraph('La regresión automática cambió config.js y creó docs/NOTA_MULTIARCHIVO.md en una sola respuesta; actualizar.html validó y empaquetó ambos y regeneró el contexto maestro.',styles['BodyDV']),PageBreak()]
+story += [Paragraph('9. Comprobación final y límites',styles['H1DV']),Paragraph('Pruebas superadas',styles['H2DV']),*bullets(['360×640, 390×844 y 412×915.','Tema claro y oscuro.','4 partidos reales y una temporada visual de 25 partidos.','Con y sin Directo; los ausentes no cuentan como cero.','Copia real sanitizada y cuatro Excel recibidos.','Detección femenina, masculina y caso sin detección; textos y colores por equipo.','Cambio de equipos, aislamiento, enlace lector, creación en nube simulada y migración v10.','Actualización multiarchivo extremo a extremo.']),Paragraph('No se ha hecho',styles['H2DV']),*bullets(['No se han incluido assets.','No se han incluido URL ni tokens reales.','No se ha desplegado nada en tu Cloudflare ni GitHub.','No se afirma que Afición FBM ofrezca una API o instalación interna.']),Paragraph('Publicar en GitHub, resumido',styles['H2DV']),Paragraph('<b>Exporta copia → sube 1_CODIGO_GITHUB conservando assets → Commit changes → espera → cierra y abre → comprueba Buen Consejo.</b>',styles['BodyDV'])]
+doc=SimpleDocTemplate(str(OUT),pagesize=A4,rightMargin=18*mm,leftMargin=18*mm,topMargin=17*mm,bottomMargin=18*mm,title='Guía Estadísticas v11',author='Microsoft Copilot');doc.build(story,onFirstPage=footer,onLaterPages=footer);print(f'OK · guía PDF: {OUT}')
 
 ===== END FILE: tools/generar_guia_pdf.py =====
 
 ===== BEGIN FILE: tools/validate.py =====
 #!/usr/bin/env python3
-"""Validación estática y de datos para Estadísticas v10 (assets opcionales)."""
+"""Validación estática, sintáctica, de fixtures y de secretos para Estadísticas v11."""
 from pathlib import Path
-import argparse, hashlib, json, subprocess, zipfile
-parser=argparse.ArgumentParser();parser.add_argument('root',nargs='?',default=str(Path(__file__).resolve().parents[1]));parser.add_argument('--excel-dir');parser.add_argument('--assets-dir');args=parser.parse_args();ROOT=Path(args.root).resolve();errors=[]
-def require(path,tokens=()):
-    file=ROOT/path
-    if not file.is_file():errors.append(f'falta {path}');return ''
-    try:text=file.read_text(encoding='utf-8')
-    except UnicodeDecodeError:return ''
-    for token in tokens:
-        if token not in text:errors.append(f'{path}: falta {token!r}')
-    return text
-required=['index.html','app.js','styles.css','sw.js','manifest.json','worker.js','configurar.html','actualizar.html','.gitignore','AGENTS.md','CHANGELOG.md','PROYECTO_ESTADISTICAS.md','MAPA_DEL_CODIGO.md','PROMPT_MAPA_TIRO.md','README.md','AUDITORIA_v10.md','tests/smoke.py','tests/fixtures/real_3_partidos.json','tests/fixtures/dehesa_directo_sanitizado.json','tools/capture.py','tools/generar_guia_pdf.py','.github/workflows/check.yml']
-for path in required:
-    if not (ROOT/path).is_file():errors.append(f'falta {path}')
-app=require('app.js',["APP_VERSION = 'v10'","STORE = 'estadisticas_shared_v2'",'version: 10','repairPendingGames','resolveEventPlayer','unassignedEventCounts','team-unassigned',"type:'merge-game'",'mergePendingManual','gameScore(game','dateManual','function renderLiveMetrics','window.__ESTADISTICAS__'])
-css=require('styles.css',['score-difference','chart-window-label','width:max(100%,var(--table-width))','team-unassigned','.boxscore{font-size:11px}'])
-index=require('index.html',['Estadísticas v10 de Buen Consejo','<small>v10</small>','data-logo="aro-vector"','safe-area-guard','assets/icon-192.png'])
-sw=require('sw.js',['estadisticas-v10-20261116-audit2','icon-maskable-512.png',"url.origin!==self.location.origin","request.mode==='navigate'"])
-updater=require('actualizar.html',['FLUJO REAL','CONTEXTO_ACTUAL_ESTADISTICAS.md','La IA no conoce por sí sola','repoZip','PROYECTO_ESTADISTICAS.md','assets no se borra'])
-smoke=require('tests/smoke.py',['(360, 640)','(390, 844)','(412, 915)','dehesa_directo_sanitizado.json','ESTADISTICAS_REAL_XLSX','ESTADISTICAS_REAL_BACKUP','Últimos 8 de 25','Equipo / sin asignar'])
-for doc in ['AGENTS.md','PROYECTO_ESTADISTICAS.md','README.md','AUDITORIA_v10.md']:require(doc,['estadisticas_shared_v2','v10'])
-if 'winRate' in app or "label:'Victorias'" in app:errors.append('la tarjeta Victorias sigue en app.js')
-for script in ['app.js','worker.js','sw.js']:
-    check=subprocess.run(['node','--check',str(ROOT/script)],capture_output=True,text=True)
-    if check.returncode:errors.append(f'{script}: {check.stderr.strip()}')
+import argparse, json, subprocess, zipfile
+parser=argparse.ArgumentParser();parser.add_argument('root',nargs='?',default=str(Path(__file__).resolve().parents[1]));parser.add_argument('--excel-dir');parser.add_argument('--private-backup');parser.add_argument('--allow-assets',action='store_true');args=parser.parse_args()
+ROOT=Path(args.root).resolve();errors=[]
+required=['index.html','app.js','styles.css','config.js','sw.js','manifest.json','worker.js','configurar.html','actualizar.html','.gitignore','AGENTS.md','CHANGELOG.md','README.md','AUDITORIA_v11.md','tests/smoke.py','tests/fixtures/real_3_partidos.json','tests/fixtures/dehesa_directo_sanitizado.json','tools/capture.py','tools/generar_guia_pdf.py','.github/workflows/check.yml']
+for rel in required:
+ if not (ROOT/rel).is_file():errors.append(f'falta {rel}')
+def text(rel):
+ try:return (ROOT/rel).read_text(encoding='utf-8')
+ except Exception as exc:errors.append(f'{rel}: {exc}');return ''
+def need(rel,*tokens):
+ value=text(rel)
+ for token in tokens:
+  if token not in value:errors.append(f'{rel}: falta {token!r}')
+ return value
+app=need('app.js',"APP_VERSION = 'v11'","STORE = 'estadisticas_shared_v2'","MULTI_STORE = 'estadisticas_multiteam_v11'",'openScoreChartDetail','playerShareData','robPerDisplay','recordedLiveGames','createWorkspace','switchWorkspace','detectGender','genderTerms','PALETTES','/api/v3/teams')
+css=need('styles.css','score-chart-scroller','score-margin','metric-evolution','workspace-row','negative-value','--team','--rival')
+need('index.html','Estadísticas v11 multiequipo','data-logo="aro-vector"','id="teamButton"','config.js','<small>v11</small>')
+need('worker.js',"version:'w3'","legacy:'w2-compatible'",'CREATE TABLE IF NOT EXISTS access_tokens','CREATE TABLE IF NOT EXISTS events','CREATE TABLE IF NOT EXISTS teams','CREATE TABLE IF NOT EXISTS team_events','/api/setup','/api/events')
+need('sw.js','estadisticas-v11-','./config.js')
+need('actualizar.html','SOLO UNA VEZ','EN CADA ACTUALIZACIÓN','CONTEXTO_ACTUAL_ESTADISTICAS.md',"patch.version!=='v11'",'varios archivos')
+need('tests/smoke.py','(360,640)','(390,844)','(412,915)','long_season','Equipo aislado','team-prueba','ESTADISTICAS_REAL_BACKUP','newTeamGender','Junior Masculino A')
+need('.gitignore','captures/','__pycache__/','*.pyc')
+for script in ['app.js','worker.js','sw.js','config.js']:
+ run=subprocess.run(['node','--check',str(ROOT/script)],capture_output=True,text=True)
+ if run.returncode:errors.append(f'{script}: {run.stderr.strip()}')
 try:
-    manifest=json.loads((ROOT/'manifest.json').read_text());assert manifest['display']=='standalone';assert len(manifest['icons'])==3 and any(i.get('purpose')=='maskable' for i in manifest['icons'])
+ manifest=json.loads(text('manifest.json'));assert manifest['display']=='standalone';assert len(manifest['icons'])==3
 except Exception as exc:errors.append(f'manifest.json: {exc}')
 try:
-    fixture=json.loads((ROOT/'tests/fixtures/dehesa_directo_sanitizado.json').read_text());events=fixture['pendingGame']['events'];assert len(events)==53
-    assert [sum(1 for event in events if event['type']==kind) for kind in ['steal','turnover','orbFor','orbAgainst']]==[21,13,12,7]
-    nulls={kind:sum(1 for event in events if event['type']==kind and not event.get('playerId') and not event.get('playerName')) for kind in ['steal','turnover','orbFor','orbAgainst']}
-    assert nulls=={'steal':3,'turnover':1,'orbFor':1,'orbAgainst':7}
-    assert 'settings' not in fixture and 'workers.dev' not in json.dumps(fixture).lower()
+ fixture=json.loads(text('tests/fixtures/dehesa_directo_sanitizado.json'));events=fixture['pendingGame']['events'];assert len(events)==53
+ assert [sum(e.get('type')==kind for e in events) for kind in ['steal','turnover','orbFor','orbAgainst']]==[21,13,12,7]
+ assert 'settings' not in fixture and 'workers.dev' not in json.dumps(fixture).lower()
 except Exception as exc:errors.append(f'fixture La Dehesa: {exc}')
-expected_worker='cff2909d1950b34380961aad888658e341bc57e1361a689740c5a826b3defa87'
-if (ROOT/'worker.js').is_file() and hashlib.sha256((ROOT/'worker.js').read_bytes()).hexdigest()!=expected_worker:errors.append('worker.js no coincide con el original recibido; no debe modificarse')
-assets=Path(args.assets_dir).resolve() if args.assets_dir else ROOT/'assets'
-if assets.is_dir():
-    for name in ['jszip.min.js','icon-192.png','icon-512.png','icon-maskable-512.png']:
-        if not (assets/name).is_file():errors.append(f'assets de prueba: falta {name}')
+# El código entregable no incluye assets: el usuario conserva su carpeta actual.
+if not args.allow_assets and (ROOT/'assets').exists():errors.append('assets/ está presente; la entrega debe excluirla')
+# Busca exactamente los secretos de la copia privada sin imprimirlos.
+if args.private_backup:
+ try:
+  private=json.loads(Path(args.private_backup).read_text(encoding='utf-8'));secrets=[private.get('settings',{}).get(k,'') for k in ('api','token')];secrets=[x for x in secrets if isinstance(x,str) and len(x)>=8]
+  for file in ROOT.rglob('*'):
+   if not file.is_file() or file.suffix.lower() in {'.png','.jpg','.jpeg','.pdf','.zip','.xlsx'}:continue
+   raw=file.read_text(encoding='utf-8',errors='ignore')
+   if any(secret in raw for secret in secrets):errors.append(f'{file.relative_to(ROOT)}: contiene un secreto de la copia privada')
+ except Exception as exc:errors.append(f'comprobación privada: {exc}')
 if args.excel_dir:
-    books=sorted(Path(args.excel_dir).glob('*.xlsx'))
-    if not books:errors.append('Excel: no hay archivos .xlsx')
-    for book in books:
-        try:
-            with zipfile.ZipFile(book) as archive:assert 'xl/workbook.xml' in archive.namelist()
-        except Exception as exc:errors.append(f'{book.name}: {exc}')
+ books=sorted(Path(args.excel_dir).glob('*.xlsx'))
+ if len(books)<4:errors.append(f'Excel: se esperaban al menos 4 y hay {len(books)}')
+ for book in books:
+  try:
+   with zipfile.ZipFile(book) as archive:assert 'xl/workbook.xml' in archive.namelist()
+  except Exception as exc:errors.append(f'{book.name}: {exc}')
 if errors:
-    print('\n'.join('ERROR · '+error for error in errors));raise SystemExit(1)
-print('OK · v10: reparto real, unión idempotente, tablas, marcador, actualizador, Worker original y sintaxis')
+ print('\n'.join('ERROR · '+item for item in errors));raise SystemExit(1)
+print('OK · v11: sintaxis, multiequipo, Worker compatible, gráficos, fixtures, Excel y secretos')
 
 ===== END FILE: tools/validate.py =====
 
 ===== BEGIN FILE: worker.js =====
-/* Estadísticas v2 · Cloudflare Worker + D1. Binding requerido: DB. Variable: SETUP_SECRET. */
+/* Estadísticas v11 · Cloudflare Worker + D1. Compatible con rutas y tablas v2. Binding: DB. */
 const CORS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Authorization,Content-Type','Access-Control-Allow-Methods':'GET,POST,DELETE,OPTIONS','Content-Type':'application/json;charset=UTF-8'};
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:CORS});
 const token=()=>[...crypto.getRandomValues(new Uint8Array(24))].map(x=>x.toString(16).padStart(2,'0')).join('');
 const hash=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(x=>x.toString(16).padStart(2,'0')).join('');
 async function schema(db){await db.batch([
  db.prepare('CREATE TABLE IF NOT EXISTS access_tokens (id TEXT PRIMARY KEY, token_hash TEXT UNIQUE NOT NULL, role TEXT NOT NULL, label TEXT, created_at TEXT NOT NULL, revoked_at TEXT)'),
- db.prepare('CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT UNIQUE NOT NULL, at TEXT NOT NULL, type TEXT NOT NULL, payload TEXT NOT NULL, actor TEXT NOT NULL)')
+ db.prepare('CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT UNIQUE NOT NULL, at TEXT NOT NULL, type TEXT NOT NULL, payload TEXT NOT NULL, actor TEXT NOT NULL)'),
+ db.prepare('CREATE TABLE IF NOT EXISTS teams (id TEXT PRIMARY KEY, name TEXT NOT NULL, season TEXT, created_at TEXT NOT NULL)'),
+ db.prepare('CREATE TABLE IF NOT EXISTS team_access_tokens (id TEXT PRIMARY KEY, team_id TEXT NOT NULL, token_hash TEXT UNIQUE NOT NULL, role TEXT NOT NULL, label TEXT, created_at TEXT NOT NULL, revoked_at TEXT, FOREIGN KEY(team_id) REFERENCES teams(id))'),
+ db.prepare('CREATE INDEX IF NOT EXISTS idx_team_access ON team_access_tokens(team_id,token_hash)'),
+ db.prepare('CREATE TABLE IF NOT EXISTS team_events (seq INTEGER PRIMARY KEY AUTOINCREMENT, team_id TEXT NOT NULL, id TEXT NOT NULL, at TEXT NOT NULL, type TEXT NOT NULL, payload TEXT NOT NULL, actor TEXT NOT NULL, UNIQUE(team_id,id), FOREIGN KEY(team_id) REFERENCES teams(id))'),
+ db.prepare('CREATE INDEX IF NOT EXISTS idx_team_events ON team_events(team_id,seq)')
 ])}
-async function auth(req,env){const raw=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!raw)return null;const row=await env.DB.prepare('SELECT id,role,label FROM access_tokens WHERE token_hash=? AND revoked_at IS NULL').bind(await hash(raw)).first();return row||null}
+async function auth(req,env){const raw=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!raw)return null;return await env.DB.prepare('SELECT id,role,label FROM access_tokens WHERE token_hash=? AND revoked_at IS NULL').bind(await hash(raw)).first()||null}
+async function teamAuth(req,env,teamId){const raw=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!raw)return null;return await env.DB.prepare('SELECT id,team_id,role,label FROM team_access_tokens WHERE team_id=? AND token_hash=? AND revoked_at IS NULL').bind(teamId,await hash(raw)).first()||null}
 async function makeAccess(env,role,label=''){const raw=token(),id=crypto.randomUUID();await env.DB.prepare('INSERT INTO access_tokens(id,token_hash,role,label,created_at) VALUES(?,?,?,?,?)').bind(id,await hash(raw),role,label,new Date().toISOString()).run();return {id,role,label,token:raw}}
+async function makeTeamAccess(env,teamId,role,label=''){const raw=token(),id=crypto.randomUUID();await env.DB.prepare('INSERT INTO team_access_tokens(id,team_id,token_hash,role,label,created_at) VALUES(?,?,?,?,?,?)').bind(id,teamId,await hash(raw),role,label,new Date().toISOString()).run();return {id,role,label,token:raw}}
+function teamPath(path){const match=path.match(/^\/api\/v3\/teams\/([^/]+)(?:\/(events|invites))?(?:\/([^/]+))?$/);return match?{teamId:decodeURIComponent(match[1]),part:match[2]||'',item:match[3]?decodeURIComponent(match[3]):''}:null}
 export default {async fetch(req,env){
  if(req.method==='OPTIONS')return new Response(null,{headers:CORS});
  if(!env.DB)return json({error:'Falta el binding D1 llamado DB'},500);
  await schema(env.DB);const url=new URL(req.url),path=url.pathname;
  try{
-  if(path==='/health')return json({ok:true,version:'w2'});
+  if(path==='/health')return json({ok:true,version:'w3',legacy:'w2-compatible',multiteam:true});
+  if(path==='/api/v3/teams'&&req.method==='POST'){
+   if(String(env.PUBLIC_TEAM_CREATION||'true').toLowerCase()==='false')return json({error:'La creación pública de equipos está desactivada'},403);
+   const body=await req.json(),name=String(body.name||'').trim().slice(0,100),season=String(body.season||'').trim().slice(0,40);if(!name)return json({error:'Falta el nombre del equipo'},400);
+   const id=crypto.randomUUID(),createdAt=new Date().toISOString();await env.DB.prepare('INSERT INTO teams(id,name,season,created_at) VALUES(?,?,?,?)').bind(id,name,season,createdAt).run();
+   return json({team:{id,name,season,createdAt},admin:await makeTeamAccess(env,id,'admin','Propietario')},201);
+  }
+  const scoped=teamPath(path);
+  if(scoped){
+   const user=await teamAuth(req,env,scoped.teamId);if(!user)return json({error:'Enlace no válido, revocado o de otro equipo'},401);
+   if(!scoped.part&&req.method==='GET'){const team=await env.DB.prepare('SELECT id,name,season,created_at FROM teams WHERE id=?').bind(scoped.teamId).first();return team?json({team,role:user.role}):json({error:'Equipo no encontrado'},404)}
+   if(scoped.part==='events'&&req.method==='GET'){
+    const since=Math.max(0,Number(url.searchParams.get('since')||0));const {results}=await env.DB.prepare('SELECT seq,id,at,type,payload,actor FROM team_events WHERE team_id=? AND seq>? ORDER BY seq ASC LIMIT 1000').bind(scoped.teamId,since).all();const events=results.map(r=>({seq:r.seq,event:{id:r.id,at:r.at,type:r.type,payload:JSON.parse(r.payload)},actor:r.actor}));return json({events,lastSeq:events.at(-1)?.seq||since});
+   }
+   if(scoped.part==='events'&&req.method==='POST'){
+    if(user.role==='viewer')return json({error:'Este enlace es de solo lectura'},403);const body=await req.json(),events=Array.isArray(body.events)?body.events:[];const stmts=events.slice(0,300).map(e=>env.DB.prepare('INSERT OR IGNORE INTO team_events(team_id,id,at,type,payload,actor) VALUES(?,?,?,?,?,?)').bind(scoped.teamId,String(e.id),String(e.at||new Date().toISOString()),String(e.type),JSON.stringify(e.payload||{}),user.id));if(stmts.length)await env.DB.batch(stmts);return json({ok:true,accepted:stmts.length});
+   }
+   if(scoped.part==='invites'&&!scoped.item&&req.method==='GET'){
+    if(user.role!=='admin')return json({error:'Solo administrador'},403);const {results}=await env.DB.prepare('SELECT id,role,label,created_at,revoked_at FROM team_access_tokens WHERE team_id=? ORDER BY created_at DESC').bind(scoped.teamId).all();return json({invites:results});
+   }
+   if(scoped.part==='invites'&&!scoped.item&&req.method==='POST'){
+    if(user.role!=='admin')return json({error:'Solo administrador'},403);const body=await req.json(),role=['editor','viewer'].includes(body.role)?body.role:'viewer';return json(await makeTeamAccess(env,scoped.teamId,role,String(body.label||'').slice(0,100)),201);
+   }
+   if(scoped.part==='invites'&&scoped.item&&req.method==='DELETE'){
+    if(user.role!=='admin')return json({error:'Solo administrador'},403);await env.DB.prepare('UPDATE team_access_tokens SET revoked_at=? WHERE team_id=? AND id=? AND id<>?').bind(new Date().toISOString(),scoped.teamId,scoped.item,user.id).run();return json({ok:true});
+   }
+   return json({error:'Ruta de equipo no encontrada'},404);
+  }
+  /* v2 se conserva: no se cambian datos, tokens ni enlaces existentes. */
   if(path==='/api/setup'&&req.method==='POST'){
-   const count=(await env.DB.prepare('SELECT COUNT(*) n FROM access_tokens').first()).n;if(count>0)return json({error:'La configuración inicial ya se hizo'},409);
-   const body=await req.json();if(!env.SETUP_SECRET||body.secret!==env.SETUP_SECRET)return json({error:'Secreto de configuración incorrecto'},403);
-   return json({admin:await makeAccess(env,'admin','Administrador inicial'),editor:await makeAccess(env,'editor','Enlace de edición'),viewer:await makeAccess(env,'viewer','Enlace de lectura')});
+   const count=(await env.DB.prepare('SELECT COUNT(*) n FROM access_tokens').first()).n;if(count>0)return json({error:'La configuración inicial ya se hizo'},409);const body=await req.json();if(!env.SETUP_SECRET||body.secret!==env.SETUP_SECRET)return json({error:'Secreto de configuración incorrecto'},403);return json({admin:await makeAccess(env,'admin','Administrador inicial'),editor:await makeAccess(env,'editor','Enlace de edición'),viewer:await makeAccess(env,'viewer','Enlace de lectura')});
   }
   const user=await auth(req,env);if(!user)return json({error:'Enlace no válido o revocado'},401);
   if(path==='/api/events'&&req.method==='GET'){
    const since=Math.max(0,Number(url.searchParams.get('since')||0));const {results}=await env.DB.prepare('SELECT seq,id,at,type,payload,actor FROM events WHERE seq>? ORDER BY seq ASC LIMIT 1000').bind(since).all();const events=results.map(r=>({seq:r.seq,event:{id:r.id,at:r.at,type:r.type,payload:JSON.parse(r.payload)},actor:r.actor}));return json({events,lastSeq:events.at(-1)?.seq||since});
   }
   if(path==='/api/events'&&req.method==='POST'){
-   if(user.role==='viewer')return json({error:'Este enlace es de solo lectura'},403);const body=await req.json(),events=Array.isArray(body.events)?body.events:[];
-   const stmts=events.slice(0,300).map(e=>env.DB.prepare('INSERT OR IGNORE INTO events(id,at,type,payload,actor) VALUES(?,?,?,?,?)').bind(String(e.id),String(e.at||new Date().toISOString()),String(e.type),JSON.stringify(e.payload||{}),user.id));if(stmts.length)await env.DB.batch(stmts);return json({ok:true,accepted:stmts.length});
+   if(user.role==='viewer')return json({error:'Este enlace es de solo lectura'},403);const body=await req.json(),events=Array.isArray(body.events)?body.events:[];const stmts=events.slice(0,300).map(e=>env.DB.prepare('INSERT OR IGNORE INTO events(id,at,type,payload,actor) VALUES(?,?,?,?,?)').bind(String(e.id),String(e.at||new Date().toISOString()),String(e.type),JSON.stringify(e.payload||{}),user.id));if(stmts.length)await env.DB.batch(stmts);return json({ok:true,accepted:stmts.length});
   }
-  if(path==='/api/invites'&&req.method==='GET'){
-   if(user.role!=='admin')return json({error:'Solo administrador'},403);const {results}=await env.DB.prepare('SELECT id,role,label,created_at,revoked_at FROM access_tokens ORDER BY created_at DESC').all();return json({invites:results});
-  }
-  if(path==='/api/invites'&&req.method==='POST'){
-   if(user.role!=='admin')return json({error:'Solo administrador'},403);const body=await req.json(),role=['editor','viewer'].includes(body.role)?body.role:'viewer';return json(await makeAccess(env,role,String(body.label||'')),201);
-  }
-  if(path.startsWith('/api/invites/')&&req.method==='DELETE'){
-   if(user.role!=='admin')return json({error:'Solo administrador'},403);await env.DB.prepare('UPDATE access_tokens SET revoked_at=? WHERE id=? AND id<>?').bind(new Date().toISOString(),decodeURIComponent(path.split('/').pop()),user.id).run();return json({ok:true});
-  }
+  if(path==='/api/invites'&&req.method==='GET'){if(user.role!=='admin')return json({error:'Solo administrador'},403);const {results}=await env.DB.prepare('SELECT id,role,label,created_at,revoked_at FROM access_tokens ORDER BY created_at DESC').all();return json({invites:results})}
+  if(path==='/api/invites'&&req.method==='POST'){if(user.role!=='admin')return json({error:'Solo administrador'},403);const body=await req.json(),role=['editor','viewer'].includes(body.role)?body.role:'viewer';return json(await makeAccess(env,role,String(body.label||'')),201)}
+  if(path.startsWith('/api/invites/')&&req.method==='DELETE'){if(user.role!=='admin')return json({error:'Solo administrador'},403);await env.DB.prepare('UPDATE access_tokens SET revoked_at=? WHERE id=? AND id<>?').bind(new Date().toISOString(),decodeURIComponent(path.split('/').pop()),user.id).run();return json({ok:true})}
   return json({error:'Ruta no encontrada'},404);
  }catch(e){return json({error:'Error del servidor',detail:String(e.message||e)},500)}
 }};

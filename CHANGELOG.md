@@ -1,18 +1,27 @@
-# Historial
+# CHANGELOG
 
-## v10 · auditoría final 2026-11-16
+## v11 · 2026-11-16
 
-- Corrige el reparto real del Directo de La Dehesa usando el `playerId` de plantilla y separa `Equipo / sin asignar`.
-- Verifica exactamente: 21 ROB, 13 PER, 12 REB O BC y 7 REB O rival, sin duplicados.
-- Añade fixture sanitizado derivado de la copia real y pruebas de migración con la copia privada fuera del artefacto.
-- Rehace la rejilla de Minutos con anchos compartidos y orden Jugadora, Media, Cuota, P1…Pn.
-- Sustituye el marcador largo por una ventana útil de los últimos 8 partidos, a ancho completo.
-- Rehace `actualizar.html`: contexto actual explícito por petición; sin afirmar acceso automático a GitHub y sin sustituir conocimiento manualmente.
-- Amplía pruebas a 360×640, 390×844 y 412×915, claro/oscuro, 4/25 partidos, Excel real, migración real, unión, sincronización, temas y actualizador multiarchivo.
-- Sube la caché a `estadisticas-v10-20261116-audit2`.
-- `worker.js`, logo, assets y configuración de sincronización local no cambian.
+### Gráficos y cálculos
+- Cuotas de jugadora por partido/temporada, con etiqueta inequívoca.
+- ROB/PER protegido frente a PER=0 y balance negativo visible y explicado.
+- Directo integrado en las tarjetas normales; ausencia de registro excluida del denominador.
+- Evolución uniforme en todas las estadísticas de equipo.
+- Marcador con todos los partidos, desplazamiento horizontal, diferencias más grandes y detalle ampliado.
 
-## v10 inicial
+### Equipos universales
+- Género por equipo: femenino, masculino o mixto/neutro. Detección de `Fem/Femenino` y `Masc/Masculino` al importar.
+- Terminología adaptativa: Jugadora/Jugador, Jugadoras/Jugadores, convocadas/convocados y cabeceras.
+- Paleta universal azul/naranja con contraste claro/oscuro y selector por equipo; Buen Consejo migra como femenino y rojo.
 
-- Unión Directo/acta y operación idempotente `merge-game`.
-- Marcador local–visitante, serie Diferencia, Comparar completo y eliminación de Victorias.
+### Multiequipo y privacidad
+- Almacén `estadisticas_multiteam_v11` con migración automática desde `estadisticas_shared_v2`.
+- Cambio de equipo sin mezclar plantilla, partidos, Directo, operaciones o conexión.
+- Enlaces v11 en fragmento `#` para que el token no se envíe al servidor de GitHub Pages; se borran de la barra al abrirse.
+- Roles propietario/editor/lector y revocación de enlaces.
+- Worker w3 con tablas aisladas por `team_id`; rutas y tablas w2 conservadas.
+
+### Herramientas
+- `actualizar.html` acepta cambios multiarchivo, archivos nuevos y borrados explícitos.
+- Guías Gemini/Claude separan configuración única, conocimiento y adjuntos de cada petición.
+- Smoke móvil, temas, 25 partidos, copia real, Excel, aislamiento, enlaces, roles y actualización multiarchivo.

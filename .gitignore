@@ -1,5 +1,5 @@
-.DS_Store
+captures/
+Guia*.pdf
+GUIA*.pdf
 __pycache__/
 *.pyc
-captures/
-GUIA_*.pdf
