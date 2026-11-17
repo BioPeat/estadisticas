@@ -1,4 +1,4 @@
-const CACHE='estadisticas-v12-20261117';
+const CACHE='estadisticas-v12-20261117b';
 const ASSETS=['./','./index.html','./styles.css?v=12','./app.js?v=12','./config.js?v=12','./manifest.json?v=12','./configurar.html','./actualizar.html','./instalar.html','./landing/equipo.webp','./landing/directo.webp','./landing/jugadora.webp','./landing/compartir.webp','./assets/jszip.min.js','./assets/icon-192.png','./assets/icon-512.png','./assets/icon-maskable-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(async cache=>{for(const asset of ASSETS){try{await cache.add(asset)}catch(error){/* assets se conservan en GitHub aunque no viajen en el ZIP */}}}).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));

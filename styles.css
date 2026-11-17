@@ -681,9 +681,22 @@ button.card{appearance:none;-webkit-appearance:none;background:var(--paper);colo
 .stat-margin .balance-mini i,.possession-card .balance-mini i{align-self:center;transform-origin:bottom;min-height:7px}
 .visual-barras .paired-bars{min-height:70px}.paired-bars>div{grid-template-columns:minmax(62px,auto) 1fr}.paired-bars>div span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .player-overview{padding:14px;border:1px solid color-mix(in srgb,var(--team) 22%,var(--line));border-radius:16px;background:linear-gradient(145deg,color-mix(in srgb,var(--team) 8%,var(--paper)),var(--paper))}
-.unified-player-stats>div:nth-child(4n+1){border-top:3px solid color-mix(in srgb,var(--team) 72%,var(--line))}.unified-player-stats>div:nth-child(4n+2){border-top:3px solid color-mix(in srgb,var(--rival) 65%,var(--line))}
+
 .share-simple{border-color:color-mix(in srgb,var(--team) 35%,var(--line));background:color-mix(in srgb,var(--team) 5%,var(--paper))}.share-heading{display:flex;gap:11px;align-items:flex-start}.share-heading h3{margin:0}.share-heading p{margin:3px 0 12px;color:var(--muted);font-size:10px}.share-icon{display:grid;place-items:center;width:36px;height:36px;flex:0 0 36px;border-radius:11px;background:var(--team);color:#fff;font-size:20px;font-weight:900}.share-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.share-actions .btn{min-height:66px;text-align:left;display:grid;align-content:center}.share-actions .btn b,.share-actions .btn span{display:block}.share-actions .btn span{font-size:9px;font-weight:600;opacity:.8}.privacy-note{margin:12px 0 0;color:var(--muted);font-size:9px}
 .possession-list{display:grid;gap:7px}.possession-list button{display:grid;grid-template-columns:minmax(120px,1fr) 64px 105px;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2);padding:10px;text-align:left}.possession-list strong{font-size:19px;text-align:right}.possession-list strong.positive{color:var(--green)}.possession-list strong.negative{color:var(--red)}.possession-list small{color:var(--muted);text-align:right}
 .diverging-detail .balance-mini{height:150px;max-width:760px;margin:auto;background:linear-gradient(to top,transparent 49%,var(--line-strong) 49%,var(--line-strong) 51%,transparent 51%);border:0}.diverging-detail .balance-mini i{align-self:center}
 @media(max-width:700px){.player-rank .player-number{width:26px;height:26px;border-radius:8px;font-size:10px}.player-id small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.player-rank{overflow:hidden}.player-rank>*{min-width:0}.player-overview{padding:10px}.share-actions{grid-template-columns:1fr}.possession-list button{grid-template-columns:minmax(90px,1fr) 48px 83px}.score-chart .score-label{font-size:15px}.score-chart .score-margin{font-size:19px!important}}
 @media(max-width:380px){.player-rank{grid-template-columns:26px minmax(0,1fr) repeat(3,36px) 7px;gap:3px;padding-left:6px;padding-right:6px}.player-table-head{grid-template-columns:26px minmax(0,1fr) repeat(3,36px) 7px;gap:3px;padding-left:6px;padding-right:6px}.rank-metric{font-size:8.5px}.rank-metric small{font-size:6px}}
+
+/* v12.1 · gráficos centrados en su tarjeta, leyendas sin solape y fichas uniformes */
+.stat-card{display:flex;flex-direction:column;gap:9px}
+.stat-card>.metric-evolution{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;gap:8px;min-height:72px}
+.stat-card>footer{margin-top:0}
+.metric-evolution>small{margin-top:0!important;line-height:1.3}
+.metric-evolution .paired-bars{gap:12px}
+.paired-bars>div{min-height:18px;align-items:center}
+.unified-player-stats>div{border:1px solid color-mix(in srgb,var(--team) 16%,var(--line))!important;background:var(--paper);box-shadow:0 1px 2px rgba(15,23,42,.05)}
+.unified-player-stats>div span{color:var(--muted)}
+.unified-player-stats>div strong{color:var(--ink)}
+.unified-player-stats>div.negative-value{border-color:color-mix(in srgb,var(--red) 55%,var(--line))!important}
+html[data-theme=dark] .unified-player-stats>div{box-shadow:none}
