@@ -1,14 +1,14 @@
-/* Estadísticas v11 · multiequipo · local-first */
+/* Estadísticas v12 · universal · local-first · nube privada al compartir */
 'use strict';
 
-const APP_VERSION = 'v11';
+const APP_VERSION = 'v12';
 const STORE = 'estadisticas_shared_v2'; // Compatibilidad: no renombrar ni borrar.
 const MULTI_STORE = 'estadisticas_multiteam_v11';
 const APP_CONFIG = window.ESTADISTICAS_CONFIG || {};
 const teamLabel = () => state?.team?.name || 'Mi equipo';
 const GENDERS={female:{singular:'Jugadora',plural:'Jugadoras',number:'N.º jugadora'},male:{singular:'Jugador',plural:'Jugadores',number:'N.º jugador'},neutral:{singular:'Jugador',plural:'Jugadores',number:'N.º jugador'}};
 const genderTerms=()=>GENDERS[state?.team?.gender]||GENDERS.neutral;
-const PALETTES={blue:{label:'Azul accesible',light:['#006AA6','#A65300'],dark:['#56B4E9','#F0A83A']},teal:{label:'Verde azulado',light:['#00796B','#8A3F73'],dark:['#4DD0B5','#E08BC1']},purple:{label:'Morado',light:['#6941C6','#A65300'],dark:['#B39AF1','#F0A83A']},red:{label:'Rojo Buen Consejo',light:['#C6283D','#1E5F9E'],dark:['#FF6B78','#6DB3F2']}};
+const PALETTES={blue:{label:'Azul',light:['#155EEF','#C2410C'],dark:['#75A7FF','#FDBA74']},teal:{label:'Verde',light:['#087E6A','#7C3AED'],dark:['#5EEAD4','#C4B5FD']},purple:{label:'Morado',light:['#6D28D9','#B45309'],dark:['#C4B5FD','#FCD34D']},red:{label:'Rojo',light:['#C6283D','#1E5F9E'],dark:['#FF6B78','#7CC4FF']}};
 function applyTeamIdentity(){const key=PALETTES[state?.team?.color]?state.team.color:'blue',theme=document.documentElement.dataset.theme==='dark'?'dark':'light',[own,rival]=PALETTES[key][theme];document.documentElement.style.setProperty('--team',own);document.documentElement.style.setProperty('--rival',rival);document.documentElement.dataset.teamColor=key;}
 function detectGender(rows){const value=norm((rows||[]).flat(Infinity).join(' ')),female=/(^| )FEM( |$)|FEMENIN[OA]/.test(value),male=/(^| )MASC( |$)|MASCULIN[OA]/.test(value);return female&&!male?'female':male&&!female?'male':null;}
 function applyDetectedGender(rows){const detected=detectGender(rows);if(detected&&(!state.team.gender||state.team.gender==='neutral')){state.team.gender=detected;save();return detected}return detected;}
@@ -34,7 +34,7 @@ const deepSignature = x => JSON.stringify(x);
 /* ── State, migration and persistence ───────────────────────────── */
 function blank(name = 'Mi equipo', season = '', gender = 'neutral', color = 'blue') {
   return {
-    version: 11,
+    version: 12,
     team: {name, season, gender, color},
     roster: [], games: [], live: null,
     liveDraft: {rival:'', date:today(), dateManual:false, selected:[]},
@@ -53,13 +53,13 @@ function loadWorkspaceBook() {
     const legacy = JSON.parse(localStorage.getItem(STORE) || 'null');
     if (legacy) {
       const id = uid();
-      return {version:1, activeId:id, workspaces:[{id, name:legacy.team?.name || 'Buen Consejo', data:legacy, legacy:true}]};
+      return {version:1, activeId:id, workspaces:[{id, name:legacy.team?.name || 'Mi equipo', data:legacy, legacy:true}]};
     }
     for (const key of ['estadisticas_v1', 'estadisticas_app_v1', 'basket_stats_v1']) {
       const old = JSON.parse(localStorage.getItem(key) || 'null');
       if (old) {
         const id=uid(), data=migrateV1(old);
-        return {version:1,activeId:id,workspaces:[{id,name:data.team?.name||'Buen Consejo',data,legacy:true}]};
+        return {version:1,activeId:id,workspaces:[{id,name:data.team?.name||'Mi equipo',data,legacy:true}]};
       }
     }
   } catch (error) { console.warn('No se pudo leer la lista de equipos', error); }
@@ -124,7 +124,7 @@ function hasLegacyFields(g) {
 
 function sanitise(s) {
   const base = blank();
-  const out = {...base, ...s, version:11, team:{...base.team, ...(s.team || {})}, settings:{...base.settings, ...(s.settings || {})}};
+  const out = {...base, ...s, version:12, team:{...base.team, ...(s.team || {})}, settings:{...base.settings, ...(s.settings || {})}};
   if(norm(out.team.name).includes('BUEN CONSEJO')){if(!s.team?.gender)out.team.gender='female';if(!s.team?.color)out.team.color='red';}
   if(!GENDERS[out.team.gender])out.team.gender='neutral';if(!PALETTES[out.team.color])out.team.color='blue';
   out.roster = (s.roster || []).filter(p => p?.name).map(p => ({...p, id:p.id || uid(), number:String(p.number || '')}));
@@ -158,7 +158,7 @@ function migrateV1(old) {
   return sanitise(out);
 }
 
-function save() { state.version = 11; persistWorkspace(); }
+function save() { state.version = 12; persistWorkspace(); }
 function record(type, payload) { state.ops.push({id:uid(), at:new Date().toISOString(), type, payload}); save(); paintSync(); scheduleSync(); }
 function toast(message) { const t = $('#toast'); t.textContent = message; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
 function setView(next) { view = next; $$('[data-go]').forEach(b => b.setAttribute('aria-current', b.dataset.go === next ? 'page' : 'false')); render(); window.scrollTo(0, 0); }
@@ -571,11 +571,11 @@ function scoreChart(games, expanded = false) {
     <line class="grid-line" x1="26" y1="${marginBase}" x2="${w-26}" y2="${marginBase}"/>
     <polyline class="score-us" points="${line('us')}"/><polyline class="score-them" points="${line('them')}"/>
     <polyline class="score-difference" points="${margins.map((value,index)=>`${x(index)},${marginY(value)}`).join(' ')}"/>
-    ${ordered.map((game,index)=>{const margin=+game.us-(+game.them);return `<g data-detail="game:${game.id}" tabindex="0" role="button">
-      <circle class="score-us" cx="${x(index)}" cy="${y(+game.us)}" r="7"/><circle class="score-them" cx="${x(index)}" cy="${y(+game.them)}" r="7"/>
-      <text class="score-label us" x="${x(index)}" y="${Math.max(18,y(+game.us)-13)}" text-anchor="middle">${game.us}</text>
-      <text class="score-label them" x="${x(index)}" y="${Math.min(h-83,y(+game.them)+24)}" text-anchor="middle">${game.them}</text>
-      <text class="score-margin ${margin>=0?'positive':'negative'}" x="${x(index)}" y="${h-37}" text-anchor="middle">${margin>0?'+':''}${margin}</text>
+    ${ordered.map((game,index)=>{const margin=+game.us-(+game.them),yu=y(+game.us),yt=y(+game.them),close=Math.abs(yu-yt)<32,ux=x(index)+(close?-15:0),tx=x(index)+(close?15:0);return `<g data-detail="game:${game.id}" tabindex="0" role="button">
+      <circle class="score-us" cx="${x(index)}" cy="${yu}" r="7"/><circle class="score-them" cx="${x(index)}" cy="${yt}" r="7"/>
+      <text class="score-label us" x="${ux}" y="${Math.max(20,yu-16)}" text-anchor="middle">${game.us}</text>
+      <text class="score-label them" x="${tx}" y="${Math.min(h-86,yt+27)}" text-anchor="middle">${game.them}</text>
+      <text class="score-margin ${margin>=0?'positive':'negative'}" x="${x(index)}" y="${h-29}" text-anchor="middle">${margin>0?'+':''}${margin}</text>
       <text class="game-label" x="${x(index)}" y="${h-18}" text-anchor="middle">P${index+1}</text>
       <text class="date-label" x="${x(index)}" y="${h-4}" text-anchor="middle">${esc(String(game.date||'').slice(5))}</text>
       <title>${esc(gameSides(game))}: ${gameScore(game)} · diferencia ${margin>0?'+':''}${margin}</title></g>`;}).join('')}
@@ -639,7 +639,7 @@ function donut(value, label, tone = 'team') {
 
 const TEAM_METRICS = {
   points:{label:'Puntos', short:'PTS', player:'pts', compare:true, higherBetter:true, value:(game, totals, side) => side === 'own' ? +game.us : +game.them, note:'Marcador oficial.'},
-  margin:{label:'Diferencia', short:'+/-', compare:true, higherBetter:true, value:(game, totals, side) => side === 'own' ? +game.us-(+game.them) : +game.them-(+game.us), note:'Puntos del equipo menos puntos del rival; resume el margen real de cada partido.'},
+  margin:{label:'Diferencia', short:'+/-', compare:false, signed:true, higherBetter:true, value:(game) => +game.us-(+game.them), note:'Un único margen con signo: puntos de mi equipo menos puntos del rival.'},
   p2m:{label:'Canastas de 2', short:'2P', player:'p2m', compare:true, higherBetter:true, value:(game, totals) => +totals.p2m || 0, note:'Canastas anotadas; no porcentaje porque los intentos de campo del acta no son fiables.'},
   p3m:{label:'Canastas de 3', short:'3P', player:'p3m', compare:true, higherBetter:true, value:(game, totals) => +totals.p3m || 0, note:'Triples anotados; las líneas coincidentes se separan y el rival se dibuja discontinuo.'},
   ftm:{label:'Tiros libres', short:'TL', player:'ftm', compare:true, higherBetter:true, value:(game, totals) => +totals.ftm || 0, note:'Tiros libres anotados.'},
@@ -695,6 +695,7 @@ function aggregateMetric(key, rows, side, mode = 'average') {
 }
 
 function metricValue(key, value, digits = 1) {
+  if (key === 'margin' || key === 'possession') return signed(value).replace(',0','');
   return key === 'ftp' ? pct(value) : num(value, digits);
 }
 
@@ -726,14 +727,14 @@ function dualTrendSVG(rows, key, compact = false) {
     ${compact?'':`<line class="trend-axis" x1="${left-12}" y1="${h-bottom}" x2="${w-left+12}" y2="${h-bottom}"/>`}${lines('own')}${lines('opp')}
     ${rows.map((row,index) => `<g ${compact?'':`data-detail="game:${row.game.id}" tabindex="0" role="button"`}>
       ${row.own===null?'':`<circle class="own" cx="${x(index)}" cy="${adjustedY(row,'own')}" r="${compact?4:7}"/>`}${row.opp===null?'':`<circle class="opp" cx="${x(index)}" cy="${adjustedY(row,'opp')}" r="${compact?4:7}"/>`}
-      ${compact?'':`<text x="${x(index)}" y="${h-13}" text-anchor="middle">P${index+1}</text><title>${esc(row.game.opponent)} · BC ${metricValue(key,row.own)} · Rival ${metricValue(key,row.opp)}</title>`}
+      ${compact?'':`<text x="${x(index)}" y="${h-13}" text-anchor="middle">P${index+1}</text><title>${esc(row.game.opponent)} · ${esc(teamLabel())} ${metricValue(key,row.own)} · Rival ${metricValue(key,row.opp)}</title>`}
     </g>`).join('')}
   </svg>`;
 }
 
 function pairedBarsVisual(key, rows) {
   const own=aggregateMetric(key,rows,'own'), opp=aggregateMetric(key,rows,'opp'), max=Math.max(+own||0,+opp||0,1);
-  return `<div class="paired-bars"><div><span>BC</span><i><b class="own" style="width:${(+own||0)/max*100}%"></b></i></div><div><span>Rival</span><i><b class="opp" style="width:${(+opp||0)/max*100}%"></b></i></div></div>`;
+  return `<div class="paired-bars"><div><span>${esc(teamLabel())}</span><i><b class="own" style="width:${(+own||0)/max*100}%"></b></i></div><div><span>Rival</span><i><b class="opp" style="width:${(+opp||0)/max*100}%"></b></i></div></div>`;
 }
 
 function pairedRingsVisual(key, rows) {
@@ -743,11 +744,17 @@ function pairedRingsVisual(key, rows) {
 
 function balanceVisual(key, rows) {
   const shown=rows.length>10?rows.slice(-10):rows,delta=row=>key==='margin'?(+row.own||0):(difference(row.own,row.opp)||0),max=Math.max(1,...shown.map(row=>Math.abs(delta(row)))),metric=TEAM_METRICS[key]||{};
-  return `<div class="balance-mini" aria-label="Diferencia BC menos rival">${shown.map(row=>{const d=delta(row),good=metric.lowerBetter?d<=0:d>=0;return `<i class="${good?'positive':'negative'}" style="height:${Math.max(4,Math.abs(d)/max*100)}%"></i>`}).join('')}</div>`;
+  return `<div class="balance-mini" aria-label="Diferencia entre mi equipo y el rival">${shown.map(row=>{const d=delta(row),good=metric.lowerBetter?d<=0:d>=0;return `<i class="${good?'positive':'negative'}" style="height:${Math.max(4,Math.abs(d)/max*100)}%"></i>`}).join('')}</div>`;
 }
 
-function metricMiniVisual(key, rows) {
-  return `<div class="metric-evolution" aria-label="Evolución por partido">${dualTrendSVG(rows,key,true)}<small>${rows.length} partido${rows.length===1?'':'s'} · toca para ampliar</small></div>`;
+function metricMiniVisual(key, rows, mode=statsMode) {
+  let visual;
+  if (key==='margin') visual=balanceVisual(key,rows);
+  else if (rows.length===1 || mode==='total') visual=pairedBarsVisual(key,rows);
+  else if (mode==='compare') visual=balanceVisual(key,rows);
+  else visual=dualTrendSVG(rows,key,true);
+  const kind=key==='margin'||mode==='compare'?'balance':(rows.length===1||mode==='total')?'barras':'evolución';
+  return `<div class="metric-evolution visual-${kind}" aria-label="Vista de ${kind}">${visual}<small>${rows.length} partido${rows.length===1?'':'s'} · ${kind}${rows.length>1?' · toca para ampliar':''}</small></div>`;
 }
 
 function teamMetricCard(key) {
@@ -758,10 +765,11 @@ function teamMetricCard(key) {
   const ownShown = mode === 'total' ? ownTotal : ownAverage, oppShown = mode === 'total' ? oppTotal : oppAverage;
   const modeLabel = ['ftp','threeShare','freeShare'].includes(key) ? 'temporada' : mode === 'total' ? 'total' : mode==='compare'?'diferencia media':'por partido';
   const detail = key === 'ftp' ? `TL convertidos ${sum(rows,row=>effectiveTotals(row.game,'own').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'own').fta)}` : `${rows.length} partido${rows.length===1?'':'s'} con acta`;
-  if (statsMode==='compare' && metric.compare) {const delta=key==='margin'?ownAverage:difference(ownAverage,oppAverage),shown=metric.percent?`${signed(delta)} pp`:signed(delta);return `<button class="stat-card stat-${key} comparison-card" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${key==='margin'?'Margen BC':'BC − rival'}</small></header><div class="comparison-value"><strong>${shown}</strong><span>media por partido</span></div>${metricMiniVisual(key,rows)}<footer>Color del equipo = favorable; color rival = desfavorable<b>Ver detalle →</b></footer></button>`;}
-  if (!metric.compare) return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${esc(teamLabel())}</small></header><div class="stat-values own-only"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><span>${modeLabel}</span></div><div class="single-trend">${sparkline(rows.map(row=>row.own),'team',260,70)}</div><footer>${detail}<b>Ver detalle →</b></footer></button>`;
-  const hint=metric.lowerBetter?'BC / Rival · menos':'BC / Rival';
-  return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${hint}</small></header><div class="stat-values"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><strong>${metricValue(key,oppShown,mode==='total'?0:1)}</strong></div><div class="value-caption"><span>BC · ${modeLabel}</span><span>Rival · ${modeLabel}</span></div>${metricMiniVisual(key,rows)}<footer>${detail}<b>Ver detalle →</b></footer></button>`;
+  if (key==='margin') return `<button class="stat-card stat-margin single-value-card" data-detail="metric:margin"><header><span>Diferencia</span><small>${esc(teamLabel())} − Rival</small></header><div class="comparison-value"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><span>${modeLabel}</span></div>${metricMiniVisual(key,rows,statsMode)}<footer>Positivo: ventaja · negativo: desventaja<b>Ver detalle →</b></footer></button>`;
+  if (statsMode==='compare' && metric.compare) {const delta=difference(ownAverage,oppAverage),shown=metric.percent?`${signed(delta)} pp`:signed(delta);return `<button class="stat-card stat-${key} comparison-card" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${esc(teamLabel())} − Rival</small></header><div class="comparison-value"><strong>${shown}</strong><span>media por partido</span></div>${metricMiniVisual(key,rows,statsMode)}<footer>Color del equipo = favorable; color rival = desfavorable<b>Ver detalle →</b></footer></button>`;}
+  if (!metric.compare) return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${esc(teamLabel())}</small></header><div class="stat-values own-only"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><span>${modeLabel}</span></div>${metricMiniVisual(key,rows,statsMode)}<footer>${detail}<b>Ver detalle →</b></footer></button>`;
+  const hint=metric.lowerBetter?`${esc(teamLabel())} / Rival · menos`:`${esc(teamLabel())} / Rival`;
+  return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${hint}</small></header><div class="stat-values"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><strong>${metricValue(key,oppShown,mode==='total'?0:1)}</strong></div><div class="value-caption"><span>${esc(teamLabel())} · ${modeLabel}</span><span>Rival · ${modeLabel}</span></div>${metricMiniVisual(key,rows,statsMode)}<footer>${detail}<b>Ver detalle →</b></footer></button>`;
 }
 
 function head(cls, title, actions = '', meta = '') {
@@ -780,8 +788,9 @@ function renderMinutesCard(stats) {
 }
 
 const LIVE_METRICS = {
-  ball:{label:'Robos y pérdidas', ownLabel:'Robos BC', oppLabel:'Pérdidas BC', types:['steal','turnover'], note:'Compara nuestros robos con nuestras pérdidas. No es una estadística completa del rival ni una estimación de posesiones.'},
-  orb:{label:'Rebote ofensivo', ownLabel:'REB O BC', oppLabel:'REB O rival', types:['orbFor','orbAgainst'], note:'Solo usa los rebotes ofensivos apuntados en Directo: los que cogemos frente a los que nos coge el rival.'}
+  ball:{label:'Robos y pérdidas', ownLabel:'Robos', oppLabel:'Pérdidas', types:['steal','turnover'], note:'Compara los robos con las pérdidas de mi equipo.'},
+  orb:{label:'Rebote ofensivo', ownLabel:'REB O propio', oppLabel:'REB O rival', types:['orbFor','orbAgainst'], note:'Solo usa los rebotes ofensivos apuntados en Directo.'},
+  possession:{label:'Posesiones extra', ownLabel:'Ventaja de posesiones', oppLabel:'', types:[], note:'(REB O propios + robos) − (REB O rival + pérdidas propias). Solo cuenta partidos con Directo.'}
 };
 
 function recordedLiveGames() {
@@ -791,19 +800,22 @@ function recordedLiveGames() {
 function liveMetricRows(key) {
   const metric=LIVE_METRICS[key];
   return recordedLiveGames().sort((a,b)=>String(a.date).localeCompare(String(b.date))).map(game=>{
-    const events=(game.events||[]).filter(event=>!event.undone);
-    return {game,own:events.filter(event=>event.type===metric.types[0]).length,opp:events.filter(event=>event.type===metric.types[1]).length};
+    const events=(game.events||[]).filter(event=>!event.undone),count=type=>events.filter(event=>event.type===type).length;
+    if(key==='possession')return {game,own:(count('orbFor')+count('steal'))-(count('orbAgainst')+count('turnover')),opp:null};
+    return {game,own:count(metric.types[0]),opp:count(metric.types[1])};
   });
 }
 
 function liveMetricCard(key) {
-  const metric=LIVE_METRICS[key],rows=liveMetricRows(key),ownTotal=sum(rows,row=>row.own),oppTotal=sum(rows,row=>row.opp),ownAvg=mean(rows,row=>row.own),oppAvg=mean(rows,row=>row.opp),max=Math.max(1,...rows.flatMap(row=>[row.own,row.opp]));
-  if(!rows.length)return `<button class="stat-card live-stat-card is-empty" data-detail="live:${key}"><header><span>${metric.label}</span><small>Directo</small></header>${noData()}<footer>Regístralo durante un partido<b>Cómo se verá →</b></footer></button>`;
+  const metric=LIVE_METRICS[key],rows=liveMetricRows(key),ownTotal=sum(rows,row=>row.own),oppTotal=sum(rows,row=>row.opp),ownAvg=mean(rows,row=>row.own),oppAvg=mean(rows,row=>row.opp),max=Math.max(1,...rows.flatMap(row=>[row.own,row.opp]).filter(Number.isFinite));
+  if(!rows.length)return '';
   const compareMode=statsMode==='compare',totalMode=statsMode==='total',own=totalMode?ownTotal:ownAvg,opp=totalMode?oppTotal:oppAvg;
+  if(key==='possession'){const shown=totalMode?ownTotal:ownAvg,label=shown>0?'más para mi equipo':shown<0?'más para el rival':'equilibradas',visual=balanceVisual('possession',rows);return `<button class="stat-card live-stat-card possession-card single-value-card" data-detail="live:possession"><header><span>${metric.label}</span><small>Directo · ${totalMode?'total':'por partido'}</small></header><div class="comparison-value"><strong>${metricValue('possession',shown,totalMode?0:1)}</strong><span>${label}</span></div><div class="metric-evolution visual-balance">${visual}<small>${rows.length} partido${rows.length===1?'':'s'} con Directo · ausencia ≠ 0</small></div><footer>REB O + robos − REB O rival − pérdidas<b>Ver detalle →</b></footer></button>`;}
   const share=(ownTotal+oppTotal)?ownTotal/(ownTotal+oppTotal)*100:null, relation=ratio(ownTotal,oppTotal),balance=ownTotal-oppTotal;
-  const insight=key==='ball'?`Balance ${signed(balance).replace(',0','')} · ROB/PER ${relation===null?'—':num(relation,2)}`:`Cuota REB O ${share===null?'—':pct(share)}`;
-  const values=compareMode?`<div class="comparison-value"><strong>${signed(balance).replace(',0','')}</strong><span>${key==='ball'?'ROB − PER':'REB O BC − rival'}</span></div>`:`<div class="stat-values"><strong>${num(own,totalMode?0:1)}</strong><strong>${num(opp,totalMode?0:1)}</strong></div><div class="live-card-labels"><span>${metric.ownLabel}</span><span>${metric.oppLabel}</span></div>`;
-  const visual=`<div class="metric-evolution">${dualTrendSVG(rows,key,true)}<small>${rows.length} partido${rows.length===1?'':'s'} con Directo · sin datos ≠ 0</small></div>`;
+  const insight=key==='ball'?`Balance ${signed(balance).replace(',0','')} · ratio ROB/Pérd. ${relation===null?'—':num(relation,2)}`:`Cuota REB O ${share===null?'—':pct(share)}`;
+  const values=compareMode?`<div class="comparison-value"><strong>${signed(balance).replace(',0','')}</strong><span>${key==='ball'?'Robos − pérdidas':'REB O propio − rival'}</span></div>`:`<div class="stat-values"><strong>${num(own,totalMode?0:1)}</strong><strong>${num(opp,totalMode?0:1)}</strong></div><div class="live-card-labels"><span>${metric.ownLabel}</span><span>${metric.oppLabel}</span></div>`;
+  const mini=rows.length===1||totalMode?pairedBarsVisual(key,rows):compareMode?balanceVisual(key,rows):dualTrendSVG(rows,key,true);
+  const visual=`<div class="metric-evolution">${mini}<small>${rows.length} partido${rows.length===1?'':'s'} con Directo · sin datos ≠ 0</small></div>`;
   return `<button class="stat-card live-stat-card ${compareMode?'comparison-card':''}" data-detail="live:${key}"><header><span>${metric.label}</span><small>Directo · ${compareMode?'balance total':totalMode?'total':'por partido'}</small></header>${values}${visual}<footer>${insight}<b>Ver detalle →</b></footer></button>`;
 }
 
@@ -818,7 +830,7 @@ function renderTeam() {
   const ownTotals=stats.own.reduce((out,row)=>{['p2m','p3m','ftm','fta','fouls','val'].forEach(key=>out[key]=(out[key]||0)+(+row[key]||0));return out;},{});
   const oppTotals=stats.opp.reduce((out,row)=>{['p2m','p3m','ftm','fta','fouls','val'].forEach(key=>out[key]=(out[key]||0)+(+row[key]||0));return out;},{});
   const current=currentStreak(stats.games), currentWins=current.startsWith('V');
-  const liveCards=recordedLiveGames().length?liveMetricCard('ball')+liveMetricCard('orb'):'';
+  const liveCards=recordedLiveGames().length?liveMetricCard('ball')+liveMetricCard('orb')+liveMetricCard('possession'):'';
   return head('team-page','Equipo',`<button class="btn" data-action="import-games">Importar acta</button>`,`${stats.played} partidos · ${state.team.season}`) + reimportBanner() + `
     <div class="summary-grid">
       <article class="score-summary card"><div><span>Balance</span><strong>${stats.wins}–${stats.losses}</strong><em>${pct(stats.wins/stats.played*100)}</em></div><div><span>Anota</span><strong>${num(stats.ppg)}</strong><em>por partido</em></div><div><span>Recibe</span><strong>${num(stats.papg)}</strong><em>por partido</em></div><div><span>Racha</span><strong>${current}</strong><em>${currentWins?'victorias':'derrotas'} seguidas</em></div></article>
@@ -826,7 +838,7 @@ function renderTeam() {
     </div>
     <div class="section-title"><div><h2>Cómo anota el equipo</h2><p>Datos publicados por la FBM; sin porcentajes de campo.</p></div></div>
     <div class="analysis-grid feature-grid">
-      <button class="card visual-card mix-card" data-detail="scoring-mix"><div class="card-title"><div><h3>Origen de los puntos</h3><span>2P · 3P · TL</span></div><small>BC / Rival</small></div>${scoringMixCompare(ownTotals,oppTotals)}</button>
+      <button class="card visual-card mix-card" data-detail="scoring-mix"><div class="card-title"><div><h3>Origen de los puntos</h3><span>2P · 3P · TL</span></div><small>${esc(teamLabel())} / Rival</small></div>${scoringMixCompare(ownTotals,oppTotals)}</button>
       <article class="card visual-card point-share"><div class="card-title"><div><h3>Reparto de puntos</h3><span>Contribución de ${genderTerms().plural.toLowerCase()}</span></div><small>Vista rápida</small></div>${pointShareChart(stats.playerTotals,stats.ownPts)}<button class="text-link" data-detail="point-share">Ver ${genderTerms().plural.toLowerCase()}: ${playerAgg().length} →</button></article>
       ${renderMinutesCard(stats)}
     </div>
@@ -916,7 +928,6 @@ const PLAYER_METRICS = {
   ftm:{label:'Tiros libres', value:player=>player.ftm, team:game=>mean(game.players||[],player=>player.ftm)},
   ftp:{label:'Porcentaje TL', value:player=>player.fta ? player.ftm/player.fta*100 : null, team:game=>{const total=effectiveTotals(game,'own');return total.fta?total.ftm/total.fta*100:null;}},
   fouls:{label:'Faltas por partido', value:player=>player.fouls, team:game=>mean(game.players||[],player=>player.fouls)},
-  fouls40:{label:'Faltas por 40 min', value:player=>player.min ? player.fouls/player.min*40 : null, team:game=>{const players=game.players||[],mins=sum(players,p=>p.min),fouls=sum(players,p=>p.fouls);return mins?fouls/mins*40:null;}},
   val:{label:'Valoración por partido', value:player=>player.val, team:game=>mean(game.players||[],player=>player.val)},
   pm:{label:'+/-', value:player=>player.pm, team:game=>mean(game.players||[],player=>player.pm)},
   liveSteals:{label:'Robos · Directo', live:true, value:(player,game)=>hasManualData(game)?eventCounts(game,player).steals:null, team:game=>hasManualData(game)?mean(game.players||[],player=>eventCounts(game,player).steals):null},
@@ -978,12 +989,12 @@ function openPlayerDetail(key,metricKey='pts',shareMode='average') {
   const metric=PLAYER_METRICS[metricKey]||PLAYER_METRICS.pts;
   const eligible=player.games.filter(({g,p})=>metric.value(p,g)!==null);
   const best=eligible.length?[...eligible].sort((a,b)=>(metric.value(b.p,b.g)||0)-(metric.value(a.p,a.g)||0))[0]:null;
-  const averages=[['PTS/P',player.gp?num(player.pts/player.gp):'—'],['PTS/40',player.min?num(player.pts/player.min*40):'—'],['MIN/P',player.gp?num(player.min/player.gp):'—'],['VAL/P',player.gp?num(player.val/player.gp):'—'],['FAL/P',player.gp?num(player.fouls/player.gp):'—'],['FAL/40',player.min?num(player.fouls/player.min*40):'—'],['+/- /P',player.gp?signed(player.pm/player.gp):'—'],['2P/P',player.gp?num(player.p2m/player.gp):'—'],['3P/P',player.gp?num(player.p3m/player.gp):'—'],['TL/P',player.gp?num(player.ftm/player.gp):'—'],['TL%',player.fta?pct(player.ftm/player.fta*100):'Sin tiros']];
-  const balance=(player.steals||0)-(player.turnovers||0);
-  const liveStats=player.manualGp?[['Directos',player.manualGp],['ROB',player.steals||0],['ROB/P',num(player.steals/player.manualGp)],['PER',player.turnovers||0],['PER/P',num(player.turnovers/player.manualGp)],['ROB/PER',robPerDisplay(player.steals||0,player.turnovers||0)],['Balance ROB−PER',signed(balance).replace(',0','')],['REB O',player.orbLive||0],['REB O/P',num(player.orbLive/player.manualGp)]]:[];
+  const averages=[['PTS/P',player.gp?num(player.pts/player.gp):'—'],['PTS/40',player.min?num(player.pts/player.min*40):'—'],['MIN/P',player.gp?num(player.min/player.gp):'—'],['VAL/P',player.gp?num(player.val/player.gp):'—'],['FAL/P',player.gp?num(player.fouls/player.gp):'—'],['+/- /P',player.gp?signed(player.pm/player.gp):'—'],['2P/P',player.gp?num(player.p2m/player.gp):'—'],['3P/P',player.gp?num(player.p3m/player.gp):'—'],['TL/P',player.gp?num(player.ftm/player.gp):'—'],['TL%',player.fta?pct(player.ftm/player.fta*100):'Sin tiros']];
+  const balance=(player.steals||0)+(player.orbLive||0)-(player.turnovers||0);
+  const liveStats=player.manualGp?[['Directos',player.manualGp],['Robos',player.steals||0],['Robos/P',num(player.steals/player.manualGp)],['Pérdidas',player.turnovers||0],['Pérdidas/P',num(player.turnovers/player.manualGp)],['Ratio robos/pérdidas',robPerDisplay(player.steals||0,player.turnovers||0)],['Balance (ROB + REB O) − pérdidas',signed(balance).replace(',0','')],['REB O',player.orbLive||0],['REB O/P',num(player.orbLive/player.manualGp)]]:[];
   const allStats=[...averages,...liveStats],share=playerShareData(player,shareMode);
   const options=availablePlayerMetrics().map(([metricId,item])=>`<option value="${metricId}" ${metricId===metricKey?'selected':''}>${item.label}</option>`).join('');
-  const directNote=player.manualGp?`<p class="inline-data-note ${balance<0?'negative':''}"><b>Directo integrado · ${player.manualGp} partido${player.manualGp===1?'':'s'}</b><span>ROB/PER es un cociente y nunca es negativo. El signo se muestra en «Balance ROB−PER»; si PER=0 aparece ∞ o — para evitar dividir entre cero.</span></p>`:'';
+  const directNote=player.manualGp?`<p class="inline-data-note ${balance<0?'negative':''}"><b>Directo integrado · ${player.manualGp} partido${player.manualGp===1?'':'s'}</b><span>El ratio robos/pérdidas nunca es negativo. El balance suma robos y rebotes ofensivos y resta pérdidas; si no hay pérdidas, el ratio muestra ∞ o —.</span></p>`:'';
   openModal(genderTerms().singular,namePretty(player.name),`<div class="player-summary"><div class="player-number large">${esc(player.number||'—')}</div><div><b>${player.gp} partidos</b><span>${best?`Mejor ${metric.label}: ${esc(best.g.opponent)}`:'Sin dato válido'}</span></div></div><div class="player-overview"><div class="detail-stats unified-player-stats">${allStats.map(([label,value])=>`<div class="${label.startsWith('Balance')&&balance<0?'negative-value':''}"><span>${label}</span><strong>${value}</strong></div>`).join('')}</div><div><div class="segmented share-mode" aria-label="Escala de las cuotas"><button data-action="player-share" data-mode="average" class="${shareMode==='average'?'active':''}">Por partido</button><button data-action="player-share" data-mode="season" class="${shareMode==='season'?'active':''}">Temporada</button></div><div class="share-donuts">${donut(share.points,`Cuota puntos · ${share.label}`,'player')}${donut(share.minutes,`Cuota minutos · ${share.label}`,'game')}</div></div></div>${directNote}<section class="trend-section"><div class="trend-head"><div><h3>Evolución</h3><p>Desliza si hay muchos partidos. Los huecos significan «sin datos», no cero.</p></div><select id="playerMetric">${options}</select></div><div id="playerTrend">${playerTrendSVG(player,metricKey)}</div></section><section><h3>Partidos</h3><div class="player-games">${chronological(player.games.map(item=>item.g)).map(g=>{const p=player.games.find(item=>item.g.id===g.id)?.p;return `<button data-detail="game:${g.id}"><span><b>${esc(g.opponent)}</b><small>${g.date||'Sin fecha'} · ${formatMinutes(p?.min)}</small></span><strong>${p?.pts||0} PTS</strong><em>${signed(p?.pm||0)}</em></button>`}).join('')}</div></section>`);
 }
 
@@ -1036,7 +1047,7 @@ function renderGameDetail() {
   if(g.source==='live-pending'||!hasScore(g.us)||!hasScore(g.them)){
     const ec=eventCounts(g),active=(g.events||[]).filter(event=>!event.undone);
     const games=validGames(),suggested=games.map(game=>({...pendingScore(g,game,game.date),game})).filter(item=>item.name>=.35).sort((a,b)=>b.score-a.score)[0]?.game;
-    $('#gameDetail').innerHTML=`<div class="pending-hero"><span>Directo guardado · ${g.date||'Sin fecha'}</span><strong>Esperando acta</strong><p>Al importar el Excel del partido, la app conservará y unirá estos datos manuales.</p></div><div class="metric-summary"><div><span>Robos BC</span><strong>${ec.steals}</strong></div><div><span>Pérdidas BC</span><strong>${ec.turnovers}</strong></div><div><span>REB O BC</span><strong>${ec.orb}</strong></div><div><span>REB O rival</span><strong>${ec.rivalOrb}</strong></div></div><div class="coverage-note"><b>${active.length} evento${active.length===1?'':'s'} conservado${active.length===1?'':'s'}</b><span>No cuenta en estadísticas hasta tener marcador.</span></div>${games.length?`<div class="manual-join"><label class="field">Unir manualmente a un acta<select id="pendingTarget">${games.map(game=>`<option value="${game.id}" ${game.id===suggested?.id?'selected':''}>${esc(game.opponent)} · ${game.date} · ${gameScore(game)}</option>`).join('')}</select></label><button class="btn" data-action="merge-pending-manual" data-id="${g.id}">Unir a esta acta</button></div>`:''}<button class="btn primary wide pending-import" data-action="import-games" data-pending-id="${g.id}">Importar acta y unir</button>`;
+    $('#gameDetail').innerHTML=`<div class="pending-hero"><span>Directo guardado · ${g.date||'Sin fecha'}</span><strong>Esperando acta</strong><p>Al importar el Excel del partido, la app conservará y unirá estos datos manuales.</p></div><div class="metric-summary"><div><span>Robos</span><strong>${ec.steals}</strong></div><div><span>Pérdidas</span><strong>${ec.turnovers}</strong></div><div><span>REB O propio</span><strong>${ec.orb}</strong></div><div><span>REB O rival</span><strong>${ec.rivalOrb}</strong></div></div><div class="coverage-note"><b>${active.length} evento${active.length===1?'':'s'} conservado${active.length===1?'':'s'}</b><span>No cuenta en estadísticas hasta tener marcador.</span></div>${games.length?`<div class="manual-join"><label class="field">Unir manualmente a un acta<select id="pendingTarget">${games.map(game=>`<option value="${game.id}" ${game.id===suggested?.id?'selected':''}>${esc(game.opponent)} · ${game.date} · ${gameScore(game)}</option>`).join('')}</select></label><button class="btn" data-action="merge-pending-manual" data-id="${g.id}">Unir a esta acta</button></div>`:''}<button class="btn primary wide pending-import" data-action="import-games" data-pending-id="${g.id}">Importar acta y unir</button>`;
     return;
   }
   const own = modalContext.side === 'own', players = own ? (g.players || []) : (g.opponentPlayers || []);
@@ -1071,32 +1082,29 @@ function openScoringMixDetail() {
   const own = games.reduce((out,game) => add(out,effectiveTotals(game,'own')),{});
   const opp = games.reduce((out,game) => add(out,effectiveTotals(game,'opp')),{});
   modalContext = {type:'scoring-mix'};
-  openModal('Estadística','Origen de los puntos',`<p class="metric-explain">Reparte los puntos entre canastas de 2, triples y tiros libres. Son anotaciones, no porcentajes de tiro.</p><section class="detail-block"><div class="card-title"><div><h3>Temporada</h3><span>Buen Consejo y rival</span></div></div>${scoringMixCompare(own,opp)}</section><section class="detail-block"><h3>Partido a partido</h3><div class="mix-games">${games.map((game,index)=>`<button data-detail="game:${game.id}"><header><span>P${index+1} · ${esc(game.opponent)}</span><strong title="Local–visitante">${gameScore(game)}</strong></header>${scoringMixCompare(effectiveTotals(game,'own'),effectiveTotals(game,'opp'))}</button>`).join('')}</div></section>`);
+  openModal('Estadística','Origen de los puntos',`<p class="metric-explain">Reparte los puntos entre canastas de 2, triples y tiros libres. Son anotaciones, no porcentajes de tiro.</p><section class="detail-block"><div class="card-title"><div><h3>Temporada</h3><span>${esc(teamLabel())} y rival</span></div></div>${scoringMixCompare(own,opp)}</section><section class="detail-block"><h3>Partido a partido</h3><div class="mix-games">${games.map((game,index)=>`<button data-detail="game:${game.id}"><header><span>P${index+1} · ${esc(game.opponent)}</span><strong title="Local–visitante">${gameScore(game)}</strong></header>${scoringMixCompare(effectiveTotals(game,'own'),effectiveTotals(game,'opp'))}</button>`).join('')}</div></section>`);
 }
 
 function metricPlayerBreakdown(key, mode='total') {
   const metric=TEAM_METRICS[key], players=playerAgg().filter(player=>player.gp);
   if (!metric?.player || key==='ftp') return '';
   const total=player=>+player[metric.player]||0;
-  if (key==='fouls') {
-    const rate=player=>player.min?player.fouls/player.min*40:0,max=Math.max(1,...players.map(rate));
-    return `<section class="detail-block"><h3>Faltas por ${genderTerms().singular.toLowerCase()}</h3><p class="metric-explain">FAL/40 permite comparar cargas distintas de minutos. Menos es mejor.</p><div class="breakdown-bars">${[...players].sort((a,b)=>rate(a)-rate(b)).map(player=>`<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><i><b style="width:${rate(player)/max*100}%"></b></i><strong>${num(rate(player))} /40 · ${total(player)} total</strong></button>`).join('')}</div></section>`;
-  }
   const value=player=>mode==='average'?total(player)/player.gp:total(player),max=Math.max(1,...players.map(value));
   return `<section class="detail-block"><div class="card-title breakdown-title"><div><h3>${metric.label} por ${genderTerms().singular.toLowerCase()}</h3><span>${mode==='average'?'Media por partido jugado':'Total de temporada'}</span></div><div class="segmented" aria-label="Escala del reparto"><button data-action="metric-breakdown" data-mode="total" class="${mode==='total'?'active':''}">Totales</button><button data-action="metric-breakdown" data-mode="average" class="${mode==='average'?'active':''}">Por partido</button></div></div><div class="breakdown-bars">${[...players].sort((a,b)=>value(b)-value(a)).map(player=>`<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><i><b style="width:${value(player)/max*100}%"></b></i><strong>${metricValue(key,value(player),mode==='total'?0:1)}${mode==='average'?' /P':''}</strong></button>`).join('')}</div></section>`;
 }
 
 function openTeamMetricDetail(key, breakdownMode='total') {
   const metric=TEAM_METRICS[key]; if(!metric)return;
+  if(key==='margin'){const rows=teamMetricRows(key),total=aggregateMetric(key,rows,'own','total'),avg=aggregateMetric(key,rows,'own'),best=[...rows].sort((a,b)=>b.own-a.own)[0],worst=[...rows].sort((a,b)=>a.own-b.own)[0];modalContext={type:'metric',key,breakdownMode};return openModal('Estadística','Diferencia',`<p class="metric-explain">Un único valor con signo: ${esc(teamLabel())} menos rival. Positivo es ventaja; negativo es desventaja.</p><div class="metric-summary"><div><span>Total acumulado</span><strong>${metricValue(key,total,0)}</strong></div><div><span>Media por partido</span><strong>${metricValue(key,avg)}</strong></div><div><span>Mayor ventaja</span><strong>${best?metricValue(key,best.own,0):'—'}</strong></div><div><span>Mayor desventaja</span><strong>${worst?metricValue(key,worst.own,0):'—'}</strong></div></div><section class="detail-block"><h3>Evolución</h3><div class="diverging-detail">${balanceVisual(key,rows)}</div></section><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${metricValue(key,row.own,0)}</strong><em>${gameScore(row.game)}</em></button>`).join('')}</div>`);}
   const rows=teamMetricRows(key), ownTotal=aggregateMetric(key,rows,'own','total'), oppTotal=aggregateMetric(key,rows,'opp','total'), ownAvg=aggregateMetric(key,rows,'own'), oppAvg=aggregateMetric(key,rows,'opp');
   const ownValid=rows.filter(row=>row.own!==null&&Number.isFinite(+row.own));
   const ordered=[...ownValid].sort((a,b)=>metric.lowerBetter?a.own-b.own:b.own-a.own),best=ordered[0]||null,worst=ordered.at(-1)||null;
-  const percentSummary=metric.percent?`<div class="metric-summary"><div><span>Temporada BC</span><strong>${metricValue(key,ownTotal,0)}</strong></div><div><span>Temporada rival</span><strong>${metricValue(key,oppTotal,0)}</strong></div><div><span>Media de partidos BC</span><strong>${metricValue(key,ownAvg)}</strong></div><div><span>Media de partidos rival</span><strong>${metricValue(key,oppAvg)}</strong></div></div>`:`<div class="metric-summary"><div><span>Total BC</span><strong>${metricValue(key,ownTotal,0)}</strong></div><div><span>Total rival</span><strong>${metricValue(key,oppTotal,0)}</strong></div><div><span>Media BC / partido</span><strong>${metricValue(key,ownAvg)}</strong></div><div><span>Media rival / partido</span><strong>${metricValue(key,oppAvg)}</strong></div></div>`;
-  const bestLabel=metric.lowerBetter?'Mejor BC · menos':metric.higherBetter===null?'Mayor peso BC':'Mejor BC',worstLabel=metric.lowerBetter?'Peor BC · más':metric.higherBetter===null?'Menor peso BC':'Menor BC';
+  const percentSummary=metric.percent?`<div class="metric-summary"><div><span>Temporada · ${esc(teamLabel())}</span><strong>${metricValue(key,ownTotal,0)}</strong></div><div><span>Temporada rival</span><strong>${metricValue(key,oppTotal,0)}</strong></div><div><span>Media · ${esc(teamLabel())}</span><strong>${metricValue(key,ownAvg)}</strong></div><div><span>Media de partidos rival</span><strong>${metricValue(key,oppAvg)}</strong></div></div>`:`<div class="metric-summary"><div><span>Total · ${esc(teamLabel())}</span><strong>${metricValue(key,ownTotal,0)}</strong></div><div><span>Total rival</span><strong>${metricValue(key,oppTotal,0)}</strong></div><div><span>Media · ${esc(teamLabel())}</span><strong>${metricValue(key,ownAvg)}</strong></div><div><span>Media rival / partido</span><strong>${metricValue(key,oppAvg)}</strong></div></div>`;
+  const bestLabel=metric.lowerBetter?`Mejor ${teamLabel()} · menos`:metric.higherBetter===null?`Mayor peso · ${teamLabel()}`:`Mejor · ${teamLabel()}`,worstLabel=metric.lowerBetter?`Peor ${teamLabel()} · más`:metric.higherBetter===null?`Menor peso · ${teamLabel()}`:`Menor · ${teamLabel()}`;
   const ftpExtra=key==='ftp'?`<div class="attempt-summary"><b>${esc(teamLabel())}</b><span>${sum(rows,row=>effectiveTotals(row.game,'own').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'own').fta)} TL</span><b>Rival</b><span>${sum(rows,row=>effectiveTotals(row.game,'opp').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'opp').fta)} TL</span></div>`:'';
-  const per40=metric.per40?(()=>{const ownMinutes=sum(rows,row=>effectiveTotals(row.game,'own').min),oppMinutes=sum(rows,row=>effectiveTotals(row.game,'opp').min);return `<div class="metric-summary per40-summary"><div><span>Faltas BC / 40 min</span><strong>${ownMinutes?num(ownTotal/ownMinutes*40):'—'}</strong></div><div><span>Faltas rival / 40 min</span><strong>${oppMinutes?num(oppTotal/oppMinutes*40):'—'}</strong></div></div>`;})():'';
+  const per40=metric.per40?(()=>{const ownMinutes=sum(rows,row=>effectiveTotals(row.game,'own').min),oppMinutes=sum(rows,row=>effectiveTotals(row.game,'opp').min);return `<div class="metric-summary per40-summary"><div><span>Faltas propias / 40 min</span><strong>${ownMinutes?num(ownTotal/ownMinutes*40):'—'}</strong></div><div><span>Faltas rival / 40 min</span><strong>${oppMinutes?num(oppTotal/oppMinutes*40):'—'}</strong></div></div>`;})():'';
   modalContext={type:'metric',key,breakdownMode};
-  openModal('Estadística',metric.label,`<p class="metric-explain">${metric.note} En el detalle, el color elegido identifica al equipo y el color de contraste al rival.</p>${percentSummary}${per40}${ftpExtra}<section class="detail-block"><div class="card-title"><div><h3>Evolución por partido</h3><span>Desliza si hay muchos partidos · toca un punto para abrir el acta</span></div></div><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">Buen Consejo</span><span class="them">Rival</span></div></section><div class="best-worst"><div><span>${bestLabel}</span><b>${best?metricValue(key,best.own):'—'}</b><small>${best?esc(best.game.opponent):''}</small></div><div><span>${worstLabel}</span><b>${worst?metricValue(key,worst.own):'—'}</b><small>${worst?esc(worst.game.opponent):''}</small></div></div>${metricPlayerBreakdown(key,breakdownMode)}<section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${metricValue(key,row.own)} / ${metricValue(key,row.opp)}</strong><em title="Local–visitante">${gameScore(row.game)}</em></button>`).join('')}</div></section>`);
+  openModal('Estadística',metric.label,`<p class="metric-explain">${metric.note} En el detalle, el color elegido identifica al equipo y el color de contraste al rival.</p>${percentSummary}${per40}${ftpExtra}<section class="detail-block"><div class="card-title"><div><h3>Evolución por partido</h3><span>Desliza si hay muchos partidos · toca un punto para abrir el acta</span></div></div><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">${esc(teamLabel())}</span><span class="them">Rival</span></div></section><div class="best-worst"><div><span>${bestLabel}</span><b>${best?metricValue(key,best.own):'—'}</b><small>${best?esc(best.game.opponent):''}</small></div><div><span>${worstLabel}</span><b>${worst?metricValue(key,worst.own):'—'}</b><small>${worst?esc(worst.game.opponent):''}</small></div></div>${metricPlayerBreakdown(key,breakdownMode)}<section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${metricValue(key,row.own)} / ${metricValue(key,row.opp)}</strong><em title="Local–visitante">${gameScore(row.game)}</em></button>`).join('')}</div></section>`);
 }
 
 function openPointShareDetail() {
@@ -1113,14 +1121,15 @@ function liveEventPlayerName(event) {
 
 function openLiveMetricDetail(key) {
   const metric=LIVE_METRICS[key]; if(!metric)return;
-  const rows=liveMetricRows(key);if(!rows.length){modalContext={type:'live-metric',key};return openModal('Directo',metric.label,`${noData()}<p class="metric-explain">Cuando registres un partido aquí aparecerán totales, medias, ratios, evolución, cuartos y desglose por ${genderTerms().singular.toLowerCase()}. Los partidos anteriores siguen fuera del denominador.</p>`);}
+  const rows=liveMetricRows(key);
+  if(key==='possession'){if(!rows.length)return openModal('Directo',metric.label,noData());const total=sum(rows,row=>row.own),avg=mean(rows,row=>row.own);modalContext={type:'live-metric',key};return openModal('Directo','Posesiones extra',`<p class="metric-explain">(REB O propios + robos propios) − (REB O rival + pérdidas propias). Los partidos sin Directo son ausencia, nunca cero.</p><div class="metric-summary"><div><span>Total</span><strong>${metricValue(key,total,0)}</strong></div><div><span>Por partido con Directo</span><strong>${metricValue(key,avg)}</strong></div></div><section class="detail-block"><h3>Partido a partido</h3><div class="possession-list">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span>${esc(row.game.opponent)}</span><strong class="${row.own>=0?'positive':'negative'}">${metricValue(key,row.own,0)}</strong><small>${row.own>0?'más mi equipo':row.own<0?'más el rival':'equilibradas'}</small></button>`).join('')}</div></section>`);}if(!rows.length){modalContext={type:'live-metric',key};return openModal('Directo',metric.label,`${noData()}<p class="metric-explain">Cuando registres un partido aquí aparecerán totales, medias, ratios, evolución, cuartos y desglose por ${genderTerms().singular.toLowerCase()}. Los partidos anteriores siguen fuera del denominador.</p>`);}
   const ownTotal=sum(rows,row=>row.own),oppTotal=sum(rows,row=>row.opp),ownAvg=mean(rows,row=>row.own),oppAvg=mean(rows,row=>row.opp),games=recordedLiveGames();
   const quarters=[1,2,3,4].map(quarter=>{const events=games.flatMap(game=>(game.events||[]).filter(event=>!event.undone&&(+event.quarter||1)===quarter));return {quarter,own:events.filter(event=>event.type===metric.types[0]).length,opp:events.filter(event=>event.type===metric.types[1]).length};});
   const people=new Map();
   games.flatMap(game=>(game.events||[]).filter(event=>!event.undone&&metric.types.includes(event.type)&&event.type!=='orbAgainst')).forEach(event=>{const name=liveEventPlayerName(event),current=people.get(name)||{own:0,opp:0};event.type===metric.types[0]?current.own++:current.opp++;people.set(name,current)});
   const playerRows=[...people.entries()].sort((a,b)=>(b[1].own+b[1].opp)-(a[1].own+a[1].opp));
   const relation=ratio(ownTotal,oppTotal), share=(ownTotal+oppTotal)?ownTotal/(ownTotal+oppTotal)*100:null, balance=ownTotal-oppTotal;
-  const ratioCards=key==='ball'?[['Balance ROB−PER',signed(balance).replace(',0','')],['Ratio ROB/PER',relation===null?'—':num(relation,2)],['Acciones positivas',share===null?'—':pct(share)]]:[['Balance REB O',signed(balance).replace(',0','')],['Cuota REB O BC',share===null?'—':pct(share)],['Ratio BC/rival',relation===null?'—':num(relation,2)]];
+  const ratioCards=key==='ball'?[['Balance robos − pérdidas',signed(balance).replace(',0','')],['Ratio robos/pérdidas',relation===null?'—':num(relation,2)],['Acciones positivas',share===null?'—':pct(share)]]:[['Balance REB O',signed(balance).replace(',0','')],['Cuota REB O propio',share===null?'—':pct(share)],['Ratio propio/rival',relation===null?'—':num(relation,2)]];
   modalContext={type:'live-metric',key};
   openModal('Directo',metric.label,`<p class="metric-explain">${metric.note} Los partidos sin registro manual quedan fuera de totales, medias y ratios: un dato ausente nunca se convierte en cero.</p><div class="coverage-note"><b>${rows.length} partido${rows.length===1?'':'s'} con registro</b><span>de ${validGames().length} disputados</span></div><div class="metric-summary"><div><span>Total · ${metric.ownLabel}</span><strong>${ownTotal}</strong></div><div><span>Total · ${metric.oppLabel}</span><strong>${oppTotal}</strong></div><div><span>Media · ${metric.ownLabel}</span><strong>${num(ownAvg)}</strong></div><div><span>Media · ${metric.oppLabel}</span><strong>${num(oppAvg)}</strong></div></div><div class="ratio-grid">${ratioCards.map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}</div><section class="detail-block"><h3>Evolución por partido</h3><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">${metric.ownLabel}</span><span class="them">${metric.oppLabel}</span></div></section><section class="detail-block"><h3>Por cuarto</h3><div class="quarter-breakdown">${quarters.map(row=>compareBar(`Q${row.quarter}`,row.own,row.opp,value=>num(value,0))).join('')}</div></section><section class="detail-block"><h3>${key==='orb'?'REB O del equipo por ${genderTerms().singular.toLowerCase()}':'Robos y pérdidas por ${genderTerms().singular.toLowerCase()}'}</h3>${playerRows.length?`<div class="manual-player-list">${playerRows.map(([name,value])=>`<div><span>${esc(name==='Equipo (sin asignar)'?name:shortName(name))}</span><b>${value.own} ${metric.types[0]==='steal'?'ROB':'REB O'}</b>${key==='ball'?`<b>${value.opp} PER</b><strong>${value.own-value.opp>0?'+':''}${value.own-value.opp}</strong>`:''}</div>`).join('')}</div>`:'<div class="empty-inline">Sin asignaciones individuales.</div>'}</section><section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${row.own} / ${row.opp}</strong><em>${metric.ownLabel} / ${metric.oppLabel}</em></button>`).join('')}</div></section>`);
 }
@@ -1340,10 +1349,10 @@ function keepLivePending() {
 }
 
 function serviceUrl(){return String(localStorage.getItem('estadisticas_service_api')||APP_CONFIG.serviceApi||state.settings.api||'').trim().replace(/\/$/,'');}
-function workspaceStatus(item){const settings=item.data?.settings||{};return settings.teamId?'Nube privada':settings.api?'Nube · compatible':'Solo en este dispositivo';}
+function workspaceStatus(item){const settings=item.data?.settings||{};return settings.teamId||settings.api?'En la nube':'Solo en este dispositivo';}
 function openTeams(){
   const rows=workspaceBook.workspaces.map(item=>`<div class="workspace-row ${item.id===workspaceBook.activeId?'active':''}"><button data-action="switch-team" data-id="${item.id}"><span><b>${esc(item.data?.team?.name||item.name||'Mi equipo')}</b><small>${esc(item.data?.team?.season||'Sin temporada')} · ${workspaceStatus(item)}</small></span><strong>${item.id===workspaceBook.activeId?'Activo':'Abrir'}</strong></button>${workspaceBook.workspaces.length>1?`<button class="icon-button danger" data-action="remove-team" data-id="${item.id}" aria-label="Quitar del dispositivo">×</button>`:''}</div>`).join('');
-  openModal('Equipos','Cambiar o añadir equipo',`<p class="metric-explain">Cada equipo es un espacio independiente. Su plantilla, partidos, Directo y sincronización nunca se mezclan con los demás.</p><div class="workspace-list">${rows}</div><section class="settings-block"><h3>Crear equipo privado</h3><div class="setup-fields"><label class="field">Nombre del equipo<input id="newTeamName" placeholder="Ej.: Infantil A"></label><label class="field">Temporada<input id="newTeamSeason" placeholder="26/27"></label><label class="field">Categoría<select id="newTeamGender">${genderOptions('',true)}</select></label><label class="field">Color del equipo<select id="newTeamColor">${colorOptions('blue')}</select></label></div><button class="btn primary wide" data-action="create-team">Crear y abrir</button><p class="muted">Si hay servidor v11 configurado se crea en nube; si no, queda privado en este dispositivo y podrás conectarlo después.</p></section>`);
+  openModal('Equipos','Cambiar o añadir equipo',`<p class="metric-explain">Cada equipo es un espacio independiente. Su plantilla, partidos, Directo y sincronización nunca se mezclan con los demás.</p><div class="workspace-list">${rows}</div><section class="settings-block"><h3>Crear equipo privado</h3><div class="setup-fields"><label class="field">Nombre del equipo<input id="newTeamName" placeholder="Ej.: Infantil A"></label><label class="field">Temporada<input id="newTeamSeason" placeholder="26/27"></label><label class="field">Categoría<select id="newTeamGender">${genderOptions('',true)}</select></label><label class="field">Color del equipo<select id="newTeamColor">${colorOptions('blue')}</select></label></div><button class="btn primary wide" data-action="create-team">Crear y abrir</button><p class="muted">Puedes empezar en este dispositivo. Al compartirlo por primera vez se subirá automáticamente a una nube privada.</p></section>`);
 }
 function switchWorkspace(id){
   if(id===workspaceBook.activeId){closeModal();return;}
@@ -1354,7 +1363,7 @@ async function createWorkspace(){
   const name=($('#newTeamName')?.value||'').trim(),season=($('#newTeamSeason')?.value||'').trim(),gender=$('#newTeamGender')?.value||'',color=$('#newTeamColor')?.value||'blue';if(!name)return toast('Escribe el nombre del equipo');if(!gender)return toast('Elige femenino, masculino o mixto/neutro');
   persistWorkspace();let data=blank(name,season,gender,color),cloud=false;const api=serviceUrl();
   if(api){try{const response=await fetch(`${api}/api/v3/teams`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({name,season,gender,color})});const json=await response.json();if(!response.ok)throw Error(json.error||'Servidor no preparado');data.settings={...data.settings,api,token:json.admin.token,role:'admin',teamId:json.team.id,syncMode:'team'};cloud=true;}catch(error){console.warn('Equipo creado solo en local:',error.message);}}
-  const id=uid();workspaceBook.workspaces.push({id,name,data,legacy:false});workspaceBook.activeId=id;state=sanitise(data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();if(cloud){state.ops.push({id:uid(),at:new Date().toISOString(),type:'set-team',payload:{team:state.team}});save();syncNow();}toast(cloud?'Equipo privado creado en la nube':'Equipo privado creado en este dispositivo');
+  const id=uid();workspaceBook.workspaces.push({id,name,data,legacy:false});workspaceBook.activeId=id;state=sanitise(data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();if(cloud){state.ops.push({id:uid(),at:new Date().toISOString(),type:'set-team',payload:{team:state.team}});save();syncNow();}toast(cloud?'Equipo creado y protegido en la nube':'Equipo creado en este dispositivo');
 }
 function removeWorkspace(id){
   if(workspaceBook.workspaces.length<2)return;const item=workspaceBook.workspaces.find(row=>row.id===id);if(!item)return;
@@ -1362,16 +1371,26 @@ function removeWorkspace(id){
   workspaceBook.workspaces=workspaceBook.workspaces.filter(row=>row.id!==id);state=sanitise(activeWorkspace().data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));openTeams();render();toast('Quitado solo de este dispositivo');
 }
 function openSettings(){
-  const cloud=state.settings.teamId?'Equipo v11 aislado en nube':state.settings.api?'Conexión existente compatible':'Equipo local';
-  openModal('Aplicación','Ajustes',`<article class="team-settings-summary"><b>${esc(teamLabel())}</b><span>${esc(state.team.season||'Sin temporada')} · ${cloud}</span></article><div class="setup-fields"><label class="field">Nombre del equipo<input id="teamName" value="${esc(teamLabel())}"></label><label class="field">Temporada<input id="teamSeason" value="${esc(state.team.season||'')}"></label><label class="field">Categoría<select id="teamGender">${genderOptions(state.team.gender)}</select></label><label class="field">Color propio<select id="teamColor">${colorOptions(state.team.color)}</select></label></div><label class="field">Servidor de sincronización<input id="serviceApi" value="${esc(serviceUrl())}" placeholder="https://…workers.dev"></label><details class="advanced-settings"><summary>Conexión avanzada de este equipo</summary><label class="field">URL del Worker<input id="apiUrl" value="${esc(state.settings.api)}" placeholder="https://…workers.dev"></label><label class="field">Token<input id="apiToken" value="${esc(state.settings.token)}"></label><label class="field">Permiso<select id="apiRole"><option value="admin" ${state.settings.role==='admin'?'selected':''}>Administrador</option><option value="editor" ${state.settings.role==='editor'?'selected':''}>Editor</option><option value="viewer" ${state.settings.role==='viewer'?'selected':''}>Solo lectura</option></select></label></details><div class="action-row"><button class="btn primary" data-action="save-settings">Guardar</button><button class="btn" data-action="export-json">Exportar este equipo</button></div>${state.settings.role==='admin'&&state.settings.api?`<article class="settings-block"><h3>Compartir este equipo</h3><p class="muted">El enlace solo abre este equipo. Elige edición para anotar o lectura para consultar.</p><label class="field">Nombre del enlace<input id="inviteLabel" placeholder="Ej.: Cuerpo técnico"></label><div class="action-row"><button class="btn" data-action="create-invite" data-role="editor">Crear enlace de edición</button><button class="btn" data-action="create-invite" data-role="viewer">Crear enlace de lectura</button></div><div id="inviteResult"></div><button class="btn" data-action="load-invites">Ver o revocar enlaces</button><div id="inviteManager"></div></article>`:''}`);
+  const cloud=state.settings.teamId||state.settings.api?'En la nube':'Solo en este dispositivo',canShare=state.settings.role!=='viewer';
+  openModal('Aplicación','Ajustes',`<article class="team-settings-summary"><b>${esc(teamLabel())}</b><span>${esc(state.team.season||'Sin temporada')} · ${cloud}</span></article><div class="setup-fields"><label class="field">Nombre del equipo<input id="teamName" value="${esc(teamLabel())}"></label><label class="field">Temporada<input id="teamSeason" value="${esc(state.team.season||'')}"></label><label class="field">Categoría<select id="teamGender">${genderOptions(state.team.gender)}</select></label><label class="field">Color propio<select id="teamColor">${colorOptions(state.team.color)}</select></label></div><div class="action-row"><button class="btn primary" data-action="save-settings">Guardar</button><button class="btn" data-action="export-json">Exportar este equipo</button><button class="btn" data-action="share-install">Compartir página de instalación</button></div>${canShare?`<article class="settings-block share-simple"><div class="share-heading"><span class="share-icon">↗</span><div><h3>Compartir equipo</h3><p>${state.settings.api?'Ya está sincronizado. Crea un enlace para cada persona.':'La primera vez subiremos automáticamente todos los datos a una nube privada.'}</p></div></div><label class="field">Nombre opcional<input id="inviteLabel" placeholder="Ej.: Entrenador asistente"></label><div class="share-actions"><button class="btn primary" data-action="create-invite" data-role="editor"><b>Editor</b><span>Puede añadir y cambiar datos</span></button><button class="btn" data-action="create-invite" data-role="viewer"><b>Lector</b><span>Solo puede consultar</span></button></div><div id="inviteResult"></div>${state.settings.api?`<button class="text-link" data-action="load-invites">Ver o revocar enlaces</button><div id="inviteManager"></div>`:''}<p class="privacy-note">Privado: solo accede quien reciba uno de estos enlaces.</p></article>`:''}`);
 }
 function saveSettings(){
   const previous=deepSignature(state.team);state.team.name=($('#teamName')?.value||teamLabel()).trim()||'Mi equipo';state.team.season=($('#teamSeason')?.value||'').trim();state.team.gender=$('#teamGender')?.value||'neutral';state.team.color=$('#teamColor')?.value||'blue';
-  const service=($('#serviceApi')?.value||'').trim().replace(/\/$/,'');if(service)localStorage.setItem('estadisticas_service_api',service);else localStorage.removeItem('estadisticas_service_api');
-  state.settings.api=($('#apiUrl')?.value||state.settings.api||'').trim().replace(/\/$/,'');state.settings.token=($('#apiToken')?.value||state.settings.token||'').trim();state.settings.role=$('#apiRole')?.value||state.settings.role||'admin';if(previous!==deepSignature(state.team)&&state.settings.role!=='viewer')record('set-team',{team:state.team});else save();closeModal();syncNow();render();
+  if(previous!==deepSignature(state.team)&&state.settings.role!=='viewer')record('set-team',{team:state.team});else save();closeModal();syncNow();render();
+}
+function snapshotOps(){
+  const at=new Date().toISOString(),make=(type,payload)=>({id:uid(),at,type,payload});
+  return [make('set-team',{team:state.team}),make('set-roster',{roster:state.roster}),...state.games.map(game=>make('replace-game',{game})),...(state.live?[make('live-upsert',{live:state.live})]:[])];
+}
+async function ensureCloudTeam(){
+  if(state.settings.api&&state.settings.token)return;
+  const api=serviceUrl();if(!api)throw Error('La sincronización todavía no está activada. La app sigue funcionando en este dispositivo.');
+  const response=await fetch(`${api}/api/v3/teams`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({name:teamLabel(),season:state.team.season||'',gender:state.team.gender,color:state.team.color})});
+  const json=await response.json().catch(()=>({}));if(!response.ok||!json.admin?.token||!json.team?.id)throw Error('El servidor todavía no admite compartir equipos nuevos. Actualiza Cloudflare con el Worker v12; no se ha perdido ningún dato.');
+  state.settings={...state.settings,api,token:json.admin.token,role:'admin',teamId:json.team.id,syncMode:'team'};state.lastSeq=0;state.ops=[...state.ops,...snapshotOps()];save();paintSync(true);await syncNow();paintSync();if(state.ops.length)throw Error('No se pudo terminar la primera subida. Revisa la conexión y vuelve a intentarlo; tus datos siguen guardados.');
 }
 async function createInvite(role){
-  try{const teamPath=state.settings.teamId?`/api/v3/teams/${encodeURIComponent(state.settings.teamId)}/invites`:'/api/invites';const response=await fetch(`${state.settings.api}${teamPath}`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.settings.token}`},body:JSON.stringify({role,label:$('#inviteLabel')?.value||''})}),json=await response.json();if(!response.ok)throw Error(json.error||'No se pudo crear');const q=new URLSearchParams({api:state.settings.api,token:json.token,role,team:state.settings.teamId||'',name:teamLabel(),season:state.team.season||'',gender:state.team.gender||'neutral',color:state.team.color||'blue'});const link=`${location.origin}${location.pathname}#${q.toString()}`;$('#inviteResult').innerHTML=`<label class="field">Enlace<textarea id="inviteLink" rows="3" readonly>${esc(link)}</textarea></label><button class="btn" data-action="copy-invite">Copiar enlace</button>`;}catch(error){toast(error.message);}
+  try{await ensureCloudTeam();const teamPath=state.settings.teamId?`/api/v3/teams/${encodeURIComponent(state.settings.teamId)}/invites`:'/api/invites';const response=await fetch(`${state.settings.api}${teamPath}`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.settings.token}`},body:JSON.stringify({role,label:$('#inviteLabel')?.value||''})}),json=await response.json();if(!response.ok)throw Error(json.error||'No se pudo crear');const q=new URLSearchParams({api:state.settings.api,token:json.token,role,team:state.settings.teamId||'',name:teamLabel(),season:state.team.season||'',gender:state.team.gender||'neutral',color:state.team.color||'blue'});const link=`${location.origin}${location.pathname}#${q.toString()}`;$('#inviteResult').innerHTML=`<label class="field">Enlace<textarea id="inviteLink" rows="3" readonly>${esc(link)}</textarea></label><button class="btn" data-action="copy-invite">Copiar enlace</button>`;}catch(error){toast(error.message);}
 }
 async function loadInvites(){
   const box=$('#inviteManager');if(!box)return;box.innerHTML='<p class="muted">Cargando…</p>';
@@ -1402,9 +1421,10 @@ async function syncNow(){
   finally{syncing=false;paintSync();if(workspaceBook.activeId===workspaceId&&state.ops.length&&state.settings.role!=='viewer')scheduleSync();}
 }
 
-function paintSync(busy=false){const s=$('#syncStatus');if(!s)return;s.querySelector('b').textContent=busy?'Sincronizando':state.settings.api?'Conectado':'Local';s.classList.toggle('online',!!state.settings.api&&!busy);}
+function paintSync(busy=false){const s=$('#syncStatus');if(!s)return;s.querySelector('b').textContent=busy?'Sincronizando':state.settings.api?'En la nube':'Local';s.classList.toggle('online',!!state.settings.api&&!busy);}
 
 async function copyText(text){try{await navigator.clipboard.writeText(text);}catch(error){const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.append(area);area.select();if(!document.execCommand('copy'))throw error;area.remove();}toast('Copiado');}
+async function shareInstallPage(){const url=new URL('./instalar.html',location.href).href;try{if(navigator.share)await navigator.share({title:'Instalar Estadísticas',text:'Instala la app de estadísticas de baloncesto',url});else await copyText(url);}catch(error){if(error?.name!=='AbortError')await copyText(url);}}
 function exportJSON(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download=`estadisticas-${today()}.json`;a.click();URL.revokeObjectURL(a.href);}
 function install(){if(installPrompt){installPrompt.prompt();installPrompt=null;}else openModal('Instalar','Instalar aplicación','<p>En Chrome abre el menú y pulsa «Instalar aplicación».</p>');}
 function applyTheme(theme){theme=theme==='dark'?'dark':'light';document.documentElement.dataset.theme=theme;const color=theme==='dark'?'#0b0f16':'#f3f5f8',meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=color;document.documentElement.style.backgroundColor=color;document.body.style.backgroundColor=color;applyTeamIdentity();}
@@ -1419,7 +1439,7 @@ document.addEventListener('click',async e=>{
   const a=e.target.closest('[data-action]');if(!a)return;const act=a.dataset.action;
   const write=new Set(['import-games','import-roster','confirm-import','start-live','quarter','add-live','pick-live-player','undo-live','discard-live','confirm-discard-live','finish-live','confirm-live-merge','keep-live-pending','merge-pending-manual','open-shot','shot-for-game','shot-kind','swap-shot-teams','delete-selected-shot','clear-shots','apply-shot-json','save-shots']);
   if(state.settings.role==='viewer'&&write.has(act))return toast('Enlace de solo lectura');
-  if(act==='close-modal')return closeModal();if(act==='toggle-theme'){const th=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(th);localStorage.setItem('estadisticas_theme',th);render();return;}if(act==='install')return install();if(act==='open-teams')return openTeams();if(act==='switch-team')return switchWorkspace(a.dataset.id);if(act==='create-team')return createWorkspace();if(act==='remove-team')return removeWorkspace(a.dataset.id);if(act==='open-settings'||act==='open-sync')return openSettings();if(act==='save-settings')return saveSettings();if(act==='load-invites')return loadInvites();if(act==='revoke-invite')return revokeInvite(a.dataset.id);if(act==='export-json')return exportJSON();if(act==='create-invite')return createInvite(a.dataset.role);if(act==='copy-invite')return copyText($('#inviteLink').value);
+  if(act==='close-modal')return closeModal();if(act==='toggle-theme'){const th=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(th);localStorage.setItem('estadisticas_theme',th);render();return;}if(act==='install')return install();if(act==='open-teams')return openTeams();if(act==='switch-team')return switchWorkspace(a.dataset.id);if(act==='create-team')return createWorkspace();if(act==='remove-team')return removeWorkspace(a.dataset.id);if(act==='open-settings'||act==='open-sync')return openSettings();if(act==='save-settings')return saveSettings();if(act==='load-invites')return loadInvites();if(act==='revoke-invite')return revokeInvite(a.dataset.id);if(act==='export-json')return exportJSON();if(act==='share-install')return shareInstallPage();if(act==='create-invite')return createInvite(a.dataset.role);if(act==='copy-invite')return copyText($('#inviteLink').value);
   if(act==='stats-mode'){statsMode=['average','total','compare'].includes(a.dataset.mode)?a.dataset.mode:'average';return render();}
   if(act==='metric-breakdown'&&modalContext?.type==='metric')return openTeamMetricDetail(modalContext.key,a.dataset.mode==='average'?'average':'total');
    if(act==='player-share'&&modalContext?.type==='player')return openPlayerDetail(modalContext.key,modalContext.metric,a.dataset.mode==='season'?'season':'average');
@@ -1437,7 +1457,7 @@ $('#fileInput').addEventListener('change',e=>handleFiles([...e.target.files]));
 document.addEventListener('focusout',()=>setTimeout(()=>{if(renderAfterEdit&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){renderAfterEdit=false;render();}},0));
 document.addEventListener('keydown',e=>{const modal=$('#modal');if(e.key==='Escape'&&!modal.hidden){closeModal();return;}if(e.key==='Tab'&&!modal.hidden){const focusable=$$('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',$('.modal-sheet')).filter(item=>item.offsetParent!==null);if(focusable.length){const first=focusable[0],last=focusable.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-detail],[data-action="trend-game"]'))e.target.click();});
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;});
-if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn);
+if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js?v=12',{updateViaCache:'none'}).then(reg=>reg.update()).catch(console.warn);
 function importSharedTeamFromQuery(){
   const query=new URLSearchParams(location.search),fragment=new URLSearchParams(location.hash.replace(/^#/,'')),source=query.get('api')?query:fragment,api=source.get('api'),token=source.get('token');if(!api||!token)return;
   persistWorkspace();const teamId=source.get('team')||'',name=source.get('name')||'Equipo compartido',season=source.get('season')||'',gender=source.get('gender')||'neutral',color=source.get('color')||'blue';

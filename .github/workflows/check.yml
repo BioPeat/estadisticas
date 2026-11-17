@@ -1,4 +1,4 @@
-name: check-v11
+name: check-v12
 on: [push, pull_request]
 jobs:
   test:
@@ -14,3 +14,4 @@ jobs:
       - run: python -m py_compile tools/*.py tests/smoke.py
       - run: python tools/validate.py . --allow-assets
       - run: python tests/smoke.py
+      - run: python tests/updater_e2e.py

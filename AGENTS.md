@@ -1,11 +1,12 @@
-# Reglas de mantenimiento · v11
-
-- No modificar el SVG `data-logo="aro-vector"` ni entregar `assets/`.
-- Mantener `STORE = 'estadisticas_shared_v2'`: es la fuente de migración de Buen Consejo.
-- Mantener `MULTI_STORE = 'estadisticas_multiteam_v11'` y el aislamiento por espacio.
-- Mantener las rutas w2 del Worker (`/api/events`, `/api/invites`, `/api/setup`) y sus tablas.
-- No incluir URL real, tokens, copias privadas, Excel, capturas con credenciales ni datos inventados.
-- Conservar `team.gender` y `team.color`; Buen Consejo se migra como `female` + `red`. La paleta por defecto es azul/naranja y los textos usan `genderTerms()`.
-- Directo ausente es `null`/hueco, no cero. ROB/PER es un cociente; Balance ROB−PER lleva el signo.
-- Todo gráfico de temporada larga debe desplazarse, no comprimirse indefinidamente.
-- Antes de publicar: `node --check`, `tools/validate.py`, `tests/smoke.py`, claro/oscuro y tres tamaños móviles.
+# AGENTS · v12
+- Conserva `STORE = 'estadisticas_shared_v2'` y `MULTI_STORE = 'estadisticas_multiteam_v11'` para migración.
+- No renombres ni borres rutas/tablas w2. No llames a `/api/setup` en actualizaciones.
+- No incluyas tokens, copias privadas ni capturas con credenciales.
+- No entregues ni modifiques `assets/` o el logo `data-logo="aro-vector"`.
+- Directo ausente es `null`/hueco, nunca cero.
+- Posesiones extra = `(orbFor + steal) - (orbAgainst + turnover)`.
+- «per» en estos datos significa pérdidas, no Player Efficiency Rating.
+- Mantén género, paleta y aislamiento por workspace/teamId.
+- Ejecuta `tools/validate.py` y `tests/smoke.py` antes de publicar.
+- `instalar.html` debe instalar la PWA real (manifest/start_url raíz), no otra app; mantener fallbacks iOS/in-app y capturas anonimizadas.
+- `actualizar.html` no se bloquea a una versión: conservar contexto íntegro, partes, `content`, create/delete y autocambio. Nunca permitir `assets/`.

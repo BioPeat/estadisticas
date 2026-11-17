@@ -1,7 +1,7 @@
 {
   "name": "Estadísticas · Multiequipo",
   "short_name": "Estadísticas",
-  "description": "Estadísticas v11 · equipos privados y estadísticas de baloncesto",
+  "description": "Estadísticas v12 · equipos privados y estadísticas de baloncesto",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

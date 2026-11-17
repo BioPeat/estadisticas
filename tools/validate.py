@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Validación estática, sintáctica, de fixtures y de secretos para Estadísticas v11."""
+"""Validación estática, sintáctica, de fixtures y de secretos para Estadísticas v12."""
 from pathlib import Path
 import argparse, json, subprocess, zipfile
 parser=argparse.ArgumentParser();parser.add_argument('root',nargs='?',default=str(Path(__file__).resolve().parents[1]));parser.add_argument('--excel-dir');parser.add_argument('--private-backup');parser.add_argument('--allow-assets',action='store_true');args=parser.parse_args()
 ROOT=Path(args.root).resolve();errors=[]
-required=['index.html','app.js','styles.css','config.js','sw.js','manifest.json','worker.js','configurar.html','actualizar.html','.gitignore','AGENTS.md','CHANGELOG.md','README.md','AUDITORIA_v11.md','tests/smoke.py','tests/fixtures/real_3_partidos.json','tests/fixtures/dehesa_directo_sanitizado.json','tools/capture.py','tools/generar_guia_pdf.py','.github/workflows/check.yml']
+required=['index.html','app.js','styles.css','config.js','sw.js','manifest.json','worker.js','configurar.html','actualizar.html','instalar.html','landing/equipo.webp','landing/directo.webp','landing/jugadora.webp','landing/compartir.webp','.gitignore','AGENTS.md','CHANGELOG.md','README.md','AUDITORIA_v12.md','tests/smoke.py','tests/updater_e2e.py','tests/fixtures/real_3_partidos.json','tests/fixtures/dehesa_directo_sanitizado.json','tools/capture.py','tools/generar_guia_pdf.py','.github/workflows/check.yml']
 for rel in required:
  if not (ROOT/rel).is_file():errors.append(f'falta {rel}')
 def text(rel):
@@ -15,12 +15,14 @@ def need(rel,*tokens):
  for token in tokens:
   if token not in value:errors.append(f'{rel}: falta {token!r}')
  return value
-app=need('app.js',"APP_VERSION = 'v11'","STORE = 'estadisticas_shared_v2'","MULTI_STORE = 'estadisticas_multiteam_v11'",'openScoreChartDetail','playerShareData','robPerDisplay','recordedLiveGames','createWorkspace','switchWorkspace','detectGender','genderTerms','PALETTES','/api/v3/teams')
-css=need('styles.css','score-chart-scroller','score-margin','metric-evolution','workspace-row','negative-value','--team','--rival')
-need('index.html','Estadísticas v11 multiequipo','data-logo="aro-vector"','id="teamButton"','config.js','<small>v11</small>')
-need('worker.js',"version:'w3'","legacy:'w2-compatible'",'CREATE TABLE IF NOT EXISTS access_tokens','CREATE TABLE IF NOT EXISTS events','CREATE TABLE IF NOT EXISTS teams','CREATE TABLE IF NOT EXISTS team_events','/api/setup','/api/events')
-need('sw.js','estadisticas-v11-','./config.js')
-need('actualizar.html','SOLO UNA VEZ','EN CADA ACTUALIZACIÓN','CONTEXTO_ACTUAL_ESTADISTICAS.md',"patch.version!=='v11'",'varios archivos')
+app=need('app.js',"APP_VERSION = 'v12'","STORE = 'estadisticas_shared_v2'","MULTI_STORE = 'estadisticas_multiteam_v11'",'openScoreChartDetail','playerShareData','robPerDisplay','recordedLiveGames','createWorkspace','switchWorkspace','detectGender','genderTerms','PALETTES','/api/v3/teams','ensureCloudTeam','snapshotOps','Posesiones extra')
+css=need('styles.css','score-chart-scroller','score-margin','metric-evolution','workspace-row','negative-value','--team','--rival','share-simple','possession-card')
+need('instalar.html','beforeinstallprompt','Instalar app','Usar en el navegador','Añadir a pantalla de inicio','landing/equipo.webp','sw.js?v=12')
+need('index.html','Estadísticas v12 universal y multiequipo','data-logo="aro-vector"','id="teamButton"','config.js','<small>v12</small>')
+need('worker.js',"version:'w4-v12'","legacy:'w2-compatible'",'CREATE TABLE IF NOT EXISTS access_tokens','CREATE TABLE IF NOT EXISTS events','CREATE TABLE IF NOT EXISTS teams','CREATE TABLE IF NOT EXISTS team_events','CREATE TABLE IF NOT EXISTS rate_limits','/api/setup','/api/events')
+need('sw.js','estadisticas-v12-','./config.js','./instalar.html','./landing/equipo.webp')
+need('actualizar.html','SOLO UNA VEZ','EN CADA ACTUALIZACIÓN','CONTEXTO_ACTUAL_ESTADISTICAS.md','contextParts','totalParts','targetVersion','CONTEXTO_SIGUIENTE_ESTADISTICAS.md','assets/ nunca se modifica')
+need('tests/updater_e2e.py','visual-multi','app-grande','worker-doc-v13','contextParts')
 need('tests/smoke.py','(360,640)','(390,844)','(412,915)','long_season','Equipo aislado','team-prueba','ESTADISTICAS_REAL_BACKUP','newTeamGender','Junior Masculino A')
 need('.gitignore','captures/','__pycache__/','*.pyc')
 for script in ['app.js','worker.js','sw.js','config.js']:
@@ -39,7 +41,7 @@ if not args.allow_assets and (ROOT/'assets').exists():errors.append('assets/ est
 # Busca exactamente los secretos de la copia privada sin imprimirlos.
 if args.private_backup:
  try:
-  private=json.loads(Path(args.private_backup).read_text(encoding='utf-8'));secrets=[private.get('settings',{}).get(k,'') for k in ('api','token')];secrets=[x for x in secrets if isinstance(x,str) and len(x)>=8]
+  private=json.loads(Path(args.private_backup).read_text(encoding='utf-8'));secrets=[private.get('settings',{}).get(k,'') for k in ('token',)];secrets=[x for x in secrets if isinstance(x,str) and len(x)>=8]
   for file in ROOT.rglob('*'):
    if not file.is_file() or file.suffix.lower() in {'.png','.jpg','.jpeg','.pdf','.zip','.xlsx'}:continue
    raw=file.read_text(encoding='utf-8',errors='ignore')
@@ -54,4 +56,4 @@ if args.excel_dir:
   except Exception as exc:errors.append(f'{book.name}: {exc}')
 if errors:
  print('\n'.join('ERROR · '+item for item in errors));raise SystemExit(1)
-print('OK · v11: sintaxis, multiequipo, Worker compatible, gráficos, fixtures, Excel y secretos')
+print('OK · v12: sintaxis, multiequipo, Worker compatible, gráficos, fixtures, Excel y secretos')

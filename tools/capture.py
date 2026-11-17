@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capturas reales de la interfaz v11; elimina conexión y credenciales antes de renderizar."""
+"""Capturas reales de la interfaz v12; elimina conexión y credenciales antes de renderizar."""
 from pathlib import Path
 from threading import Thread
 from http.server import ThreadingHTTPServer,SimpleHTTPRequestHandler
@@ -22,7 +22,7 @@ class Quiet(SimpleHTTPRequestHandler):
 server=ThreadingHTTPServer(('127.0.0.1',0),partial(Quiet,directory=ROOT));Thread(target=server.serve_forever,daemon=True).start();url=f'http://127.0.0.1:{server.server_port}/'
 try:
  with sync_playwright() as pw:
-  browser=pw.chromium.launch(headless=True,executable_path='/opt/pw-browsers/chromium-1228/chrome-linux64/chrome')
+  candidate=Path('/opt/pw-browsers/chromium-1228/chrome-linux64/chrome');launch={'headless':True};launch.update({'executable_path':str(candidate)} if candidate.exists() else {});browser=pw.chromium.launch(**launch)
   page=browser.new_page(viewport={'width':390,'height':844},device_scale_factor=1);page.goto(url,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',state)
   page.screenshot(path=str(OUT/'01_equipo_claro_390x844.png'),full_page=False)
   if page.locator('.live-stat-card').count(): page.locator('.live-stat-card').first.scroll_into_view_if_needed();page.screenshot(path=str(OUT/'02_directo_integrado_claro.png'),full_page=False)
@@ -36,4 +36,4 @@ try:
   page3=browser.new_page(viewport={'width':390,'height':844});page3.goto(url,wait_until='networkidle');page3.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',male);page3.screenshot(path=str(OUT/'09_paleta_universal_equipo.png'),full_page=False);page3.click('.bottom-nav [data-go="players"]');page3.screenshot(path=str(OUT/'10_masculino_jugadores.png'),full_page=False)
   browser.close()
 finally:server.shutdown()
-print(f'OK · {len(list(OUT.glob("*.png")))} capturas v11 en {OUT}')
+print(f'OK · {len(list(OUT.glob("*.png")))} capturas v12 en {OUT}')

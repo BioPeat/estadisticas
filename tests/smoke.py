@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regresión funcional de Estadísticas v11: móvil, gráficos, Directo y multiequipo."""
+"""Regresión funcional de Estadísticas v12: móvil, gráficos, Directo y multiequipo."""
 from pathlib import Path
 from threading import Thread
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -12,6 +12,8 @@ STATE=json.loads((ROOT/'tests/fixtures/real_3_partidos.json').read_text(encoding
 DEHESA=json.loads((ROOT/'tests/fixtures/dehesa_directo_sanitizado.json').read_text(encoding='utf-8'))
 REAL_PATH=os.environ.get('ESTADISTICAS_REAL_BACKUP','')
 REAL=json.loads(Path(REAL_PATH).read_text(encoding='utf-8')) if REAL_PATH else None
+SECOND_PATH=os.environ.get('ESTADISTICAS_SECOND_BACKUP','')
+SECOND=json.loads(Path(SECOND_PATH).read_text(encoding='utf-8')) if SECOND_PATH else None
 
 class Quiet(SimpleHTTPRequestHandler):
     def log_message(self,*args): pass
@@ -33,12 +35,15 @@ def long_season(base,count=25):
 
 try:
   with sync_playwright() as pw:
-    browser=pw.chromium.launch(headless=True,executable_path='/opt/pw-browsers/chromium-1228/chrome-linux64/chrome')
+    candidate=Path('/opt/pw-browsers/chromium-1228/chrome-linux64/chrome')
+    launch={'headless':True}
+    if candidate.exists(): launch['executable_path']=str(candidate)
+    browser=pw.chromium.launch(**launch)
     # Tres tamaños, claro/oscuro y datos sin Directo.
     for width,height in [(360,640),(390,844),(412,915)]:
       page=browser.new_page(viewport={'width':width,'height':height});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
       page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state(STATE))
-      assert page.evaluate('window.__ESTADISTICAS__.APP_VERSION')=='v11'
+      assert page.evaluate('window.__ESTADISTICAS__.APP_VERSION')=='v12'
       assert page.locator('[data-logo="aro-vector"]').count()==1
       assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='female'
       assert page.evaluate('window.__ESTADISTICAS__.getState().team.color')=='red'
@@ -48,7 +53,7 @@ try:
       assert page.locator('.live-stat-card').count()==0
       assert page.locator('.live-data-block').count()==0
       assert page.locator('.stats-grid .stat-card').count()>=11
-      assert page.locator('.stat-card .dual-trend.compact').count()>=11
+      assert page.locator('.stat-card .dual-trend.compact').count()>=10
       assert page.locator('.score-margin').count()==3
       assert float(page.locator('.score-margin').first.evaluate("e=>getComputedStyle(e).fontSize.replace('px','')"))>=15
       assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth+1')
@@ -61,18 +66,32 @@ try:
       page=browser.new_page(viewport={'width':390,'height':844});page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state(REAL))
       assert page.evaluate('window.__ESTADISTICAS__.getState().games.length')==4
       assert page.evaluate('window.__ESTADISTICAS__.recordedLiveGames().length')==1
-      assert page.locator('.stats-grid .live-stat-card').count()==2
+      page.click('[data-action="open-settings"]');assert page.locator('text=Servidor de sincronización').count()==0;assert page.locator('text=Conexión avanzada').count()==0;assert page.locator('text=Token').count()==0;assert page.locator('[data-action="share-install"]').is_visible();page.click('.modal-sheet .icon-button')
+      assert page.locator('.stats-grid .live-stat-card').count()==3
       assert page.locator('.live-data-block').count()==0
-      assert page.locator('.live-stat-card .dual-trend.compact').count()==2
+      assert page.locator('.live-stat-card .paired-bars').count()==2
+      assert page.locator('.possession-card').count()==1
+      assert page.evaluate("window.__ESTADISTICAS__.liveMetricRows('possession')[0].own")==13
       page.click('.bottom-nav [data-go="players"]');page.locator('.player-rank',has_text='Eider').click()
       assert page.locator('.share-mode',has_text='Por partido').is_visible()
       assert page.locator('.donut',has_text='Cuota puntos · por partido').is_visible()
-      assert page.locator('.detail-stats',has_text='ROB/PER').is_visible()
-      assert page.locator('.detail-stats',has_text='Balance ROB−PER').is_visible()
-      assert page.locator('.negative-value',has_text='-2').is_visible()
+      assert page.locator('.detail-stats',has_text='Ratio robos/pérdidas').is_visible()
+      assert page.locator('.detail-stats',has_text='Balance (ROB + REB O) − pérdidas').is_visible()
       assert page.locator('.inline-data-note',has_text='nunca es negativo').is_visible()
+      assert page.locator('.detail-stats',has_text='FAL/40').count()==0
       page.click('[data-action="player-share"][data-mode="season"]')
       assert page.locator('.donut',has_text='temporada').count()==2
+      page.close()
+
+    # Segundo equipo real: seis partidos, masculino y sin Directo.
+    if SECOND:
+      page=browser.new_page(viewport={'width':412,'height':915});page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state(SECOND))
+      assert page.evaluate('window.__ESTADISTICAS__.getState().games.length')==6
+      assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='male'
+      assert page.evaluate('window.__ESTADISTICAS__.recordedLiveGames().length')==0
+      assert page.locator('.live-stat-card').count()==0
+      page.click('.bottom-nav [data-go="players"]');assert page.locator('.team-players-label').first.inner_text()=='Jugadores'
+      assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth+1')
       page.close()
 
     # 25 partidos: todos los puntos, desplazamiento y vista ampliada.
@@ -85,10 +104,11 @@ try:
     page.close()
 
     # Multiequipo local: cambio e aislamiento total.
-    page=browser.new_page(viewport={'width':390,'height':844});page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state(STATE))
+    page=browser.new_page(viewport={'width':390,'height':844});page.goto(URL,wait_until='networkidle');page.evaluate("localStorage.setItem('estadisticas_service_api','http://127.0.0.1:1')");page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state(STATE))
     original_id=page.evaluate('window.__ESTADISTICAS__.getWorkspaceBook().activeId')
     page.click('[data-action="open-teams"]');page.fill('#newTeamName','Equipo aislado');page.fill('#newTeamSeason','27/28');page.click('[data-action="create-team"]');assert 'Elige femenino' in page.locator('#toast').inner_text()
     page.select_option('#newTeamGender','male');page.select_option('#newTeamColor','blue');page.click('[data-action="create-team"]')
+    page.wait_for_function('window.__ESTADISTICAS__.getWorkspaceBook().workspaces.length===2')
     assert page.evaluate('window.__ESTADISTICAS__.getState().games.length')==0
     assert page.evaluate('window.__ESTADISTICAS__.getWorkspaceBook().workspaces.length')==2
     isolated_id=page.evaluate('window.__ESTADISTICAS__.getWorkspaceBook().activeId');assert isolated_id!=original_id
@@ -98,11 +118,12 @@ try:
     assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='female'
     page.evaluate('(id)=>window.__ESTADISTICAS__.switchWorkspace(id)',isolated_id);assert page.evaluate('window.__ESTADISTICAS__.getState().games.length')==1
     page.click('[data-action="open-teams"]');page.fill('#newTeamName','Equipo sin detectar');page.select_option('#newTeamGender','neutral');page.select_option('#newTeamColor','purple');page.click('[data-action="create-team"]')
+    page.wait_for_function('window.__ESTADISTICAS__.getWorkspaceBook().workspaces.length===3')
     assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='neutral'
     page.click('.bottom-nav [data-go="players"]');assert page.locator('.team-players-label').first.inner_text()=='Jugadores'
     page.close()
 
-    # Enlace v11: crea/abre solo su equipo y aplica el rol lector.
+    # Enlaces v12: crea/abre solo su equipo y aplica el rol lector.
     context=browser.new_context(viewport={'width':390,'height':844})
     page=context.new_page();page.route('https://sync.test/**',lambda route:route.fulfill(status=200,content_type='application/json',body='{"events":[],"lastSeq":0}'))
     page.goto(URL+'?api=https%3A%2F%2Fsync.test&token=token-prueba&role=viewer&team=team-prueba&name=Equipo%20Compartido&season=27%2F28&gender=male&color=purple',wait_until='networkidle')
@@ -112,6 +133,14 @@ try:
     assert page.evaluate('window.__ESTADISTICAS__.getState().team.color')=='purple'
     assert page.locator('[data-action="import-games"]:visible').count()==0
     assert 'token=' not in page.url
+    page.goto(URL+'?open=2#api=https%3A%2F%2Fsync.test&token=editor-otro&role=editor&team=team-otro&name=Segundo%20Equipo&season=27%2F28&gender=female&color=teal',wait_until='networkidle')
+    assert page.evaluate('window.__ESTADISTICAS__.getState().settings.teamId')=='team-otro'
+    assert page.evaluate('window.__ESTADISTICAS__.getState().settings.role')=='editor'
+    assert page.evaluate('window.__ESTADISTICAS__.getWorkspaceBook().workspaces.length')==2
+    first_id=page.evaluate("window.__ESTADISTICAS__.getWorkspaceBook().workspaces.find(w=>w.data.settings.teamId==='team-prueba').id")
+    page.evaluate('(id)=>window.__ESTADISTICAS__.switchWorkspace(id)',first_id)
+    assert page.evaluate('window.__ESTADISTICAS__.getState().settings.role')=='viewer'
+    assert page.evaluate('window.__ESTADISTICAS__.getState().team.name')=='Equipo Compartido'
     context.close()
 
     # Migración exacta del almacén v10: un equipo, mismos datos, sin recrear enlace.
@@ -127,7 +156,7 @@ try:
       assert page.evaluate('window.__ESTADISTICAS__.getState().team.color')=='red'
       context.close()
 
-    # Creación en nube simulada: el propietario recibe un espacio aislado v11.
+    # Creación en nube simulada: el propietario recibe un espacio aislado v12.
     context=browser.new_context(viewport={'width':390,'height':844})
     context.add_init_script(script="localStorage.setItem('estadisticas_service_api','https://sync.test')")
     page=context.new_page()
@@ -145,13 +174,37 @@ try:
     assert page.evaluate('window.__ESTADISTICAS__.getState().team.color')=='teal'
     context.close()
 
+    # Un equipo local con siete operaciones sube todos sus datos al compartir por primera vez.
+    context=browser.new_context(viewport={'width':390,'height':844})
+    context.add_init_script(script="localStorage.setItem('estadisticas_service_api','https://sync.test')")
+    page=context.new_page();posted=[]
+    def promote(route):
+      r=route.request
+      if r.method=='POST' and r.url.endswith('/api/v3/teams'):
+        route.fulfill(status=201,content_type='application/json',body='{"team":{"id":"cloud-local","name":"Local","season":"26/27"},"admin":{"token":"owner-test","role":"admin"}}')
+      elif r.method=='POST' and r.url.endswith('/events'):
+        posted.extend(json.loads(r.post_data or '{}').get('events',[]));route.fulfill(status=200,content_type='application/json',body='{"ok":true,"accepted":20}')
+      elif r.method=='GET' and '/events?' in r.url:
+        route.fulfill(status=200,content_type='application/json',body='{"events":[],"lastSeq":0}')
+      elif r.method=='POST' and r.url.endswith('/invites'):
+        route.fulfill(status=201,content_type='application/json',body='{"id":"invite-1","role":"editor","token":"editor-test"}')
+      else: route.fulfill(status=200,content_type='application/json',body='{}')
+    page.route('https://sync.test/**',promote);page.goto(URL,wait_until='networkidle')
+    local=clean_state(STATE);local['team']={'name':'Equipo local','season':'26/27','gender':'male','color':'blue'};local['ops']=[{'id':f'pending-{i}','at':'2026-11-16T12:00:00Z','type':'set-team','payload':{'team':local['team']}} for i in range(7)]
+    page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',local);page.click('[data-action="open-settings"]')
+    assert page.locator('text=La primera vez subiremos automáticamente').is_visible();page.click('[data-action="create-invite"][data-role="editor"]');page.wait_for_selector('#inviteLink')
+    assert page.evaluate('window.__ESTADISTICAS__.getState().settings.teamId')=='cloud-local'
+    assert any(e['type']=='set-roster' for e in posted) and sum(e['type']=='replace-game' for e in posted)==3
+    assert '#api=' in page.locator('#inviteLink').input_value() and 'role=editor' in page.locator('#inviteLink').input_value()
+    context.close()
+
     # Importación real de los tres Excel de partido y la plantilla, si se facilitan.
     excel_dir=os.environ.get('ESTADISTICAS_EXCEL_DIR','')
     if excel_dir:
       books=sorted(str(path) for path in Path(excel_dir).glob('estadisticaPartido*.xlsx'))
       roster=next(iter(Path(excel_dir).glob('jugadores*.xlsx')),None)
       assert len(books)>=3 and roster
-      page=browser.new_page(viewport={'width':390,'height':844});page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state({'version':11,'team':{'name':'Buen Consejo','season':'26/27','gender':'neutral','color':'blue'}}))
+      page=browser.new_page(viewport={'width':390,'height':844});page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state({'version':12,'team':{'name':'Buen Consejo','season':'26/27','gender':'neutral','color':'blue'}}))
       assert page.evaluate("window.__ESTADISTICAS__.detectGender([['2ª Div Aut Fem ORO']])")=='female'
       assert page.evaluate("window.__ESTADISTICAS__.detectGender([['Junior Masculino A']])")=='male'
       assert page.evaluate("window.__ESTADISTICAS__.detectGender([['Junior Preferente']])") is None
@@ -162,9 +215,26 @@ try:
       assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='female'
       page.close()
 
+    # Landing de instalación: cuatro tamaños, temas, CTA real y fallback iOS.
+    for width,height in [(360,640),(390,844),(412,915),(1440,900)]:
+      page=browser.new_page(viewport={'width':width,'height':height});page.goto(URL+'instalar.html',wait_until='networkidle')
+      assert page.locator('svg[aria-label="Logo Aro vector"]').count()==1
+      assert page.locator('#install',has_text='Instalar app').is_visible()
+      assert page.locator('a#openApp').get_attribute('href')=='./?from=landing'
+      assert page.locator('.feature').count()==9
+      assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth+1')
+      page.click('#theme');assert page.locator('html').get_attribute('data-theme')=='dark'
+      if width==390:
+        page.evaluate("""() => {window.__promptCalls=0;const e=new Event('beforeinstallprompt');e.prompt=()=>{window.__promptCalls++};e.userChoice=Promise.resolve({outcome:'accepted'});window.dispatchEvent(e)}""")
+        page.click('#install');page.wait_for_function('window.__promptCalls===1')
+      page.close()
+    ios=browser.new_context(viewport={'width':390,'height':844},user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1')
+    page=ios.new_page();page.goto(URL+'instalar.html',wait_until='networkidle');page.click('#install');assert page.locator('#installHelp',has_text='Compartir').is_visible();assert page.locator('#installHelp',has_text='Añadir a pantalla de inicio').is_visible();ios.close()
+
     # actualizar.html: petición realista que modifica dos archivos en una sola respuesta.
     page=browser.new_page(viewport={'width':1280,'height':900});page.goto(URL+'actualizar.html',wait_until='networkidle');page.set_input_files('#repoFolder',str(ROOT));page.wait_for_function("document.querySelector('#fileSummary').classList.contains('ok')")
-    patch={'version':'v11','files':[{'path':'config.js','changes':[{'find':"window.ESTADISTICAS_CONFIG = { serviceApi: '' };",'replace':"window.ESTADISTICAS_CONFIG = { serviceApi: '' };\n// Cambio multiarchivo de prueba validado."}]},{'path':'docs/NOTA_MULTIARCHIVO.md','content':'# Prueba\nArchivo nuevo creado junto con un cambio en config.js.\n'}]}
+    config_text=(ROOT/'config.js').read_text(encoding='utf-8')
+    patch={'version':'v12','files':[{'path':'config.js','changes':[{'find':config_text,'replace':config_text+'\n// Cambio multiarchivo de prueba validado.'}]},{'path':'docs/NOTA_MULTIARCHIVO.md','content':'# Prueba\nArchivo nuevo creado junto con un cambio en config.js.\n'}]}
     page.fill('#answer',json.dumps(patch,ensure_ascii=False));page.click('#build');page.wait_for_function("document.querySelector('#status').classList.contains('ok')")
     with page.expect_download() as download_info: page.click('#download')
     download=download_info.value;target=Path(download.suggested_filename);download.save_as(target)
@@ -176,4 +246,4 @@ try:
     browser.close()
 finally:
   server.shutdown()
-print('OK · v11: móvil, temas, Directo, cuotas, ratio, 25 partidos, multiequipo, género, colores, enlaces, Excel, actualizador y migración')
+print('OK · v12: móvil, temas, Directo, cuotas, ratio, 25 partidos, multiequipo, género, colores, enlaces, Excel, actualizador y migración')

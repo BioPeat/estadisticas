@@ -1,17 +1,12 @@
-# Mapa del código · v11
-
-- `index.html`: estructura, navegación y selector de equipo.
-- `app.js`: estado local, migración, multiequipo, importador Excel, cálculos, vistas, Directo y sincronización.
-  - `loadWorkspaceBook` / `switchWorkspace`: aislamiento local.
-  - `detectGender` / `genderTerms` / `applyTeamIdentity`: categoría, lenguaje y color por equipo.
-  - `scoreChart` / `openScoreChartDetail`: marcador desplazable y ampliado.
-  - `playerShareData` / `robPerDisplay`: cuotas y ratio.
-  - `TEAM_METRICS` / `LIVE_METRICS`: métricas integradas.
-  - `syncNow`: rutas legacy o v3 según el equipo.
-- `styles.css`: temas, móvil, gráficos, modales y multiequipo.
-- `worker.js`: Worker w3 y compatibilidad w2.
-- `config.js`: URL pública opcional del servicio; nunca tokens.
-- `configurar.html`: genera `config.js` sin editar código.
-- `actualizar.html`: contexto actual + parche multiarchivo + ZIP.
-- `tests/smoke.py`: regresión funcional.
-- `tools/validate.py`: validación y detector de secretos.
+# Mapa del código v12
+- `app.js`: estado/migración; importación FBM; agregados; gráficos; UI; Directo; multiequipo; `snapshotOps`, `ensureCloudTeam`, invitaciones y sync.
+- `styles.css`: diseño responsive, paletas, marcador, tarjetas, jugadores, compartir.
+- `sw.js`: caché v12 network-first y limpieza de cachés anteriores.
+- `worker.js`: D1 w2 compatible + equipos v3 + límites básicos.
+- `config.js`: solo URL pública del servicio; nunca tokens.
+- `actualizar.html`: parche multiarchivo v12.
+- `tests/smoke.py`: tamaños, temas, datos reales, 25 partidos, migración y nube simulada.
+- `tools/validate.py`: sintaxis, estructura, fixtures y fuga de secretos.
+- `instalar.html` + `landing/*.webp`: landing pública, instalación PWA real, fallbacks y capturas anonimizadas.
+- `tests/updater_e2e.py`: tres actualizaciones E2E, contexto completo/partido, autocambio y salto de versión.
+- `PRUEBAS_ACTUALIZADOR_E2E.md`: evidencia y límites de tamaño.
