@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f3f5f8">
-  <meta name="description" content="Estadísticas v12 universal y multiequipo">
+  <meta name="description" content="Estadísticas v12.3 universal y multiequipo">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Estadísticas</title>
-  <link rel="manifest" href="manifest.json?v=12">
+  <link rel="manifest" href="manifest.json?v=12.3">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=12">
+  <link rel="stylesheet" href="styles.css?v=12.3">
   <script>try{const t=localStorage.getItem('estadisticas_theme')||'light';document.documentElement.dataset.theme=t;document.querySelector('meta[name=theme-color]').content=t==='dark'?'#0b0f16':'#f3f5f8';document.documentElement.style.backgroundColor=t==='dark'?'#0b0f16':'#f3f5f8'}catch(e){}</script>
 </head>
 <body>
@@ -45,7 +45,7 @@
         <button data-go="players"><span>♙</span><span><b class="team-players-label">Jugadores</b><small>Rendimiento</small></span></button>
         <button data-go="games"><span>□</span><span><b>Partidos</b><small>Actas y mapas</small></span></button>
       </nav>
-      <footer><b id="roleLabel">ADMIN</b><small>v12</small></footer>
+      <footer><b id="roleLabel">ADMIN</b><small>v12.3</small></footer>
     </aside>
     <main id="main" tabindex="-1"><div id="view"></div></main>
     <nav class="bottom-nav" aria-label="Secciones">
@@ -59,8 +59,8 @@
   <div id="modal" class="modal" hidden aria-hidden="true"><div class="modal-backdrop" data-action="close-modal"></div><section class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><header><div><small id="modalKicker"></small><h2 id="modalTitle"></h2></div><button class="icon-button" data-action="close-modal" aria-label="Cerrar">×</button></header><div id="modalBody"></div></section></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <input id="fileInput" type="file" accept=".xlsx" multiple hidden>
-  <script src="config.js?v=12"></script>
+  <script src="config.js?v=12.3"></script>
   <script src="assets/jszip.min.js"></script>
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=12.3"></script>
 </body>
 </html>

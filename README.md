@@ -1,38 +1,35 @@
-# Estadísticas v12
+# Estadísticas v12.3
 
 PWA local-first y multiequipo para actas FBM, Directo, mapas y sincronización privada.
 
-## Novedades visibles
-- Marcador horizontal desplazable, etiquetas legibles y ventana ampliada.
-- Diferencia como un único valor con signo y barras divergentes.
-- Gráficos por criterio: evolución en Por partido, barras en Totales y balance en Comparar.
-- Posesiones extra de Directo: `(REB O propios + robos) − (REB O rival + pérdidas propias)`.
-- Etiquetas universales basadas en el nombre del equipo; paletas Azul, Verde, Morado y Rojo.
-- Ficha individual sin FAL/40; «PER» se presenta como Pérdidas; balance `(ROB + REB O) − pérdidas`.
-- Compartir sin configuración: Editor o Lector. El primer enlace sube automáticamente el equipo local.
-- Ajustes normales sin URL del Worker ni token.
-- Recursos `?v=12` y service worker network-first para evitar mezclar versiones.
+## Novedades v12.3
+- Conflictos entre dos editores: cada partido y mapa lleva revisión/fecha; un reemplazo antiguo no pisa uno nuevo y los eventos de Directo se unen por id.
+- Worker `w5-v12.3`: límite real del stream, CORS restringido, cuotas atómicas, esquema versionado, último uso/caducidad opcional, id de petición y borrado completo por el propietario.
+- Gráficos de evolución con mínimo, máximo y línea cero.
+- Gestión de plantilla: quitar una persona conserva sus estadísticas históricas.
+- Objetivos táctiles y textos pequeños reforzados sin colorear columnas de la ficha individual.
+- Nueva landing de instalación móvil primero con tres pasos, funciones reales, privacidad, FAQ y fallbacks por navegador.
 
-## Publicar
-1. Conserva tu carpeta `assets/`; no viene en este paquete.
-2. Copia esta carpeta sobre el repositorio respetando `.github`, `tests` y `tools`.
-3. Publica el Worker de `5_CLOUDFLARE` antes de probar equipos nuevos compartidos.
-4. Haz commit y espera a GitHub Actions/Pages.
-5. Cierra y abre la PWA.
+## Compatibilidad
+- No se renombran `estadisticas_shared_v2` ni `estadisticas_multiteam_v11`.
+- Las rutas y tablas w2 siguen intactas. No se recrea D1 y no hay que llamar a `/api/setup`.
+- La app funciona en local y con el Worker anterior; las funciones nuevas de seguridad/borrado requieren desplegar `worker.js` v12.3.
 
 ## Comprobar
 ```bash
 python tools/validate.py . --allow-assets
-python tests/smoke.py
+node tests/worker_mock.mjs
+ESTADISTICAS_SECOND_BACKUP='tests/fixtures/estadisticas-2026-11-16 (4).json' python tests/smoke.py
+python tests/updater_e2e.py
 ```
-Chromium solo usa la ruta `/opt/pw-browsers/...` si existe; en GitHub Actions usa la instalación normal de Playwright.
+Chromium solo usa `/opt/pw-browsers/chromium-1228/chrome-linux64/chrome` si existe; en GitHub Actions usa Playwright sin ruta fija.
 
-## Página pública para instalar
-La landing independiente es `instalar.html`. La dirección que se comparte es **la URL actual de GitHub Pages de la app terminada en `/instalar.html`**. Por ejemplo, si la app abre en `https://USUARIO.github.io/REPOSITORIO/`, la dirección exacta es `https://USUARIO.github.io/REPOSITORIO/instalar.html`.
+## Publicar
+1. Conserva `assets/`; no se entrega ni modifica.
+2. Sustituye en GitHub los archivos indicados en el LEEME de la entrega, respetando rutas.
+3. Publica `5_CLOUDFLARE/worker.js` con los cuatro pasos de su LEEME; no toques D1.
+4. Haz commit y espera a que GitHub Actions termine en verde y GitHub Pages se actualice.
+5. Cierra y vuelve a abrir la PWA.
 
-Como el dominio y repositorio no están escritos en el código, Ajustes incluye **Compartir página de instalación**: al pulsarlo copia o comparte la URL exacta del sitio publicado, sin que el usuario tenga que construirla.
-
-Chrome/Edge/Android permiten el aviso de instalación en un toque cuando disparan `beforeinstallprompt`. iPhone/iPad Safari y navegadores internos no permiten iniciarlo desde JavaScript; la landing detecta el caso y muestra `Compartir → Añadir a pantalla de inicio` o pide abrir en Chrome/Safari.
-
-## Actualizaciones completas con IA
-`actualizar.html` cubre todo archivo de texto del repositorio salvo `assets/`, acepta sustitución completa, creación, borrado, varias partes y subidas de versión. Siempre genera el contexto posterior. Véase `PRUEBAS_ACTUALIZADOR_E2E.md`.
+## Gemini y Claude
+Sí hay que actualizar una vez las instrucciones y el conocimiento estable del Gem/Proyecto con los archivos v12.3. Después, en cada petición, genera contexto nuevo desde `actualizar.html`; no reutilices uno anterior.

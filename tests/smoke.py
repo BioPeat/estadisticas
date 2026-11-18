@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regresión funcional de Estadísticas v12: móvil, gráficos, Directo y multiequipo."""
+"""Regresión funcional de Estadísticas v12.3: móvil, gráficos, Directo y multiequipo."""
 from pathlib import Path
 from threading import Thread
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -43,7 +43,7 @@ try:
     for width,height in [(360,640),(390,844),(412,915)]:
       page=browser.new_page(viewport={'width':width,'height':height});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
       page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state(STATE))
-      assert page.evaluate('window.__ESTADISTICAS__.APP_VERSION')=='v12'
+      assert page.evaluate('window.__ESTADISTICAS__.APP_VERSION')=='v12.3'
       assert page.locator('[data-logo="aro-vector"]').count()==1
       assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='female'
       assert page.evaluate('window.__ESTADISTICAS__.getState().team.color')=='red'
@@ -159,15 +159,18 @@ try:
     # Creación en nube simulada: el propietario recibe un espacio aislado v12.
     context=browser.new_context(viewport={'width':390,'height':844})
     context.add_init_script(script="localStorage.setItem('estadisticas_service_api','https://sync.test')")
-    page=context.new_page()
+    page=context.new_page();auth_errors=[]
     def cloud(route):
       request=route.request
       if request.method=='POST' and request.url.endswith('/api/v3/teams'):
         route.fulfill(status=201,content_type='application/json',body='{"team":{"id":"cloud-1","name":"Nube A","season":"27/28"},"admin":{"token":"admin-prueba","role":"admin"}}')
+      elif request.headers.get('authorization')!='Bearer admin-prueba':
+        auth_errors.append(request.headers.get('authorization'));route.fulfill(status=401,content_type='application/json',body='{"error":"no"}')
       else: route.fulfill(status=200,content_type='application/json',body='{"events":[],"lastSeq":0}')
     page.route('https://sync.test/**',cloud);page.goto(URL,wait_until='networkidle')
     page.click('[data-action="open-teams"]');page.fill('#newTeamName','Nube A');page.fill('#newTeamSeason','27/28');page.select_option('#newTeamGender','female');page.select_option('#newTeamColor','teal');page.click('[data-action="create-team"]')
     page.wait_for_function("window.__ESTADISTICAS__.getState().settings.teamId==='cloud-1'")
+    page.wait_for_timeout(600);assert not auth_errors,auth_errors
     cloud_settings=page.evaluate('window.__ESTADISTICAS__.getState().settings')
     assert cloud_settings['teamId']=='cloud-1' and cloud_settings['role']=='admin'
     assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='female'
@@ -182,6 +185,8 @@ try:
       r=route.request
       if r.method=='POST' and r.url.endswith('/api/v3/teams'):
         route.fulfill(status=201,content_type='application/json',body='{"team":{"id":"cloud-local","name":"Local","season":"26/27"},"admin":{"token":"owner-test","role":"admin"}}')
+      elif '/api/v3/teams/' in r.url and r.headers.get('authorization')!='Bearer owner-test':
+        route.fulfill(status=401,content_type='application/json',body='{"error":"Enlace no válido"}')
       elif r.method=='POST' and r.url.endswith('/events'):
         posted.extend(json.loads(r.post_data or '{}').get('events',[]));route.fulfill(status=200,content_type='application/json',body='{"ok":true,"accepted":20}')
       elif r.method=='GET' and '/events?' in r.url:
@@ -204,7 +209,7 @@ try:
       books=sorted(str(path) for path in Path(excel_dir).glob('estadisticaPartido*.xlsx'))
       roster=next(iter(Path(excel_dir).glob('jugadores*.xlsx')),None)
       assert len(books)>=3 and roster
-      page=browser.new_page(viewport={'width':390,'height':844});page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state({'version':12,'team':{'name':'Buen Consejo','season':'26/27','gender':'neutral','color':'blue'}}))
+      page=browser.new_page(viewport={'width':390,'height':844});page.goto(URL,wait_until='networkidle');page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state({'version':12.3,'team':{'name':'Buen Consejo','season':'26/27','gender':'neutral','color':'blue'}}))
       assert page.evaluate("window.__ESTADISTICAS__.detectGender([['2ª Div Aut Fem ORO']])")=='female'
       assert page.evaluate("window.__ESTADISTICAS__.detectGender([['Junior Masculino A']])")=='male'
       assert page.evaluate("window.__ESTADISTICAS__.detectGender([['Junior Preferente']])") is None
@@ -215,13 +220,34 @@ try:
       assert page.evaluate('window.__ESTADISTICAS__.getState().team.gender')=='female'
       page.close()
 
+    # Conflicto de dos clientes: el reemplazo antiguo no pisa el nuevo y Directo se fusiona por id.
+    page=browser.new_page(viewport={'width':390,'height':844});page.goto(URL,wait_until='networkidle')
+    conflict=page.evaluate("""() => {const api=window.__ESTADISTICAS__,base={id:'g-conflict',opponent:'Antiguo',revision:2,updatedAt:'2026-11-18T10:00:00Z',mapRevision:1,mapUpdatedAt:'2026-11-18T09:00:00Z',events:[{id:'e-a',type:'steal'}],shotsFor:[{id:'s-new',x:.2,y:.3}],shotsAgainst:[]},stale={...base,opponent:'Muy antiguo',revision:1,updatedAt:'2026-11-18T08:00:00Z',events:[{id:'e-b',type:'turnover'}],mapRevision:0,mapUpdatedAt:'2026-11-18T07:00:00Z',shotsFor:[{id:'s-old',x:.7,y:.7}]},fresh={...base,opponent:'Cliente B nuevo',revision:3,updatedAt:'2026-11-18T11:00:00Z',events:[{id:'e-c',type:'orbFor'}]};const afterStale=api.mergeGameVersions(base,stale),afterFresh=api.mergeGameVersions(afterStale,fresh);return {staleName:afterStale.opponent,staleEvents:afterStale.events.map(e=>e.id).sort(),staleShots:afterStale.shotsFor.map(e=>e.id),freshName:afterFresh.opponent,freshEvents:afterFresh.events.map(e=>e.id).sort()}}""")
+    assert conflict['staleName']=='Antiguo' and conflict['staleEvents']==['e-a','e-b'] and conflict['staleShots']==['s-new']
+    assert conflict['freshName']=='Cliente B nuevo' and conflict['freshEvents']==['e-a','e-b','e-c']
+    # Quitar de plantilla conserva todas las filas históricas de los partidos.
+    page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',clean_state(STATE));before=page.evaluate('window.__ESTADISTICAS__.getState().games.reduce((n,g)=>n+g.players.length,0)')
+    page.click('.bottom-nav [data-go="players"]');page.click('[data-action="manage-roster"]');assert page.locator('.roster-manage-row').count()>0
+    page.locator('.roster-manage-row [data-action="remove-roster-player"]').first.click();page.click('[data-action="confirm-remove-roster-player"]')
+    assert page.evaluate('window.__ESTADISTICAS__.getState().games.reduce((n,g)=>n+g.players.length,0)')==before
+    page.close()
+
+    # Seguridad: datos remotos hostiles no ejecutan código (auditoría A-003/A-004).
+    page=browser.new_page(viewport={'width':390,'height':844});page.goto(URL,wait_until='networkidle')
+    hostile=clean_state(STATE);hostile['team']['season']='"><img src=x onerror="window.__xss=1">';hostile['games'][0]['date']='<img src=x onerror="window.__xss=2">';hostile['games'][0]['id']='x" onmouseover="window.__xss=3'
+    page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',hostile);page.click('.bottom-nav [data-go="games"]');page.click('.bottom-nav [data-go="team"]');page.wait_for_timeout(300)
+    assert page.evaluate('window.__xss===undefined'),'XSS ejecutado'
+    assert page.evaluate("window.__ESTADISTICAS__.getState().games.every(g=>/^[A-Za-z0-9_-]+$/.test(g.id))")
+    # Sin mapas: «Sin mapa» en vez de «0 canastas» (A-060).
+    assert page.locator('.map-card .empty-chart').count()==2
+    page.close()
     # Landing de instalación: cuatro tamaños, temas, CTA real y fallback iOS.
     for width,height in [(360,640),(390,844),(412,915),(1440,900)]:
       page=browser.new_page(viewport={'width':width,'height':height});page.goto(URL+'instalar.html',wait_until='networkidle')
-      assert page.locator('svg[aria-label="Logo Aro vector"]').count()==1
-      assert page.locator('#install',has_text='Instalar app').is_visible()
+      assert page.locator('svg[aria-label="Logo de Estadísticas"]').count()==1
+      assert page.locator('#install',has_text='Instalar gratis').is_visible()
       assert page.locator('a#openApp').get_attribute('href')=='./?from=landing'
-      assert page.locator('.feature').count()==9
+      assert page.locator('.benefit').count()==6 and page.locator('.step').count()==3 and page.locator('.shot').count()==4
       assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth+1')
       page.click('#theme');assert page.locator('html').get_attribute('data-theme')=='dark'
       if width==390:
@@ -234,7 +260,7 @@ try:
     # actualizar.html: petición realista que modifica dos archivos en una sola respuesta.
     page=browser.new_page(viewport={'width':1280,'height':900});page.goto(URL+'actualizar.html',wait_until='networkidle');page.set_input_files('#repoFolder',str(ROOT));page.wait_for_function("document.querySelector('#fileSummary').classList.contains('ok')")
     config_text=(ROOT/'config.js').read_text(encoding='utf-8')
-    patch={'version':'v12','files':[{'path':'config.js','changes':[{'find':config_text,'replace':config_text+'\n// Cambio multiarchivo de prueba validado.'}]},{'path':'docs/NOTA_MULTIARCHIVO.md','content':'# Prueba\nArchivo nuevo creado junto con un cambio en config.js.\n'}]}
+    patch={'version':'v12.3','files':[{'path':'config.js','changes':[{'find':config_text,'replace':config_text+'\n// Cambio multiarchivo de prueba validado.'}]},{'path':'docs/NOTA_MULTIARCHIVO.md','content':'# Prueba\nArchivo nuevo creado junto con un cambio en config.js.\n'}]}
     page.fill('#answer',json.dumps(patch,ensure_ascii=False));page.click('#build');page.wait_for_function("document.querySelector('#status').classList.contains('ok')")
     with page.expect_download() as download_info: page.click('#download')
     download=download_info.value;target=Path(download.suggested_filename);download.save_as(target)
@@ -246,4 +272,4 @@ try:
     browser.close()
 finally:
   server.shutdown()
-print('OK · v12: móvil, temas, Directo, cuotas, ratio, 25 partidos, multiequipo, género, colores, enlaces, Excel, actualizador y migración')
+print('OK · v12.3: móvil, temas, Directo, cuotas, ratio, 25 partidos, multiequipo, género, colores, enlaces, Excel, actualizador y migración')

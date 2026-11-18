@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capturas reales de la interfaz v12; elimina conexión y credenciales antes de renderizar."""
+"""Capturas reales de la interfaz v12.3; elimina conexión y credenciales antes de renderizar."""
 from pathlib import Path
 from threading import Thread
 from http.server import ThreadingHTTPServer,SimpleHTTPRequestHandler
@@ -34,6 +34,10 @@ try:
   page2=browser.new_page(viewport={'width':360,'height':640});page2.goto(url,wait_until='networkidle');page2.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',state);page2.click('.bottom-nav [data-go="live"]');page2.screenshot(path=str(OUT/'08_directo_360x640.png'),full_page=False)
   male=clean(state);male['team']={'name':'Equipo masculino de prueba','season':'27/28','gender':'male','color':'blue'}
   page3=browser.new_page(viewport={'width':390,'height':844});page3.goto(url,wait_until='networkidle');page3.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',male);page3.screenshot(path=str(OUT/'09_paleta_universal_equipo.png'),full_page=False);page3.click('.bottom-nav [data-go="players"]');page3.screenshot(path=str(OUT/'10_masculino_jugadores.png'),full_page=False)
+  for width,height in [(360,640),(390,844),(412,915),(1440,900)]:
+   landing=browser.new_page(viewport={'width':width,'height':height},device_scale_factor=1);landing.goto(url+'instalar.html',wait_until='networkidle');landing.evaluate('window.__INSTALL_LANDING__.simulateInstalled()')
+   if width==390: landing.click('#theme')
+   landing.screenshot(path=str(OUT/f'landing_instalada_{width}x{height}.png'),full_page=False);landing.close()
   browser.close()
 finally:server.shutdown()
-print(f'OK · {len(list(OUT.glob("*.png")))} capturas v12 en {OUT}')
+print(f'OK · {len(list(OUT.glob("*.png")))} capturas v12.3 en {OUT}')

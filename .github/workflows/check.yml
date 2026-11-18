@@ -1,4 +1,4 @@
-name: check-v12
+name: check-v12.3
 on: [push, pull_request]
 jobs:
   test:
@@ -12,6 +12,9 @@ jobs:
       - run: pip install playwright pillow
       - run: playwright install --with-deps chromium
       - run: python -m py_compile tools/*.py tests/smoke.py
+      - run: node tests/worker_mock.mjs
       - run: python tools/validate.py . --allow-assets
       - run: python tests/smoke.py
+        env:
+          ESTADISTICAS_SECOND_BACKUP: tests/fixtures/estadisticas-2026-11-16 (4).json
       - run: python tests/updater_e2e.py

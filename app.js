@@ -1,7 +1,7 @@
-/* Estadísticas v12 · universal · local-first · nube privada al compartir */
+/* Estadísticas v12.3 · universal · local-first · nube privada al compartir */
 'use strict';
 
-const APP_VERSION = 'v12';
+const APP_VERSION = 'v12.3';
 const STORE = 'estadisticas_shared_v2'; // Compatibilidad: no renombrar ni borrar.
 const MULTI_STORE = 'estadisticas_multiteam_v11';
 const APP_CONFIG = window.ESTADISTICAS_CONFIG || {};
@@ -24,7 +24,12 @@ const num = (n, d = 1) => Number.isFinite(+n) ? (+n).toLocaleString('es-ES', {mi
 const pct = n => Number.isFinite(+n) ? `${num(n, 0)}%` : '—';
 const signed = n => Number.isFinite(+n) ? `${+n > 0 ? '+' : ''}${num(n)}` : '—';
 const today = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
-const minutes = s => { if (typeof s === 'number') return s; const [m, x] = String(s || '0').split(':').map(Number); return (m || 0) + (x || 0) / 60; };
+const minutes = s => { if (typeof s === 'number') return s; const raw=String(s ?? '0').trim(); if (!raw.includes(':')) { const n=Number(raw.replace(',', '.')); return Number.isFinite(n) ? n : 0; } const [m, x] = raw.split(':').map(Number); return (m || 0) + (x || 0) / 60; };
+const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
+const safeId = id => SAFE_ID.test(String(id ?? '')) ? String(id) : uid();
+const safeDate = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d ?? '')) ? String(d) : '';
+const fmtDate = d => { const v=safeDate(d); return v ? `${v.slice(8,10)}/${v.slice(5,7)}/${v.slice(0,4)}` : 'Sin fecha'; };
+const safeNum = v => v === null || v === undefined || v === '' ? null : (Number.isFinite(Number(v)) ? Number(v) : null);
 const formatMinutes = v => { const total = Math.max(0, Math.round((+v || 0) * 60)); return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`; };
 const parseAI = s => { const [m, a] = String(s || '0/0').split('/').map(Number); return {m:m || 0, a:a || 0}; };
 const sum = (arr, getter) => arr.reduce((a, x) => a + (+getter(x) || 0), 0);
@@ -34,7 +39,7 @@ const deepSignature = x => JSON.stringify(x);
 /* ── State, migration and persistence ───────────────────────────── */
 function blank(name = 'Mi equipo', season = '', gender = 'neutral', color = 'blue') {
   return {
-    version: 12,
+    version: 12.3,
     team: {name, season, gender, color},
     roster: [], games: [], live: null,
     liveDraft: {rival:'', date:today(), dateManual:false, selected:[]},
@@ -43,20 +48,24 @@ function blank(name = 'Mi equipo', season = '', gender = 'neutral', color = 'blu
   };
 }
 
+function readStore(key){
+  const raw=localStorage.getItem(key);if(!raw)return null;
+  try{return JSON.parse(raw);}catch(error){console.warn(`Almacén dañado: ${key}`,error);try{localStorage.setItem(`${key}__danado_${Date.now()}`,raw);}catch(e){}return null;}
+}
 function loadWorkspaceBook() {
   try {
-    const saved = JSON.parse(localStorage.getItem(MULTI_STORE) || 'null');
+    const saved = readStore(MULTI_STORE);
     if (saved?.workspaces?.length) {
       if (!saved.workspaces.some(item => item.id === saved.activeId)) saved.activeId = saved.workspaces[0].id;
       return saved;
     }
-    const legacy = JSON.parse(localStorage.getItem(STORE) || 'null');
+    const legacy = readStore(STORE);
     if (legacy) {
       const id = uid();
       return {version:1, activeId:id, workspaces:[{id, name:legacy.team?.name || 'Mi equipo', data:legacy, legacy:true}]};
     }
     for (const key of ['estadisticas_v1', 'estadisticas_app_v1', 'basket_stats_v1']) {
-      const old = JSON.parse(localStorage.getItem(key) || 'null');
+      const old = readStore(key);
       if (old) {
         const id=uid(), data=migrateV1(old);
         return {version:1,activeId:id,workspaces:[{id,name:data.team?.name||'Mi equipo',data,legacy:true}]};
@@ -71,8 +80,10 @@ function load(){return sanitise(activeWorkspace()?.data || blank());}
 function persistWorkspace(){
   const item=activeWorkspace(); if(!item)return;
   item.data=state;item.name=state.team.name||'Mi equipo';item.updatedAt=new Date().toISOString();
-  localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));
-  if(item.legacy)localStorage.setItem(STORE,JSON.stringify(state));
+  try{
+    localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));
+    if(item.legacy)localStorage.setItem(STORE,JSON.stringify(state));
+  }catch(error){console.error(error);setTimeout(()=>toast('El móvil no tiene espacio para guardar. Exporta una copia y libera espacio.'),0);}
 }
 
 let workspaceBook = loadWorkspaceBook();
@@ -124,23 +135,27 @@ function hasLegacyFields(g) {
 
 function sanitise(s) {
   const base = blank();
-  const out = {...base, ...s, version:12, team:{...base.team, ...(s.team || {})}, settings:{...base.settings, ...(s.settings || {})}};
+  const out = {...base, ...s, version:12.3, team:{...base.team, ...(s.team || {})}, settings:{...base.settings, ...(s.settings || {})}};
   if(norm(out.team.name).includes('BUEN CONSEJO')){if(!s.team?.gender)out.team.gender='female';if(!s.team?.color)out.team.color='red';}
   if(!GENDERS[out.team.gender])out.team.gender='neutral';if(!PALETTES[out.team.color])out.team.color='blue';
-  out.roster = (s.roster || []).filter(p => p?.name).map(p => ({...p, id:p.id || uid(), number:String(p.number || '')}));
-  out.games = (s.games || []).filter(g => g && !g.demo && !g.isDemo && !['DEMO','EJEMPLO'].some(x => norm(g.opponent).includes(x))).map(g => {
+  out.roster = (Array.isArray(s.roster) ? s.roster : []).filter(p => p && typeof p === 'object' && p.name).map(p => ({...p, id:safeId(p.id), name:String(p.name), number:String(p.number || '')}));
+  out.games = (Array.isArray(s.games) ? s.games : []).filter(g => g && typeof g === 'object' && !g.demo && !g.isDemo && !['DEMO','EJEMPLO'].some(x => norm(g.opponent).includes(x))).map(g => {
     const pair = splitLegacyShots(g);
-    const players = (g.players || []).filter(p => p?.name).map(legacyPlayer);
-    const opponentPlayers = (g.opponentPlayers || g.rivalPlayers || []).filter(p => p?.name).map(legacyPlayer);
+    const arr = v => Array.isArray(v) ? v : [];
+    const players = arr(g.players).filter(p => p && typeof p === 'object' && p.name).map(legacyPlayer).map(p => ({...p, id:safeId(p.id)}));
+    const opponentPlayers = arr(g.opponentPlayers || g.rivalPlayers).filter(p => p && typeof p === 'object' && p.name).map(legacyPlayer).map(p => ({...p, id:safeId(p.id)}));
+    const events = arr(g.events).filter(e => e && typeof e === 'object' && !e.demo && !e.seed).map(e => ({...e, id:safeId(e.id), quarter:Math.min(10,Math.max(1,+e.quarter||1))}));
     const needsReimport = g.source !== 'live-pending' && (!!g.needsReimport || !opponentPlayers.length || !g.teamTotals || !g.opponentTotals || hasLegacyFields(g));
     return {
-      ...g, id:g.id || uid(), players, opponentPlayers,
+      ...g, id:safeId(g.id), date:safeDate(g.date), us:safeNum(g.us), them:safeNum(g.them), opponent:String(g.opponent || 'Rival'), players, opponentPlayers,
+      revision:Math.max(0,Number(g.revision)||0), updatedAt:String(g.updatedAt||g.importedAt||''), mapRevision:Math.max(0,Number(g.mapRevision)||0), mapUpdatedAt:String(g.mapUpdatedAt||''),
+      livePlayerIds:arr(g.livePlayerIds).filter(id => SAFE_ID.test(String(id))),
       teamTotals:g.teamTotals ? legacyPlayer(g.teamTotals) : null,
       opponentTotals:g.opponentTotals ? legacyPlayer(g.opponentTotals) : null,
-      events:(g.events || []).filter(e => !e.demo && !e.seed),
+      events,
       shotsFor:pair.for, shotsAgainst:pair.against, shots:undefined,
       needsReimport,
-      availability:{boxscore:players.length > 0, opponentBoxscore:opponentPlayers.length > 0, manual:!!(g.events || []).length, shotMap:!!(pair.for.length || pair.against.length), ...(g.availability || {})}
+      availability:{...(g.availability || {}), boxscore:players.length > 0, opponentBoxscore:opponentPlayers.length > 0, manual:events.some(e => !e.undone), shotMap:!!(pair.for.length || pair.against.length)}
     };
   });
   out.liveDraft = {...base.liveDraft, ...(s.liveDraft || {})};
@@ -158,8 +173,9 @@ function migrateV1(old) {
   return sanitise(out);
 }
 
-function save() { state.version = 12; persistWorkspace(); }
-function record(type, payload) { state.ops.push({id:uid(), at:new Date().toISOString(), type, payload}); save(); paintSync(); scheduleSync(); }
+function save() { state.version = 12.3; persistWorkspace(); }
+function touchGame(game,{map=false}={}) { if(!game)return game;const stamp=new Date().toISOString();game.revision=Math.max(0,Number(game.revision)||0)+1;game.updatedAt=stamp;if(map){game.mapRevision=Math.max(0,Number(game.mapRevision)||0)+1;game.mapUpdatedAt=stamp;}return game; }
+function record(type, payload) { if(type==='replace-game'&&payload?.game)touchGame(payload.game);state.ops.push({id:uid(), at:new Date().toISOString(), type, payload}); save(); paintSync(); scheduleSync(); }
 function toast(message) { const t = $('#toast'); t.textContent = message; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
 function setView(next) { view = next; $$('[data-go]').forEach(b => b.setAttribute('aria-current', b.dataset.go === next ? 'page' : 'false')); render(); window.scrollTo(0, 0); }
 
@@ -245,7 +261,7 @@ function sumBox(players) {
 function validateTotals(players, total) {
   if (!total) return ['Falta la fila TOTALES'];
   const calculated = sumBox(players);
-  const labels = {pts:'PTS', p2m:'2P anotados', p2a:'2P intentados', p3m:'3P anotados', p3a:'3P intentados', ftm:'TL anotados', fta:'TL intentados', fouls:'FAL', foulsDrawn:'FR', val:'VAL'};
+  const labels = {pts:'PTS', p2m:'2P anotados', p2a:'2P intentados', p3m:'3P anotados', p3a:'3P intentados', ftm:'TL anotados', fta:'TL intentados', fouls:'FAL', foulsDrawn:'FR', val:'VAL', rebDef:'REB DEF', rebOff:'REB OF', rebTot:'REB TOT', ast:'AST', rec:'REC', per:'PER', tapTc:'TAP', tapTr:'TAP R'};
   return Object.entries(labels).filter(([k]) => (+calculated[k] || 0) !== (+total[k] || 0)).map(([k, label]) => `${label}: filas ${calculated[k] || 0}, TOTALES ${total[k] || 0}`);
 }
 
@@ -265,24 +281,27 @@ function parseGame(rows, fileName) {
     if (total) groups.push({team, score:+total.pts || 0, players, total, warnings:validateTotals(players, total)});
   });
   if (groups.length < 2) throw Error('El acta no contiene los dos equipos.');
-  const own = groups.find(g => norm(g.team).includes(norm(teamLabel())) || norm(teamLabel()).includes(norm(g.team))), other = groups.find(g => g !== own);
-  if (!own) throw Error(`No encuentro a ${teamLabel()} en el acta.`);
+  const label = norm(teamLabel()), exactOwn = groups.filter(g => norm(g.team) === label), partialOwn = groups.filter(g => norm(g.team).includes(label) || label.includes(norm(g.team)));
+  const own = exactOwn.length === 1 ? exactOwn[0] : partialOwn.length === 1 ? partialOwn[0] : null, other = groups.find(g => g !== own);
+  if (!own) { const error = Error(`No encuentro a ${teamLabel()} en el acta.`); error.code = 'NO_TEAM'; error.teams = groups.slice(0,2).map(g => g.team); throw error; }
   return {
     id:uid(), opponent:other.team, home:groups[0] === own, us:own.score, them:other.score,
     players:own.players, opponentPlayers:other.players, teamTotals:own.total, opponentTotals:other.total,
-    importWarnings:[...own.warnings.map(x => `${teamLabel()} · ${x}`), ...other.warnings.map(x => `${other.team} · ${x}`)],
+    importWarnings:[...(own.score === other.score ? ['Marcador empatado: en baloncesto no debería ocurrir. Revisa el Excel.'] : []), ...own.warnings.map(x => `${teamLabel()} · ${x}`), ...other.warnings.map(x => `${other.team} · ${x}`)],
     events:[], shotsFor:[], shotsAgainst:[], source:'fbm', fileName, date:today(), importedAt:new Date().toISOString(), needsReimport:false,
     availability:{boxscore:true, opponentBoxscore:true, manual:false, shotMap:false}
   };
 }
 
+let pendingImportFiles = null;
 async function handleFiles(files) {
+  pendingImportFiles = files;
   try {
     if (fileMode === 'roster') {
       const rows=await readXlsx(files[0]);applyDetectedGender(rows);const roster = parseRoster(rows);
       state.roster = mergeRoster(state.roster, roster);
       if (!state.liveDraft.selected.length) state.liveDraft.selected = state.roster.map(p => p.id);
-      record('set-roster', {roster:state.roster});
+      record('set-roster', {roster:state.roster,replace:true});
       toast(`${roster.length} ${genderTerms().plural.toLowerCase()} importad${state.team.gender==='female'?'as':'os'}`); render(); return;
     }
     const parsed = [];
@@ -298,9 +317,15 @@ async function handleFiles(files) {
       </article>`).join('')}
       <div class="import-confirmation">Revisa la fecha y el Directo seleccionado. La unión conserva los eventos y evita duplicados.</div>
       <button class="btn primary wide" data-action="confirm-import">Guardar y unir lo seleccionado</button>`);
-  } catch (error) { console.error(error); toast(error.message || 'No se pudo leer el Excel'); }
+  } catch (error) {
+    console.error(error);
+    if (error.code === 'NO_TEAM' && error.teams?.length === 2 && state.settings.role !== 'viewer') {
+      modalContext = {type:'pick-own-team'};
+      return openModal('Importación', '¿Cuál es tu equipo?', `<p class="metric-explain">El acta no coincide con «${esc(teamLabel())}». Elige tu equipo; se guardará como nombre del equipo para las próximas actas.</p><div class="confirm-actions">${error.teams.map(name => `<button class="btn primary" data-action="pick-own-team" data-name="${esc(name)}">${esc(name)}</button>`).join('')}</div>`);
+    }
+    toast(error.message || 'No se pudo leer el Excel');
+  }
 }
-
 function mergeRoster(current, incoming) {
   const map = new Map(current.map(p => [norm(p.name), p]));
   incoming.forEach(p => { const old = map.get(norm(p.name)); map.set(norm(p.name), old ? {...old, number:old.number || p.number} : p); });
@@ -341,13 +366,15 @@ function pendingImportControl(game,index,forcedId='') {
   const all=pendingCandidates(game,game.date,true),automatic=automaticPendingMatch(game,game.date);
   const selected=forcedId&&all.some(row=>row.pending.id===forcedId)?forcedId:automatic?.id||'';
   if(!all.length)return `<div class="import-match none"><b>Directo</b><span>No hay Directos pendientes.</span></div>`;
-  return `<label class="import-match">Directo a unir<select data-import-pending="${index}"><option value="">No unir ningún Directo</option>${all.map(row=>{const item=row.pending,events=(item.events||[]).filter(event=>!event.undone).length;return `<option value="${item.id}" ${item.id===selected?'selected':''}>${esc(item.opponent)} · ${item.date||'sin fecha'} · ${events} eventos${item.id===automatic?.id?' · recomendado':''}</option>`}).join('')}</select><small>${selected?'Se unirá el Directo indicado al guardar.':'No se unirá ningún Directo.'}</small></label>`;
+  return `<label class="import-match">Directo a unir<select data-import-pending="${index}"><option value="">No unir ningún Directo</option>${all.map(row=>{const item=row.pending,events=(item.events||[]).filter(event=>!event.undone).length;return `<option value="${item.id}" ${item.id===selected?'selected':''}>${esc(item.opponent)} · ${fmtDate(item.date)} · ${events} eventos${item.id===automatic?.id?' · recomendado':''}</option>`}).join('')}</select><small>${selected?'Se unirá el Directo indicado al guardar.':'No se unirá ningún Directo.'}</small></label>`;
 }
 
 function completeImportMatch(g,chosenDate='') {
   const exact=state.games.filter(x => norm(x.opponent) === norm(g.opponent) && hasScore(x.us) && hasScore(x.them) && +x.us === +g.us && +x.them === +g.them);
   const byDate=chosenDate&&exact.find(x=>x.date===chosenDate);
-  return byDate || (exact.length===1?exact[0]:null);
+  if (byDate) return byDate;
+  const near = exact.filter(x => !!x.home === !!g.home && dateDistance(x.date, chosenDate || g.date) <= 3);
+  return near.length === 1 ? near[0] : null;
 }
 
 function eventKey(event) {
@@ -358,11 +385,25 @@ function mergeEvents(...lists) {
   const map=new Map();lists.flat().filter(Boolean).forEach(event=>{const key=eventKey(event);if(!map.has(key))map.set(key,event)});return [...map.values()];
 }
 
+function mergeShots(a=[],b=[]) {
+  const map=new Map();[...(a||[]),...(b||[])].forEach(p=>{const key=p.id||`${(+p.x).toFixed(3)}:${(+p.y).toFixed(3)}`;if(!map.has(key))map.set(key,p)});return [...map.values()];
+}
+function versionTuple(game,map=false){return map?[Math.max(0,Number(game?.mapRevision)||0),Date.parse(game?.mapUpdatedAt||'')||0]:[Math.max(0,Number(game?.revision)||0),Date.parse(game?.updatedAt||game?.importedAt||'')||0];}
+function compareVersion(a,b,map=false){const av=versionTuple(a,map),bv=versionTuple(b,map);return av[0]-bv[0]||av[1]-bv[1];}
+function mergeGameVersions(current,incoming){
+  if(!current)return incoming;if(!incoming)return current;
+  const newer=compareVersion(incoming,current)>=0?incoming:current,older=newer===incoming?current:incoming,merged={...older,...newer};
+  merged.events=mergeEvents(current.events||[],incoming.events||[]);merged.livePlayerIds=[...new Set([...(current.livePlayerIds||[]),...(incoming.livePlayerIds||[])])];
+  const mapOrder=compareVersion(incoming,current,true);if(mapOrder>0){merged.shotsFor=incoming.shotsFor||[];merged.shotsAgainst=incoming.shotsAgainst||[];}else if(mapOrder<0){merged.shotsFor=current.shotsFor||[];merged.shotsAgainst=current.shotsAgainst||[];}else{merged.shotsFor=mergeShots(current.shotsFor,incoming.shotsFor);merged.shotsAgainst=mergeShots(current.shotsAgainst,incoming.shotsAgainst);}
+  merged.revision=Math.max(Number(current.revision)||0,Number(incoming.revision)||0);merged.mapRevision=Math.max(Number(current.mapRevision)||0,Number(incoming.mapRevision)||0);merged.availability={...(older.availability||{}),...(newer.availability||{}),manual:!!merged.events.some(event=>!event.undone),shotMap:!!(merged.shotsFor.length||merged.shotsAgainst.length)};return merged;
+}
+function mergeLiveVersions(current,incoming){if(!current||!incoming||current.id!==incoming.id)return incoming;return {...current,...incoming,events:mergeEvents(current.events||[],incoming.events||[])};}
 function mergePendingIntoGame(pending,target) {
   if(!pending||!target||pending.id===target.id)return target;
   target.events=mergeEvents(target.events||[],pending.events||[]);
-  target.shotsFor=(target.shotsFor||[]).length?target.shotsFor:(pending.shotsFor||[]);
-  target.shotsAgainst=(target.shotsAgainst||[]).length?target.shotsAgainst:(pending.shotsAgainst||[]);
+  target.shotsFor=mergeShots(target.shotsFor,pending.shotsFor);
+  target.shotsAgainst=mergeShots(target.shotsAgainst,pending.shotsAgainst);
+  target.livePlayerIds=[...new Set([...(target.livePlayerIds||[]),...(pending.livePlayerIds||[])])];
   target.availability={...(target.availability||{}),manual:hasManualData(target)||!!(pending.events||[]).length,shotMap:!!((target.shotsFor||[]).length||(target.shotsAgainst||[]).length)};
   state.games=state.games.filter(game=>game.id!==pending.id);
   return target;
@@ -370,7 +411,7 @@ function mergePendingIntoGame(pending,target) {
 
 function queueMerge(pending,target) {
   if(state.settings.role==='viewer')return;
-  state.ops.push({id:uid(),at:new Date().toISOString(),type:'merge-game',payload:{sourceId:pending.id,targetId:target.id,game:target}});
+  touchGame(target);state.ops.push({id:uid(),at:new Date().toISOString(),type:'merge-game',payload:{sourceId:pending.id,targetId:target.id,game:target}});
 }
 
 function repairPendingGames() {
@@ -378,7 +419,7 @@ function repairPendingGames() {
   for(const pending of [...state.games.filter(game=>game.source==='live-pending')]){
     const candidates=validGames().map(game=>({...pendingScore(pending,game,game.date),game})).filter(item=>item.name>=.45&&item.days<=7).sort((a,b)=>b.score-a.score||a.days-b.days);
     const first=candidates[0],second=candidates[1];
-    if(!first||first.score<.78||(second&&first.score-second.score<.15))continue;
+    if(!first||first.score<1.2||(second&&first.score-second.score<.3))continue;
     mergePendingIntoGame(pending,first.game);queueMerge(pending,first.game);changed++;
   }
   if(changed)save();
@@ -396,7 +437,7 @@ function commitImport() {
     if(!existing&&pending)existing=pending;
     if(pending)joined++;
     if (existing) {
-      const events=mergeEvents(existing.events||[],pending&&pending!==existing?pending.events||[]:[]),shotsFor=(existing.shotsFor||[]).length?existing.shotsFor:pending?.shotsFor||[],shotsAgainst=(existing.shotsAgainst||[]).length?existing.shotsAgainst:pending?.shotsAgainst||[];
+      const events=mergeEvents(existing.events||[],pending&&pending!==existing?pending.events||[]:[]),shotsFor=mergeShots(existing.shotsFor,pending&&pending!==existing?pending.shotsFor:[]),shotsAgainst=mergeShots(existing.shotsAgainst,pending&&pending!==existing?pending.shotsAgainst:[]);
       Object.assign(existing, {...g, id:existing.id, date:g.date || existing.date, events, shotsFor, shotsAgainst, needsReimport:false,
         availability:{...g.availability, manual:!!events.length, shotMap:!!(shotsFor.length || shotsAgainst.length)}});
       if(pending&&pending!==existing){mergePendingIntoGame(pending,existing);queueMerge(pending,existing);}
@@ -475,7 +516,7 @@ function playerAgg() {
     x.gp++;
     ['min','pts','p2m','p2a','p3m','p3a','ftm','fta','fouls','foulsDrawn','val','pm','ast','rec','per','rebDef','rebOff','rebTot'].forEach(q => x[q] = (+x[q] || 0) + (+p[q] || 0));
     const ec = eventCounts(g, p); x.steals = (+x.steals || 0) + ec.steals; x.turnovers = (+x.turnovers || 0) + ec.turnovers; x.orbLive = (+x.orbLive || 0) + ec.orb;
-    if (hasManualData(g)) x.manualGp++;
+    if (hasManualData(g) && wasRecordedInLive(g,p)) x.manualGp++;
     x.games.push({g, p}); map.set(k, x);
   }
   state.roster.forEach(p => { const k = norm(p.name); if (!map.has(k)) map.set(k, {...p, gp:0, manualGp:0, games:[]}); });
@@ -568,7 +609,7 @@ function scoreChart(games, expanded = false) {
   const marginBase=h-54, marginY=value=>marginBase-(value/marginMax)*16;
   const label=`${ordered.length} partido${ordered.length===1?'':'s'}${ordered.length>6?' · desliza ↔':''}`;
   return `<div class="score-chart-frame ${expanded?'expanded':''}"><div class="chart-window-label">${label}</div><div class="score-chart-scroller" data-detail="score-chart" tabindex="0" role="button" aria-label="Ampliar el gráfico completo"><svg class="score-chart" viewBox="0 0 ${w} ${h}" ${ordered.length>6||expanded?`style="min-width:${w}px!important"`:''} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Marcador y diferencia de ${ordered.length} partidos">
-    <line class="grid-line" x1="26" y1="${marginBase}" x2="${w-26}" y2="${marginBase}"/>
+    <line class="grid-line" x1="26" y1="${marginBase}" x2="${w-26}" y2="${marginBase}"/><text class="axis-label" x="30" y="${Math.max(15,y(max)-7)}">máx ${max}</text><text class="axis-label" x="30" y="${Math.min(h-86,y(min)+15)}">mín ${min}</text>
     <polyline class="score-us" points="${line('us')}"/><polyline class="score-them" points="${line('them')}"/>
     <polyline class="score-difference" points="${margins.map((value,index)=>`${x(index)},${marginY(value)}`).join(' ')}"/>
     ${ordered.map((game,index)=>{const margin=+game.us-(+game.them),yu=y(+game.us),yt=y(+game.them),close=Math.abs(yu-yt)<32,ux=x(index)+(close?-15:0),tx=x(index)+(close?15:0);return `<g data-detail="game:${game.id}" tabindex="0" role="button">
@@ -590,7 +631,7 @@ function openScoreChartDetail(){
   const games=validGames().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   const best=[...games].sort((a,b)=>(b.us-b.them)-(a.us-a.them))[0], worst=[...games].sort((a,b)=>(a.us-a.them)-(b.us-b.them))[0];
   modalContext={type:'score-chart'};
-  openModal('Equipo','Marcador completo',`<p class="metric-explain">Todos los partidos, sin comprimir. La vista superior enseña la temporada completa; debajo puedes deslizar el detalle y tocar un punto para abrir el acta.</p>${scoreOverviewSVG(games)}${scoreChart(games,true)}<div class="best-worst"><div><span>Mayor diferencia</span><b>${best?signed(best.us-best.them).replace(',0',''):'—'}</b><small>${best?esc(best.opponent):''}</small></div><div><span>Menor diferencia</span><b>${worst?signed(worst.us-worst.them).replace(',0',''):'—'}</b><small>${worst?esc(worst.opponent):''}</small></div></div><section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${games.map((game,index)=>`<button data-detail="game:${game.id}"><span><b>P${index+1} · ${esc(game.opponent)}</b><small>${game.date||'Sin fecha'} · ${game.home?'Casa':'Fuera'}</small></span><strong>${gameScore(game)}</strong><em>${signed(game.us-game.them).replace(',0','')}</em></button>`).join('')}</div></section>`);
+  openModal('Equipo','Marcador completo',`<p class="metric-explain">Todos los partidos, sin comprimir. La vista superior enseña la temporada completa; debajo puedes deslizar el detalle y tocar un punto para abrir el acta.</p>${scoreOverviewSVG(games)}${scoreChart(games,true)}<div class="best-worst"><div><span>Mayor diferencia</span><b>${best?signed(best.us-best.them).replace(',0',''):'—'}</b><small>${best?esc(best.opponent):''}</small></div><div><span>Menor diferencia</span><b>${worst?signed(worst.us-worst.them).replace(',0',''):'—'}</b><small>${worst?esc(worst.opponent):''}</small></div></div><section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${games.map((game,index)=>`<button data-detail="game:${game.id}"><span><b>P${index+1} · ${esc(game.opponent)}</b><small>${fmtDate(game.date)} · ${game.home?'Casa':'Fuera'}</small></span><strong>${gameScore(game)}</strong><em>${signed(game.us-game.them).replace(',0','')}</em></button>`).join('')}</div></section>`);
   requestAnimationFrame(()=>{const scroller=$('.modal .score-chart-scroller');if(scroller)scroller.scrollLeft=scroller.scrollWidth;});
 }
 
@@ -696,19 +737,7 @@ function aggregateMetric(key, rows, side, mode = 'average') {
 
 function metricValue(key, value, digits = 1) {
   if (key === 'margin' || key === 'possession') return signed(value).replace(',0','');
-  return key === 'ftp' ? pct(value) : num(value, digits);
-}
-
-function lineSegments(rows, side, x, y) {
-  const segments = []; let segment = [];
-  rows.forEach((row,index) => {
-    const value = row[side];
-    if (value === null || !Number.isFinite(+value)) {
-      if (segment.length) segments.push(segment); segment = [];
-    } else segment.push(`${x(index)},${y(+value)}`);
-  });
-  if (segment.length) segments.push(segment);
-  return segments;
+  return (key === 'ftp' || TEAM_METRICS[key]?.percent) ? pct(value) : num(value, digits);
 }
 
 function dualTrendSVG(rows, key, compact = false) {
@@ -724,7 +753,7 @@ function dualTrendSVG(rows, key, compact = false) {
   const lines = side => separatedSegments(side).map(points => `<polyline class="${side}" points="${points.join(' ')}"/>`).join('');
   const label=(TEAM_METRICS[key]||LIVE_METRICS[key]||{}).label||key;
   return `<svg class="dual-trend ${compact?'compact':''}" viewBox="0 0 ${w} ${h}" ${compact?'':`style="min-width:${Math.max(0,rows.length*72)}px"`} role="img" aria-label="Evolución de ${esc(label)}">
-    ${compact?'':`<line class="trend-axis" x1="${left-12}" y1="${h-bottom}" x2="${w-left+12}" y2="${h-bottom}"/>`}${lines('own')}${lines('opp')}
+    ${compact?'':`<line class="trend-grid zero-line" x1="${left-12}" y1="${y(0)}" x2="${w-left+12}" y2="${y(0)}"/><text class="axis-label" x="${left-8}" y="${Math.max(13,y(max)-6)}">máx ${metricValue(key,max)}</text><text class="axis-label" x="${left-8}" y="${Math.min(h-bottom-3,y(min)+14)}">mín ${metricValue(key,min)}</text><text class="axis-label zero-label" x="${w-left+8}" y="${Math.max(13,y(0)-6)}" text-anchor="end">0</text><line class="trend-axis" x1="${left-12}" y1="${h-bottom}" x2="${w-left+12}" y2="${h-bottom}"/>`}${lines('own')}${lines('opp')}
     ${rows.map((row,index) => `<g ${compact?'':`data-detail="game:${row.game.id}" tabindex="0" role="button"`}>
       ${row.own===null?'':`<circle class="own" cx="${x(index)}" cy="${adjustedY(row,'own')}" r="${compact?4:7}"/>`}${row.opp===null?'':`<circle class="opp" cx="${x(index)}" cy="${adjustedY(row,'opp')}" r="${compact?4:7}"/>`}
       ${compact?'':`<text x="${x(index)}" y="${h-13}" text-anchor="middle">P${index+1}</text><title>${esc(row.game.opponent)} · ${esc(teamLabel())} ${metricValue(key,row.own)} · Rival ${metricValue(key,row.opp)}</title>`}
@@ -737,14 +766,9 @@ function pairedBarsVisual(key, rows) {
   return `<div class="paired-bars"><div><span>${esc(teamLabel())}</span><i><b class="own" style="width:${(+own||0)/max*100}%"></b></i></div><div><span>Rival</span><i><b class="opp" style="width:${(+opp||0)/max*100}%"></b></i></div></div>`;
 }
 
-function pairedRingsVisual(key, rows) {
-  const own=aggregateMetric(key,rows,'own',['ftp','threeShare','freeShare'].includes(key)?'total':'average'), opp=aggregateMetric(key,rows,'opp',['ftp','threeShare','freeShare'].includes(key)?'total':'average');
-  return `<div class="mini-rings"><i class="own" style="--p:${clamp((+own||0)/100)*100}"></i><i class="opp" style="--p:${clamp((+opp||0)/100)*100}"></i></div>`;
-}
-
 function balanceVisual(key, rows) {
   const shown=rows.length>10?rows.slice(-10):rows,delta=row=>key==='margin'?(+row.own||0):(difference(row.own,row.opp)||0),max=Math.max(1,...shown.map(row=>Math.abs(delta(row)))),metric=TEAM_METRICS[key]||{};
-  return `<div class="balance-mini" aria-label="Diferencia entre mi equipo y el rival">${shown.map(row=>{const d=delta(row),good=metric.lowerBetter?d<=0:d>=0;return `<i class="${good?'positive':'negative'}" style="height:${Math.max(4,Math.abs(d)/max*100)}%"></i>`}).join('')}</div>`;
+  return `<div class="balance-mini diverging" aria-label="Diferencia entre mi equipo y el rival: arriba ventaja, abajo desventaja">${shown.map(row=>{const d=delta(row),good=metric.lowerBetter?d<=0:d>=0,h=Math.max(3,Math.abs(d)/max*50);return `<span class="div-col" title="${esc(row.game?.opponent||'')} ${d>0?'+':''}${num(d,key==='margin'||key==='possession'?0:1)}"><i class="${good?'positive':'negative'} ${d>=0?'up':'down'}" style="height:${h}%"></i></span>`}).join('')}</div>`;
 }
 
 function metricMiniVisual(key, rows, mode=statsMode) {
@@ -773,7 +797,7 @@ function teamMetricCard(key) {
 }
 
 function head(cls, title, actions = '', meta = '') {
-  return `<section class="${cls}"><header class="page-head"><div><h1>${title}</h1>${meta ? `<p>${meta}</p>` : ''}</div><div class="action-row">${actions}</div></header>`;
+  return `<section class="${cls}"><header class="page-head"><div><h1>${title}</h1>${meta ? `<p>${esc(meta)}</p>` : ''}</div><div class="action-row">${actions}</div></header>`;
 }
 
 function reimportBanner() {
@@ -819,11 +843,6 @@ function liveMetricCard(key) {
   return `<button class="stat-card live-stat-card ${compareMode?'comparison-card':''}" data-detail="live:${key}"><header><span>${metric.label}</span><small>Directo · ${compareMode?'balance total':totalMode?'total':'por partido'}</small></header>${values}${visual}<footer>${insight}<b>Ver detalle →</b></footer></button>`;
 }
 
-function renderLiveMetrics() {
-  const games=recordedLiveGames();
-  return `<section class="live-data-block" data-manual-coverage="${games.length}"><div class="section-title"><div><h2>Estadísticas manuales · Directo</h2><p>Robos, pérdidas y rebote ofensivo siempre visibles. Sin registro no significa cero.</p></div><span class="coverage-badge">${games.length} de ${validGames().length} con datos</span></div><div class="stats-grid live-stats-grid">${liveMetricCard('ball')}${liveMetricCard('orb')}</div></section>`;
-}
-
 function renderTeam() {
   const stats = teamStats();
   if (!stats.played) return head('team-page','Equipo',`<button class="btn primary" data-action="import-games">Importar actas</button>`) + reimportBanner() + `<div class="empty card"><div class="empty-icon">▦</div><h2>Sin partidos</h2><button class="btn primary" data-action="import-games">Elegir Excel</button></div></section>`;
@@ -846,8 +865,8 @@ function renderTeam() {
     <div class="stats-grid">${availableTeamMetricKeys().map(teamMetricCard).join('')}${liveCards}</div>
     <div class="section-title"><div><h2>Mapas</h2><p>Solo partidos con mapa importado o editado.</p></div></div>
     <div class="analysis-grid maps-grid">
-      <button class="card visual-card map-card" data-detail="heat-attack"><div class="card-title"><div><h3>Ataque</h3><span>${stats.shotsFor.length} canastas</span></div></div>${courtHTML(stats.shotsFor,[],true)}${zoneBars(stats.shotsFor,'attack')}</button>
-      <button class="card visual-card map-card" data-detail="heat-defense"><div class="card-title"><div><h3>Defensa</h3><span>${stats.shotsAgainst.length} canastas</span></div></div>${courtHTML([],stats.shotsAgainst,true)}${zoneBars(stats.shotsAgainst,'defense')}</button>
+      <button class="card visual-card map-card" data-detail="heat-attack"><div class="card-title"><div><h3>Ataque</h3><span>${stats.shotsFor.length?`${stats.shotsFor.length} canastas · ${validGames().filter(g=>(g.shotsFor||[]).length).length} partidos con mapa`:'Sin mapa'}</span></div></div>${stats.shotsFor.length?courtHTML(stats.shotsFor,[],true)+zoneBars(stats.shotsFor,'attack'):'<div class="empty-chart">Sin mapas de ataque todavía. Añádelos desde Partidos.</div>'}</button>
+      <button class="card visual-card map-card" data-detail="heat-defense"><div class="card-title"><div><h3>Defensa</h3><span>${stats.shotsAgainst.length?`${stats.shotsAgainst.length} canastas · ${validGames().filter(g=>(g.shotsAgainst||[]).length).length} partidos con mapa`:'Sin mapa'}</span></div></div>${stats.shotsAgainst.length?courtHTML([],stats.shotsAgainst,true)+zoneBars(stats.shotsAgainst,'defense'):'<div class="empty-chart">Sin mapas de defensa todavía.</div>'}</button>
     </div>
   </section>`;
 }
@@ -867,7 +886,7 @@ function renderPlayers() {
   const value=(p,key)=>p.gp ? (+p[key]||0)/p.gp : -Infinity;
   players.sort((a,b)=>(value(a,playerSort)-value(b,playerSort))*playerSortDir || namePretty(a.name).localeCompare(namePretty(b.name),'es'));
   const sortHead=(key,label)=>`<button data-action="sort-players" data-key="${key}" aria-sort="${playerSort===key?(playerSortDir===-1?'descending':'ascending'):'none'}">${label}${playerSort===key?(playerSortDir===-1?' ↓':' ↑'):''}</button>`;
-  return head('players-page', genderTerms().plural, `<button class="btn" data-action="import-roster">Actualizar plantilla</button>`, `${players.length} ${genderTerms().plural.toLowerCase()}`) + reimportBanner() + `<div class="player-table-head"><span></span><span>${genderTerms().singular}</span><span></span>${sortHead('pts','PTS/P')}${sortHead('min','MIN/P')}${sortHead('val','VAL/P')}<span></span></div><div class="player-ranking">${players.map(p => {
+  return head('players-page', genderTerms().plural, `<button class="btn" data-action="manage-roster">Gestionar plantilla</button><button class="btn" data-action="import-roster">Actualizar plantilla</button>`, `${players.length} ${genderTerms().plural.toLowerCase()}`) + reimportBanner() + `<div class="player-table-head"><span></span><span>${genderTerms().singular}</span><span></span>${sortHead('pts','PTS/P')}${sortHead('min','MIN/P')}${sortHead('val','VAL/P')}<span></span></div><div class="player-ranking">${players.map(p => {
     const points = p.games.map(x => x.p.pts), ppg = p.gp ? p.pts / p.gp : null;
     return `<button class="player-rank" data-detail="player:${encodeURIComponent(norm(p.name))}"><span class="player-number">${esc(p.number || '—')}</span><span class="player-id"><b>${esc(namePretty(p.name))}</b><small>${p.gp ? `${p.gp} partidos` : 'Sin acta'}</small></span><span class="player-spark">${sparkline(points, 'player', 100, 30)}</span><span class="rank-metric" title="Puntos por partido"><b>${p.gp ? num(ppg) : '—'}</b><small>PTS/P</small></span><span class="rank-metric" title="Minutos por partido"><b>${p.gp ? num(p.min / p.gp) : '—'}</b><small>MIN/P</small></span><span class="rank-metric" title="Valoración por partido"><b>${p.gp ? num(p.val / p.gp) : '—'}</b><small>VAL/P</small></span><span class="rank-arrow">›</span></button>`;
   }).join('')}</div></section>`;
@@ -880,7 +899,7 @@ function renderGames() {
     const complete = !g.needsReimport && g.opponentPlayers?.length;
     const isPending=!hasScore(g.us)||!hasScore(g.them)||g.source==='live-pending',result=isPending?'pending':g.us>g.them?'win':'loss';
     const score=gameScore(g).split('–');
-    return `<button class="game-row" data-detail="game:${g.id}"><span class="game-result ${result}">${isPending?'P':g.us > g.them ? 'V' : 'D'}</span><span class="game-main"><b>${esc(g.opponent)}</b><small>${g.date || 'Sin fecha'} · ${isPending?'Pendiente de acta':g.home ? 'Casa' : 'Fuera'}</small></span><span class="game-score" title="Local–visitante">${score[0]}<i>–</i>${score[1]}</span><span class="game-data"><i class="${complete ? 'ok' : 'warn'}"></i>${isPending?'Directo guardado':complete ? `${g.players.length} + ${g.opponentPlayers.length}` : 'Reimportar'}</span><span class="rank-arrow">›</span></button>`;
+    return `<button class="game-row" data-detail="game:${g.id}"><span class="game-result ${result}">${isPending?'P':g.us > g.them ? 'V' : 'D'}</span><span class="game-main"><b>${esc(g.opponent)}</b><small>${fmtDate(g.date)} · ${isPending?'Pendiente de acta':g.home ? 'Casa' : 'Fuera'}</small></span><span class="game-score" title="Local–visitante">${score[0]}<i>–</i>${score[1]}</span><span class="game-data"><i class="${complete ? 'ok' : 'warn'}"></i>${isPending?'Directo guardado':complete ? `${g.players.length} + ${g.opponentPlayers.length}` : 'Reimportar'}</span><span class="rank-arrow">›</span></button>`;
   }).join('')}</div>`) + `</section>`;
 }
 
@@ -897,7 +916,7 @@ function renderLive() {
     return head('live-page', 'Directo', '', '') + `<div class="card live-setup"><div class="setup-fields"><label class="field">Rival<input id="rival" value="${esc(d.rival)}" placeholder="Nombre del rival" autocomplete="off"></label><label class="field">Fecha<input id="liveDate" type="date" value="${esc(d.date || today())}"></label></div><div class="roster-heading"><b>Convocadas</b><span id="selectedCount">${d.selected.length} convocad${state.team.gender==='female'?'as':'os'}</span></div>${state.roster.length ? `<div class="roster-grid">${state.roster.map(p => { const checked = d.selected.includes(p.id); return `<label class="roster-card ${checked ? 'selected' : ''}"><input type="checkbox" value="${p.id}" ${checked ? 'checked' : ''}><span class="check">${checked ? '✓' : ''}</span><strong>${esc(p.number || '—')}</strong><span class="roster-name">${esc(shortName(p.name))}</span></label>`; }).join('')}</div>` : `<div class="empty-inline">Importa la plantilla.</div>`}<div class="sticky-start"><button class="btn direct" data-action="start-live" ${state.settings.role === 'viewer' || !state.roster.length ? 'disabled' : ''}>Empezar</button><button class="btn" data-action="import-roster">Importar plantilla</button></div></div></section>`;
   }
   const count = type => L.events.filter(e => e.type === type && !e.undone).length;
-  return `<section class="live-page"><div class="live-board"><div class="live-meta"><div><h1>${esc(L.opponent)}</h1><p>${L.players.length} convocad${state.team.gender==='female'?'as':'os'} · ${L.date}</p></div><span class="quarter-badge">Q${L.quarter}</span></div><div class="quarter" aria-label="Cuarto">${[1,2,3,4].map(q => `<button class="${q === L.quarter ? 'active' : ''}" data-action="quarter" data-q="${q}">${q}º</button>`).join('')}</div><div class="live-actions">${liveButton('steal','↗','Robo',count('steal'))}${liveButton('turnover','↘','Pérdida',count('turnover'))}${liveButton('orbFor','◎','Rebote ofensivo',count('orbFor'))}${liveButton('orbAgainst','◌','Rebote rival',count('orbAgainst'))}</div><div class="live-footer"><button class="btn" data-action="undo-live" ${L.events.some(e => !e.undone) ? '' : 'disabled'}>Deshacer</button><button class="btn danger" data-action="discard-live">Descartar</button><button class="btn direct" data-action="finish-live">Finalizar</button></div></div></section>`;
+  return `<section class="live-page"><div class="live-board"><div class="live-meta"><div><h1>${esc(L.opponent)}</h1><p>${L.players.length} convocad${state.team.gender==='female'?'as':'os'} · ${fmtDate(L.date)}</p></div><span class="quarter-badge">Q${L.quarter}</span></div><div class="quarter" aria-label="Cuarto">${[1,2,3,4].map(q => `<button class="${q === L.quarter ? 'active' : ''}" data-action="quarter" data-q="${q}">${q}º</button>`).join('')}</div><div class="live-actions">${liveButton('steal','↗','Robo',count('steal'))}${liveButton('turnover','↘','Pérdida',count('turnover'))}${liveButton('orbFor','◎','Rebote ofensivo',count('orbFor'))}${liveButton('orbAgainst','◌','Rebote rival',count('orbAgainst'))}</div><div class="live-footer"><button class="btn" data-action="undo-live" ${L.events.some(e => !e.undone) ? '' : 'disabled'}>Deshacer</button><button class="btn danger" data-action="discard-live">Descartar</button><button class="btn direct" data-action="finish-live">Finalizar</button></div></div></section>`;
 }
 
 function liveButton(type, symbol, label, count) { return `<button class="live-action" data-action="add-live" data-type="${type}"><span class="symbol">${symbol}</span><b>${label}</b><strong>${count}</strong></button>`; }
@@ -916,9 +935,9 @@ function render() {
 function openModal(kicker, titleText, body) {
   if($('#modal').hidden) modalReturnFocus=document.activeElement;
   $('#modalKicker').textContent = kicker; $('#modalTitle').textContent = titleText; $('#modalBody').innerHTML = body;
-  const modal = $('#modal'); modal.hidden = false; modal.setAttribute('aria-hidden', 'false'); setTimeout(() => $('.modal-sheet .icon-button')?.focus(), 0);
+  const modal = $('#modal'); modal.hidden = false; modal.setAttribute('aria-hidden', 'false'); $('.app-shell')?.setAttribute('inert',''); setTimeout(() => $('.modal-sheet .icon-button')?.focus(), 0);
 }
-function closeModal() { const modal = $('#modal'); modal.hidden = true; modal.setAttribute('aria-hidden', 'true'); modalContext = null; const target=modalReturnFocus;modalReturnFocus=null;if(target?.isConnected)setTimeout(()=>target.focus(),0); }
+function closeModal() { $('.app-shell')?.removeAttribute('inert'); const modal = $('#modal'); modal.hidden = true; modal.setAttribute('aria-hidden', 'true'); modalContext = null; const target=modalReturnFocus;modalReturnFocus=null;if(target?.isConnected)setTimeout(()=>target.focus(),0); }
 
 const PLAYER_METRICS = {
   pts:{label:'Puntos', value:player=>player.pts, team:game=>mean(game.players||[],player=>player.pts)},
@@ -930,11 +949,16 @@ const PLAYER_METRICS = {
   fouls:{label:'Faltas por partido', value:player=>player.fouls, team:game=>mean(game.players||[],player=>player.fouls)},
   val:{label:'Valoración por partido', value:player=>player.val, team:game=>mean(game.players||[],player=>player.val)},
   pm:{label:'+/-', value:player=>player.pm, team:game=>mean(game.players||[],player=>player.pm)},
-  liveSteals:{label:'Robos · Directo', live:true, value:(player,game)=>hasManualData(game)?eventCounts(game,player).steals:null, team:game=>hasManualData(game)?mean(game.players||[],player=>eventCounts(game,player).steals):null},
-  liveTurnovers:{label:'Pérdidas · Directo', live:true, value:(player,game)=>hasManualData(game)?eventCounts(game,player).turnovers:null, team:game=>hasManualData(game)?mean(game.players||[],player=>eventCounts(game,player).turnovers):null},
-  liveOrb:{label:'REB O · Directo', live:true, value:(player,game)=>hasManualData(game)?eventCounts(game,player).orb:null, team:game=>hasManualData(game)?mean(game.players||[],player=>eventCounts(game,player).orb):null}
+  liveSteals:{label:'Robos · Directo', live:true, value:(player,game)=>hasManualData(game)&&wasRecordedInLive(game,player)?eventCounts(game,player).steals:null, team:game=>hasManualData(game)?mean(game.players||[],player=>eventCounts(game,player).steals):null},
+  liveTurnovers:{label:'Pérdidas · Directo', live:true, value:(player,game)=>hasManualData(game)&&wasRecordedInLive(game,player)?eventCounts(game,player).turnovers:null, team:game=>hasManualData(game)?mean(game.players||[],player=>eventCounts(game,player).turnovers):null},
+  liveOrb:{label:'REB O · Directo', live:true, value:(player,game)=>hasManualData(game)&&wasRecordedInLive(game,player)?eventCounts(game,player).orb:null, team:game=>hasManualData(game)?mean(game.players||[],player=>eventCounts(game,player).orb):null}
 };
 
+function wasRecordedInLive(game,player) {
+  const ids=game?.livePlayerIds||[];if(!ids.length)return true;
+  const names=new Set(state.roster.filter(r=>ids.includes(r.id)).map(r=>norm(r.name)));
+  return names.has(norm(player?.name))||(game.events||[]).some(e=>!e.undone&&resolveEventPlayer(game,e)===player);
+}
 function availablePlayerMetrics() {
   return Object.entries(PLAYER_METRICS);
 }
@@ -963,6 +987,7 @@ function playerTrendSVG(player,key) {
   const x=index=>rows.length===1?w/2:46+index*(w-92)/(rows.length-1), y=value=>h-46-(value-min)/(max-min||1)*(h-88);
   const buildSegments=field=>{const out=[];let current=[];rows.forEach((row,index)=>{const value=row[field];if(value===null||!Number.isFinite(+value)){if(current.length)out.push(current);current=[];}else current.push(`${x(index)},${y(value)}`)});if(current.length)out.push(current);return out;};
   return `<div class="trend-scroller"><svg class="player-trend" viewBox="0 0 ${w} ${h}" style="min-width:${Math.max(0,rows.length*72)}px" role="img" aria-label="Evolución de ${esc(metric.label)}">
+    <line class="trend-grid zero-line" x1="28" y1="${y(0)}" x2="${w-28}" y2="${y(0)}"/><text class="axis-label" x="31" y="${Math.max(12,y(max)-5)}">máx ${metricValue(key,max)}</text><text class="axis-label" x="31" y="${Math.min(h-50,y(min)+14)}">mín ${metricValue(key,min)}</text><text class="axis-label zero-label" x="${w-31}" y="${Math.max(12,y(0)-5)}" text-anchor="end">0</text>
     <line class="trend-axis" x1="28" y1="${h-46}" x2="${w-28}" y2="${h-46}"/>
     ${season===null?'':`<line class="team-season" x1="34" y1="${y(season)}" x2="${w-34}" y2="${y(season)}"/><text class="season-label" x="${w-36}" y="${Math.max(14,y(season)-7)}" text-anchor="end">Temporada ${metricValue(key,season)}</text>`}
     ${buildSegments('team').map(points=>`<polyline class="team-average" points="${points.join(' ')}"/>`).join('')}
@@ -971,15 +996,16 @@ function playerTrendSVG(player,key) {
       ${row.value===null?`<circle class="missing" cx="${x(index)}" cy="${h-46}" r="7"/><text class="missing-label" x="${x(index)}" y="${h-57}" text-anchor="middle">sin tiros</text>`:`<circle cx="${x(index)}" cy="${y(row.value)}" r="8"/><text x="${x(index)}" y="${Math.max(15,y(row.value)-14)}" text-anchor="middle">${metricValue(key,row.value)}</text>`}
       <text class="game-index" x="${x(index)}" y="${h-18}" text-anchor="middle">P${index+1}</text><title>${esc(row.g.opponent)} · ${metric.label} ${row.value===null?'sin tiros':metricValue(key,row.value)}</title>
     </g>`).join('')}
-  </svg></div><div class="trend-legend"><span class="player">${genderTerms().singular}</span><span class="average">Equipo · partido</span><span class="season">Equipo · temporada</span></div>`;
+  </svg></div><div class="trend-legend"><span class="player">${genderTerms().singular}</span><span class="average">Media de la plantilla · partido</span><span class="season">Equipo · temporada</span></div>`;
 }
 
+const teamMinutes = game => { const m = +effectiveTotals(game,'own').min; return m >= 150 ? m : 200; };
 function playerShareData(player, mode='average') {
   const playerGames=player.games.map(item=>item.g).filter(game=>hasScore(game.us));
   const teamPoints=sum(playerGames,game=>game.us);
-  if(mode==='season') return {points:sum(validGames(),game=>game.us)?player.pts/sum(validGames(),game=>game.us)*100:0, minutes:validGames().length?player.min/(validGames().length*200)*100:0, label:'temporada'};
+  if(mode==='season') return {points:sum(validGames(),game=>game.us)?player.pts/sum(validGames(),game=>game.us)*100:0, minutes:validGames().length?player.min/sum(validGames(),teamMinutes)*100:0, label:'temporada'};
   const teamPpg=playerGames.length?teamPoints/playerGames.length:0;
-  return {points:player.gp&&teamPpg?(player.pts/player.gp)/teamPpg*100:0,minutes:player.gp?(player.min/player.gp)/200*100:0,label:'por partido'};
+  return {points:player.gp&&teamPpg?(player.pts/player.gp)/teamPpg*100:0,minutes:player.gp?player.min/sum(player.games.map(item=>item.g),teamMinutes)*100:0,label:'por partido'};
 }
 function robPerDisplay(steals,turnovers){return turnovers?num(steals/turnovers,2):steals?'∞':'—';}
 
@@ -995,7 +1021,7 @@ function openPlayerDetail(key,metricKey='pts',shareMode='average') {
   const allStats=[...averages,...liveStats],share=playerShareData(player,shareMode);
   const options=availablePlayerMetrics().map(([metricId,item])=>`<option value="${metricId}" ${metricId===metricKey?'selected':''}>${item.label}</option>`).join('');
   const directNote=player.manualGp?`<p class="inline-data-note ${balance<0?'negative':''}"><b>Directo integrado · ${player.manualGp} partido${player.manualGp===1?'':'s'}</b><span>El ratio robos/pérdidas nunca es negativo. El balance suma robos y rebotes ofensivos y resta pérdidas; si no hay pérdidas, el ratio muestra ∞ o —.</span></p>`:'';
-  openModal(genderTerms().singular,namePretty(player.name),`<div class="player-summary"><div class="player-number large">${esc(player.number||'—')}</div><div><b>${player.gp} partidos</b><span>${best?`Mejor ${metric.label}: ${esc(best.g.opponent)}`:'Sin dato válido'}</span></div></div><div class="player-overview"><div class="detail-stats unified-player-stats">${allStats.map(([label,value])=>`<div class="${label.startsWith('Balance')&&balance<0?'negative-value':''}"><span>${label}</span><strong>${value}</strong></div>`).join('')}</div><div><div class="segmented share-mode" aria-label="Escala de las cuotas"><button data-action="player-share" data-mode="average" class="${shareMode==='average'?'active':''}">Por partido</button><button data-action="player-share" data-mode="season" class="${shareMode==='season'?'active':''}">Temporada</button></div><div class="share-donuts">${donut(share.points,`Cuota puntos · ${share.label}`,'player')}${donut(share.minutes,`Cuota minutos · ${share.label}`,'game')}</div></div></div>${directNote}<section class="trend-section"><div class="trend-head"><div><h3>Evolución</h3><p>Desliza si hay muchos partidos. Los huecos significan «sin datos», no cero.</p></div><select id="playerMetric">${options}</select></div><div id="playerTrend">${playerTrendSVG(player,metricKey)}</div></section><section><h3>Partidos</h3><div class="player-games">${chronological(player.games.map(item=>item.g)).map(g=>{const p=player.games.find(item=>item.g.id===g.id)?.p;return `<button data-detail="game:${g.id}"><span><b>${esc(g.opponent)}</b><small>${g.date||'Sin fecha'} · ${formatMinutes(p?.min)}</small></span><strong>${p?.pts||0} PTS</strong><em>${signed(p?.pm||0)}</em></button>`}).join('')}</div></section>`);
+  openModal(genderTerms().singular,namePretty(player.name),`<div class="player-summary"><div class="player-number large">${esc(player.number||'—')}</div><div><b>${player.gp} partidos</b><span>${best?`Mejor ${metric.label}: ${esc(best.g.opponent)}`:'Sin dato válido'}</span></div></div><div class="player-overview"><div class="detail-stats unified-player-stats">${allStats.map(([label,value])=>`<div class="${label.startsWith('Balance')&&balance<0?'negative-value':''}"><span>${label}</span><strong>${value}</strong></div>`).join('')}</div><div><div class="segmented share-mode" aria-label="Escala de las cuotas"><button data-action="player-share" data-mode="average" class="${shareMode==='average'?'active':''}">Por partido</button><button data-action="player-share" data-mode="season" class="${shareMode==='season'?'active':''}">Temporada</button></div><div class="share-donuts">${donut(share.points,`Cuota puntos · ${share.label}`,'player')}${donut(share.minutes,`Cuota minutos · ${share.label}`,'game')}</div></div></div>${directNote}<section class="trend-section"><div class="trend-head"><div><h3>Evolución</h3><p>Desliza si hay muchos partidos. Los huecos significan «sin datos», no cero.</p></div><select id="playerMetric">${options}</select></div><div id="playerTrend">${playerTrendSVG(player,metricKey)}</div></section><section><h3>Partidos</h3><div class="player-games">${chronological(player.games.map(item=>item.g)).map(g=>{const p=player.games.find(item=>item.g.id===g.id)?.p;return `<button data-detail="game:${g.id}"><span><b>${esc(g.opponent)}</b><small>${fmtDate(g.date)} · ${formatMinutes(p?.min)}</small></span><strong>${p?.pts||0} PTS</strong><em>${signed(p?.pm||0)}</em></button>`}).join('')}</div></section>`);
 }
 
 /* ── Match report and shot maps ─────────────────────────────────── */
@@ -1047,7 +1073,7 @@ function renderGameDetail() {
   if(g.source==='live-pending'||!hasScore(g.us)||!hasScore(g.them)){
     const ec=eventCounts(g),active=(g.events||[]).filter(event=>!event.undone);
     const games=validGames(),suggested=games.map(game=>({...pendingScore(g,game,game.date),game})).filter(item=>item.name>=.35).sort((a,b)=>b.score-a.score)[0]?.game;
-    $('#gameDetail').innerHTML=`<div class="pending-hero"><span>Directo guardado · ${g.date||'Sin fecha'}</span><strong>Esperando acta</strong><p>Al importar el Excel del partido, la app conservará y unirá estos datos manuales.</p></div><div class="metric-summary"><div><span>Robos</span><strong>${ec.steals}</strong></div><div><span>Pérdidas</span><strong>${ec.turnovers}</strong></div><div><span>REB O propio</span><strong>${ec.orb}</strong></div><div><span>REB O rival</span><strong>${ec.rivalOrb}</strong></div></div><div class="coverage-note"><b>${active.length} evento${active.length===1?'':'s'} conservado${active.length===1?'':'s'}</b><span>No cuenta en estadísticas hasta tener marcador.</span></div>${games.length?`<div class="manual-join"><label class="field">Unir manualmente a un acta<select id="pendingTarget">${games.map(game=>`<option value="${game.id}" ${game.id===suggested?.id?'selected':''}>${esc(game.opponent)} · ${game.date} · ${gameScore(game)}</option>`).join('')}</select></label><button class="btn" data-action="merge-pending-manual" data-id="${g.id}">Unir a esta acta</button></div>`:''}<button class="btn primary wide pending-import" data-action="import-games" data-pending-id="${g.id}">Importar acta y unir</button>`;
+    $('#gameDetail').innerHTML=`<div class="pending-hero"><span>Directo guardado · ${fmtDate(g.date)}</span><strong>Esperando acta</strong><p>Al importar el Excel del partido, la app conservará y unirá estos datos manuales.</p></div><div class="metric-summary"><div><span>Robos</span><strong>${ec.steals}</strong></div><div><span>Pérdidas</span><strong>${ec.turnovers}</strong></div><div><span>REB O propio</span><strong>${ec.orb}</strong></div><div><span>REB O rival</span><strong>${ec.rivalOrb}</strong></div></div><div class="coverage-note"><b>${active.length} evento${active.length===1?'':'s'} conservado${active.length===1?'':'s'}</b><span>No cuenta en estadísticas hasta tener marcador.</span></div>${games.length?`<div class="manual-join"><label class="field">Unir manualmente a un acta<select id="pendingTarget">${games.map(game=>`<option value="${game.id}" ${game.id===suggested?.id?'selected':''}>${esc(game.opponent)} · ${fmtDate(game.date)} · ${gameScore(game)}</option>`).join('')}</select></label><button class="btn" data-action="merge-pending-manual" data-id="${g.id}">Unir a esta acta</button></div>`:''}<button class="btn primary wide pending-import" data-action="import-games" data-pending-id="${g.id}">Importar acta y unir</button>`;
     return;
   }
   const own = modalContext.side === 'own', players = own ? (g.players || []) : (g.opponentPlayers || []);
@@ -1062,15 +1088,17 @@ function renderGameDetail() {
   rows.sort((a,b) => a._teamUnassigned ? 1 : b._teamUnassigned ? -1 : compareBox(a[modalContext.sort], b[modalContext.sort]) * modalContext.dir);
   const groups = visibleBoxGroups(rows, total, own), columns = groups.flatMap(x => x.cols);
   const individualRows=rows.filter(row=>!row._teamUnassigned),unassignedRow=rows.find(row=>row._teamUnassigned);
+  const directWarnings=[];
   if (own&&manualAvailable) {
     for (const key of ['liveSteals','liveTurnovers','liveOrb']) {
       const individual=sum(individualRows,row=>row[key]),unassigned=+unassignedRow?.[key]||0;
-      if (individual+unassigned!==+total[key]) console.warn(`Directo incoherente en ${key}`);
+      if (individual+unassigned!==+total[key]) directWarnings.push(key);
     }
   }
   const warning = g.needsReimport || (!own && !players.length) ? `<div class="reimport-inline"><b>Faltan datos del rival</b><span>Vuelve a importar el acta. La actualización conserva Directo y mapas.</span><button class="btn" data-action="import-games">Reimportar</button></div>` : '';
+  const directWarning=directWarnings.length?`<div class="data-warning"><b>Revisar Directo</b><span>Las filas individuales y el total no cuadran (${directWarnings.map(k=>({liveSteals:'ROB',liveTurnovers:'PER',liveOrb:'REB O'}[k])).join(', ')}). Puede faltar alguna ${genderTerms().singular.toLowerCase()} en el acta.</span></div>`:'';
   const manualNotice=own&&!manualAvailable?`<div class="manual-table-notice"><b>ROB · PER · REB O · REB R</b><span>Sin datos registrados todavía. Las columnas se muestran para distinguir ausencia de un cero real.</span></div>`:'';
-  $('#gameDetail').innerHTML = `<div class="score-hero"><div><span>${gameSides(g)} · ${g.date || 'Sin fecha'} · local–visitante</span><strong>${gameScore(g)}</strong></div><div class="result-pill ${g.us > g.them ? 'win' : 'loss'}">${g.us > g.them ? 'Victoria' : 'Derrota'}</div></div>${warning}${manualNotice}<div class="team-tabs"><button class="${own ? 'active' : ''}" data-action="game-team" data-side="own">${esc(teamLabel())} · ${g.us}</button><button class="${!own ? 'active' : ''}" data-action="game-team" data-side="opp">${esc(g.opponent)} · ${g.them}</button></div><div class="box-hint">Desliza la tabla</div><div class="box-wrap"><table class="boxscore"><thead><tr><th class="identity" rowspan="2" data-action="sort-box" data-key="number">${genderTerms().number} · Nombre</th>${groups.map(group => `<th colspan="${group.cols.length}">${group.label}</th>`).join('')}</tr><tr>${groups.map(group => group.cols.map(([k,label]) => `<th data-action="sort-box" data-key="${k}">${label}${modalContext.sort === k ? (modalContext.dir === 1 ? ' ↑' : ' ↓') : ''}</th>`).join('')).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="${r._teamUnassigned?'team-unassigned':''}"><td class="identity" title="${esc(namePretty(r.name))}"><b>${esc(r.number || '—')}</b><span>${esc(r._teamUnassigned?'Equipo / sin asignar':firstName(r.name))}</span></td>${columns.map(([k]) => `<td>${formatBox(r,k)}</td>`).join('')}</tr>`).join('')}<tr class="totals"><td class="identity"><b></b><span>TOTALES</span></td>${columns.map(([k]) => `<td>${formatBox(total,k)}</td>`).join('')}</tr></tbody></table></div><div class="game-map-block"><div class="map-switch"><button class="${modalContext.map === 'attack' ? 'active' : ''}" data-action="game-map" data-mode="attack">Ataque</button><button class="${modalContext.map === 'defense' ? 'active' : ''}" data-action="game-map" data-mode="defense">Defensa</button><button class="${modalContext.map === 'both' ? 'active' : ''}" data-action="game-map" data-mode="both">Juntos</button></div>${courtHTML(modalContext.map === 'defense' ? [] : g.shotsFor || [], modalContext.map === 'attack' ? [] : g.shotsAgainst || [], false)}<button class="btn" data-action="shot-for-game" data-id="${g.id}">Editar mapa</button></div>`;
+  $('#gameDetail').innerHTML = `<div class="score-hero"><div><span>${gameSides(g)} · ${fmtDate(g.date)} · local–visitante</span><strong>${gameScore(g)}</strong></div><div class="result-pill ${g.us > g.them ? 'win' : 'loss'}">${g.us > g.them ? 'Victoria' : 'Derrota'}</div></div>${warning}${directWarning}${manualNotice}<div class="team-tabs"><button class="${own ? 'active' : ''}" data-action="game-team" data-side="own">${esc(teamLabel())} · ${g.us}</button><button class="${!own ? 'active' : ''}" data-action="game-team" data-side="opp">${esc(g.opponent)} · ${g.them}</button></div><div class="box-hint">Desliza la tabla</div><div class="box-wrap"><table class="boxscore"><thead><tr><th class="identity" rowspan="2" data-action="sort-box" data-key="number">${genderTerms().number} · Nombre</th>${groups.map(group => `<th colspan="${group.cols.length}">${group.label}</th>`).join('')}</tr><tr>${groups.map(group => group.cols.map(([k,label]) => `<th data-action="sort-box" data-key="${k}">${label}${modalContext.sort === k ? (modalContext.dir === 1 ? ' ↑' : ' ↓') : ''}</th>`).join('')).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="${r._teamUnassigned?'team-unassigned':''}"><td class="identity" title="${esc(namePretty(r.name))}"><b>${esc(r.number || '—')}</b><span>${esc(r._teamUnassigned?'Equipo / sin asignar':firstName(r.name))}</span></td>${columns.map(([k]) => `<td>${formatBox(r,k)}</td>`).join('')}</tr>`).join('')}<tr class="totals"><td class="identity"><b></b><span>TOTALES</span></td>${columns.map(([k]) => `<td>${formatBox(total,k)}</td>`).join('')}</tr></tbody></table></div><div class="game-map-block"><div class="map-switch"><button class="${modalContext.map === 'attack' ? 'active' : ''}" data-action="game-map" data-mode="attack">Ataque</button><button class="${modalContext.map === 'defense' ? 'active' : ''}" data-action="game-map" data-mode="defense">Defensa</button><button class="${modalContext.map === 'both' ? 'active' : ''}" data-action="game-map" data-mode="both">Juntos</button></div>${courtHTML(modalContext.map === 'defense' ? [] : g.shotsFor || [], modalContext.map === 'attack' ? [] : g.shotsAgainst || [], false)}<button class="btn" data-action="shot-for-game" data-id="${g.id}">Editar mapa</button></div>`;
 }
 
 function openScoringMixDetail() {
@@ -1095,16 +1123,16 @@ function metricPlayerBreakdown(key, mode='total') {
 
 function openTeamMetricDetail(key, breakdownMode='total') {
   const metric=TEAM_METRICS[key]; if(!metric)return;
-  if(key==='margin'){const rows=teamMetricRows(key),total=aggregateMetric(key,rows,'own','total'),avg=aggregateMetric(key,rows,'own'),best=[...rows].sort((a,b)=>b.own-a.own)[0],worst=[...rows].sort((a,b)=>a.own-b.own)[0];modalContext={type:'metric',key,breakdownMode};return openModal('Estadística','Diferencia',`<p class="metric-explain">Un único valor con signo: ${esc(teamLabel())} menos rival. Positivo es ventaja; negativo es desventaja.</p><div class="metric-summary"><div><span>Total acumulado</span><strong>${metricValue(key,total,0)}</strong></div><div><span>Media por partido</span><strong>${metricValue(key,avg)}</strong></div><div><span>Mayor ventaja</span><strong>${best?metricValue(key,best.own,0):'—'}</strong></div><div><span>Mayor desventaja</span><strong>${worst?metricValue(key,worst.own,0):'—'}</strong></div></div><section class="detail-block"><h3>Evolución</h3><div class="diverging-detail">${balanceVisual(key,rows)}</div></section><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${metricValue(key,row.own,0)}</strong><em>${gameScore(row.game)}</em></button>`).join('')}</div>`);}
+  if(key==='margin'){const rows=teamMetricRows(key),total=aggregateMetric(key,rows,'own','total'),avg=aggregateMetric(key,rows,'own'),best=[...rows].sort((a,b)=>b.own-a.own)[0],worst=[...rows].sort((a,b)=>a.own-b.own)[0];modalContext={type:'metric',key,breakdownMode};return openModal('Estadística','Diferencia',`<p class="metric-explain">Un único valor con signo: ${esc(teamLabel())} menos rival. Positivo es ventaja; negativo es desventaja.</p><div class="metric-summary"><div><span>Total acumulado</span><strong>${metricValue(key,total,0)}</strong></div><div><span>Media por partido</span><strong>${metricValue(key,avg)}</strong></div><div><span>Mayor ventaja</span><strong>${best?metricValue(key,best.own,0):'—'}</strong></div><div><span>Mayor desventaja</span><strong>${worst?metricValue(key,worst.own,0):'—'}</strong></div></div><section class="detail-block"><h3>Evolución</h3><div class="diverging-detail">${balanceVisual(key,rows)}</div></section><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${fmtDate(row.game.date)}</small></span><strong>${metricValue(key,row.own,0)}</strong><em>${gameScore(row.game)}</em></button>`).join('')}</div>`);}
   const rows=teamMetricRows(key), ownTotal=aggregateMetric(key,rows,'own','total'), oppTotal=aggregateMetric(key,rows,'opp','total'), ownAvg=aggregateMetric(key,rows,'own'), oppAvg=aggregateMetric(key,rows,'opp');
   const ownValid=rows.filter(row=>row.own!==null&&Number.isFinite(+row.own));
   const ordered=[...ownValid].sort((a,b)=>metric.lowerBetter?a.own-b.own:b.own-a.own),best=ordered[0]||null,worst=ordered.at(-1)||null;
   const percentSummary=metric.percent?`<div class="metric-summary"><div><span>Temporada · ${esc(teamLabel())}</span><strong>${metricValue(key,ownTotal,0)}</strong></div><div><span>Temporada rival</span><strong>${metricValue(key,oppTotal,0)}</strong></div><div><span>Media · ${esc(teamLabel())}</span><strong>${metricValue(key,ownAvg)}</strong></div><div><span>Media de partidos rival</span><strong>${metricValue(key,oppAvg)}</strong></div></div>`:`<div class="metric-summary"><div><span>Total · ${esc(teamLabel())}</span><strong>${metricValue(key,ownTotal,0)}</strong></div><div><span>Total rival</span><strong>${metricValue(key,oppTotal,0)}</strong></div><div><span>Media · ${esc(teamLabel())}</span><strong>${metricValue(key,ownAvg)}</strong></div><div><span>Media rival / partido</span><strong>${metricValue(key,oppAvg)}</strong></div></div>`;
   const bestLabel=metric.lowerBetter?`Mejor ${teamLabel()} · menos`:metric.higherBetter===null?`Mayor peso · ${teamLabel()}`:`Mejor · ${teamLabel()}`,worstLabel=metric.lowerBetter?`Peor ${teamLabel()} · más`:metric.higherBetter===null?`Menor peso · ${teamLabel()}`:`Menor · ${teamLabel()}`;
   const ftpExtra=key==='ftp'?`<div class="attempt-summary"><b>${esc(teamLabel())}</b><span>${sum(rows,row=>effectiveTotals(row.game,'own').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'own').fta)} TL</span><b>Rival</b><span>${sum(rows,row=>effectiveTotals(row.game,'opp').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'opp').fta)} TL</span></div>`:'';
-  const per40=metric.per40?(()=>{const ownMinutes=sum(rows,row=>effectiveTotals(row.game,'own').min),oppMinutes=sum(rows,row=>effectiveTotals(row.game,'opp').min);return `<div class="metric-summary per40-summary"><div><span>Faltas propias / 40 min</span><strong>${ownMinutes?num(ownTotal/ownMinutes*40):'—'}</strong></div><div><span>Faltas rival / 40 min</span><strong>${oppMinutes?num(oppTotal/oppMinutes*40):'—'}</strong></div></div>`;})():'';
+  const per40=metric.per40?(()=>{const ownMinutes=sum(rows,row=>effectiveTotals(row.game,'own').min),oppMinutes=sum(rows,row=>effectiveTotals(row.game,'opp').min);return `<div class="metric-summary per40-summary"><div><span>Faltas propias / 40 min de partido</span><strong>${ownMinutes?num(ownTotal/(ownMinutes/5)*40):'—'}</strong></div><div><span>Faltas rival / 40 min de partido</span><strong>${oppMinutes?num(oppTotal/(oppMinutes/5)*40):'—'}</strong></div></div>`;})():'';
   modalContext={type:'metric',key,breakdownMode};
-  openModal('Estadística',metric.label,`<p class="metric-explain">${metric.note} En el detalle, el color elegido identifica al equipo y el color de contraste al rival.</p>${percentSummary}${per40}${ftpExtra}<section class="detail-block"><div class="card-title"><div><h3>Evolución por partido</h3><span>Desliza si hay muchos partidos · toca un punto para abrir el acta</span></div></div><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">${esc(teamLabel())}</span><span class="them">Rival</span></div></section><div class="best-worst"><div><span>${bestLabel}</span><b>${best?metricValue(key,best.own):'—'}</b><small>${best?esc(best.game.opponent):''}</small></div><div><span>${worstLabel}</span><b>${worst?metricValue(key,worst.own):'—'}</b><small>${worst?esc(worst.game.opponent):''}</small></div></div>${metricPlayerBreakdown(key,breakdownMode)}<section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${metricValue(key,row.own)} / ${metricValue(key,row.opp)}</strong><em title="Local–visitante">${gameScore(row.game)}</em></button>`).join('')}</div></section>`);
+  openModal('Estadística',metric.label,`<p class="metric-explain">${metric.note} En el detalle, el color elegido identifica al equipo y el color de contraste al rival.</p>${percentSummary}${per40}${ftpExtra}<section class="detail-block"><div class="card-title"><div><h3>Evolución por partido</h3><span>Desliza si hay muchos partidos · toca un punto para abrir el acta</span></div></div><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">${esc(teamLabel())}</span><span class="them">Rival</span></div></section><div class="best-worst"><div><span>${bestLabel}</span><b>${best?metricValue(key,best.own):'—'}</b><small>${best?esc(best.game.opponent):''}</small></div><div><span>${worstLabel}</span><b>${worst?metricValue(key,worst.own):'—'}</b><small>${worst?esc(worst.game.opponent):''}</small></div></div>${metricPlayerBreakdown(key,breakdownMode)}<section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${fmtDate(row.game.date)}</small></span><strong>${metricValue(key,row.own)} / ${metricValue(key,row.opp)}</strong><em title="Local–visitante">${gameScore(row.game)}</em></button>`).join('')}</div></section>`);
 }
 
 function openPointShareDetail() {
@@ -1131,19 +1159,19 @@ function openLiveMetricDetail(key) {
   const relation=ratio(ownTotal,oppTotal), share=(ownTotal+oppTotal)?ownTotal/(ownTotal+oppTotal)*100:null, balance=ownTotal-oppTotal;
   const ratioCards=key==='ball'?[['Balance robos − pérdidas',signed(balance).replace(',0','')],['Ratio robos/pérdidas',relation===null?'—':num(relation,2)],['Acciones positivas',share===null?'—':pct(share)]]:[['Balance REB O',signed(balance).replace(',0','')],['Cuota REB O propio',share===null?'—':pct(share)],['Ratio propio/rival',relation===null?'—':num(relation,2)]];
   modalContext={type:'live-metric',key};
-  openModal('Directo',metric.label,`<p class="metric-explain">${metric.note} Los partidos sin registro manual quedan fuera de totales, medias y ratios: un dato ausente nunca se convierte en cero.</p><div class="coverage-note"><b>${rows.length} partido${rows.length===1?'':'s'} con registro</b><span>de ${validGames().length} disputados</span></div><div class="metric-summary"><div><span>Total · ${metric.ownLabel}</span><strong>${ownTotal}</strong></div><div><span>Total · ${metric.oppLabel}</span><strong>${oppTotal}</strong></div><div><span>Media · ${metric.ownLabel}</span><strong>${num(ownAvg)}</strong></div><div><span>Media · ${metric.oppLabel}</span><strong>${num(oppAvg)}</strong></div></div><div class="ratio-grid">${ratioCards.map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}</div><section class="detail-block"><h3>Evolución por partido</h3><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">${metric.ownLabel}</span><span class="them">${metric.oppLabel}</span></div></section><section class="detail-block"><h3>Por cuarto</h3><div class="quarter-breakdown">${quarters.map(row=>compareBar(`Q${row.quarter}`,row.own,row.opp,value=>num(value,0))).join('')}</div></section><section class="detail-block"><h3>${key==='orb'?`REB O del equipo por ${genderTerms().singular.toLowerCase()}`:`Robos y pérdidas por ${genderTerms().singular.toLowerCase()}`}</h3>${playerRows.length?`<div class="manual-player-list">${playerRows.map(([name,value])=>`<div><span>${esc(name==='Equipo (sin asignar)'?name:shortName(name))}</span><b>${value.own} ${metric.types[0]==='steal'?'ROB':'REB O'}</b>${key==='ball'?`<b>${value.opp} PER</b><strong>${value.own-value.opp>0?'+':''}${value.own-value.opp}</strong>`:''}</div>`).join('')}</div>`:'<div class="empty-inline">Sin asignaciones individuales.</div>'}</section><section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${row.game.date||'Sin fecha'}</small></span><strong>${row.own} / ${row.opp}</strong><em>${metric.ownLabel} / ${metric.oppLabel}</em></button>`).join('')}</div></section>`);
+  openModal('Directo',metric.label,`<p class="metric-explain">${metric.note} Los partidos sin registro manual quedan fuera de totales, medias y ratios: un dato ausente nunca se convierte en cero.</p><div class="coverage-note"><b>${rows.length} partido${rows.length===1?'':'s'} con registro</b><span>de ${validGames().length} disputados</span></div><div class="metric-summary"><div><span>Total · ${metric.ownLabel}</span><strong>${ownTotal}</strong></div><div><span>Total · ${metric.oppLabel}</span><strong>${oppTotal}</strong></div><div><span>Media · ${metric.ownLabel}</span><strong>${num(ownAvg)}</strong></div><div><span>Media · ${metric.oppLabel}</span><strong>${num(oppAvg)}</strong></div></div><div class="ratio-grid">${ratioCards.map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}</div><section class="detail-block"><h3>Evolución por partido</h3><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">${metric.ownLabel}</span><span class="them">${metric.oppLabel}</span></div></section><section class="detail-block"><h3>Por cuarto</h3><div class="quarter-breakdown">${quarters.map(row=>compareBar(`Q${row.quarter}`,row.own,row.opp,value=>num(value,0))).join('')}</div></section><section class="detail-block"><h3>${key==='orb'?`REB O del equipo por ${genderTerms().singular.toLowerCase()}`:`Robos y pérdidas por ${genderTerms().singular.toLowerCase()}`}</h3>${playerRows.length?`<div class="manual-player-list">${playerRows.map(([name,value])=>`<div><span>${esc(name==='Equipo (sin asignar)'?name:shortName(name))}</span><b>${value.own} ${metric.types[0]==='steal'?'ROB':'REB O'}</b>${key==='ball'?`<b>${value.opp} PER</b><strong>${value.own-value.opp>0?'+':''}${value.own-value.opp}</strong>`:''}</div>`).join('')}</div>`:'<div class="empty-inline">Sin asignaciones individuales.</div>'}</section><section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${fmtDate(row.game.date)}</small></span><strong>${row.own} / ${row.opp}</strong><em>${metric.ownLabel} / ${metric.oppLabel}</em></button>`).join('')}</div></section>`);
 }
 
 function minutesHeatmap(players,games) {
   const values=players.flatMap(player=>games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min||0)), max=Math.max(40,...values);
-  return `<div class="minutes-heatmap" style="--games:${games.length};--table-width:${145+74+60+games.length*52}px"><div class="heat-head"><span>${genderTerms().singular}</span><b>Media</b><b>Cuota</b>${games.map((game,index)=>`<b title="${esc(game.opponent)}">P${index+1}</b>`).join('')}</div>${players.map(player=>{const perGame=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null), avg=player.gp?player.min/player.gp:0, share=games.length?player.min/(games.length*200)*100:0;return `<button class="heat-row" data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><b>${formatMinutes(avg)}</b><b>${num(share,0)}%</b>${perGame.map(value=>value===null?`<i class="heat-empty" title="No jugó">—</i>`:`<i style="--heat:${clamp(value/max)}" title="${formatMinutes(value)}">${Math.round(value)}</i>`).join('')}</button>`;}).join('')}</div>`;
+  return `<div class="minutes-heatmap" style="--games:${games.length};--table-width:${145+74+60+games.length*52}px"><div class="heat-head"><span>${genderTerms().singular}</span><b>Media</b><b>Cuota</b>${games.map((game,index)=>`<b title="${esc(game.opponent)}">P${index+1}</b>`).join('')}</div>${players.map(player=>{const perGame=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null), avg=player.gp?player.min/player.gp:0, share=games.length?player.min/sum(games,teamMinutes)*100:0;return `<button class="heat-row" data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span><b>${formatMinutes(avg)}</b><b>${num(share,0)}%</b>${perGame.map(value=>value===null?`<i class="heat-empty" title="No jugó">—</i>`:`<i style="--heat:${clamp(value/max)}" title="${formatMinutes(value)}">${Math.round(value)}</i>`).join('')}</button>`;}).join('')}</div>`;
 }
 
 function openMinutesDetail() {
   const games=validGames().sort((a,b)=>String(a.date).localeCompare(String(b.date))), players=playerAgg().sort((a,b)=>(b.min||0)-(a.min||0)||namePretty(a.name).localeCompare(namePretty(b.name),'es'));
   const appearances=sum(players,player=>player.gp), teamPlayerAverage=appearances?sum(players,player=>player.min)/appearances:0;
   modalContext={type:'minutes'};
-  openModal('Minutos','Carga y evolución',`<p class="metric-explain">Minutos de acta. La cuota compara los minutos de cada ${genderTerms().singular.toLowerCase()} con los ${games.length*200} minutos de equipo disponibles.</p><div class="metric-summary three"><div><span>Partidos</span><strong>${games.length}</strong></div><div><span>Minutos equipo</span><strong>${formatMinutes(games.length*200)}</strong></div><div><span>Media ${genderTerms().singular.toLowerCase()}-acta</span><strong>${formatMinutes(teamPlayerAverage)}</strong></div></div><section class="detail-block"><div class="card-title"><div><h3>Mapa de minutos</h3><span>Desliza lateralmente · toca una fila</span></div></div><div class="minutes-scroll" tabindex="0" aria-label="Tabla de minutos; desliza a derecha e izquierda">${minutesHeatmap(players,games)}</div></section><section class="detail-block"><div class="card-title"><div><h3>Evolución individual</h3><span>Mini gráfico, media y cuota de temporada</span></div></div><div class="minutes-evolution">${players.map(player=>{const series=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null),avg=player.gp?player.min/player.gp:0,share=games.length?player.min/(games.length*200)*100:0;return `<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span>${sparkline(series,'player',180,40)}<b>${formatMinutes(avg)} /P</b><strong>${num(share,0)}%</strong></button>`;}).join('')}</div></section>`);
+  openModal('Minutos','Carga y evolución',`<p class="metric-explain">Minutos de acta. La cuota compara los minutos de cada ${genderTerms().singular.toLowerCase()} con los ${Math.round(sum(games,teamMinutes))} minutos de equipo disponibles (5 en pista; incluye prórrogas si el acta las recoge).</p><div class="metric-summary three"><div><span>Partidos</span><strong>${games.length}</strong></div><div><span>Minutos equipo</span><strong>${formatMinutes(sum(games,teamMinutes))}</strong></div><div><span>Media ${genderTerms().singular.toLowerCase()}-acta</span><strong>${formatMinutes(teamPlayerAverage)}</strong></div></div><section class="detail-block"><div class="card-title"><div><h3>Mapa de minutos</h3><span>Desliza lateralmente · toca una fila</span></div></div><div class="minutes-scroll" tabindex="0" aria-label="Tabla de minutos; desliza a derecha e izquierda">${minutesHeatmap(players,games)}</div></section><section class="detail-block"><div class="card-title"><div><h3>Evolución individual</h3><span>Mini gráfico, media y cuota de temporada</span></div></div><div class="minutes-evolution">${players.map(player=>{const series=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null),avg=player.gp?player.min/player.gp:0,share=games.length?player.min/sum(games,teamMinutes)*100:0;return `<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span>${sparkline(series,'player',180,40)}<b>${formatMinutes(avg)} /P</b><strong>${num(share,0)}%</strong></button>`;}).join('')}</div></section>`);
 }
 
 function detail(id) {
@@ -1316,13 +1344,14 @@ function finishLive() {
   const live = state.live, match = bestGameMatch(live);
   if (!match) return openModal('Directo', 'Guardar pendiente', '<p>Se unirá al importar el acta.</p><button class="btn primary" data-action="keep-live-pending">Guardar</button>');
   modalContext={type:'confirm-live-merge',gameId:match.id};
-  return openModal('Directo','Confirmar unión',`<p class="metric-explain">Se unirán los datos del Directo <b>${esc(live.opponent)}</b> · ${live.date} con esta acta:</p><div class="merge-target"><b>${esc(match.opponent)}</b><span>${match.date} · ${gameScore(match)} · local–visitante</span></div><div class="confirm-actions"><button class="btn" data-action="keep-live-pending">Guardar pendiente</button><button class="btn primary" data-action="confirm-live-merge" data-id="${match.id}">Unir a esta acta</button></div>`);
+  return openModal('Directo','Confirmar unión',`<p class="metric-explain">Se unirán los datos del Directo <b>${esc(live.opponent)}</b> · ${fmtDate(live.date)} con esta acta:</p><div class="merge-target"><b>${esc(match.opponent)}</b><span>${fmtDate(match.date)} · ${gameScore(match)} · local–visitante</span></div><div class="confirm-actions"><button class="btn" data-action="keep-live-pending">Guardar pendiente</button><button class="btn primary" data-action="confirm-live-merge" data-id="${match.id}">Unir a esta acta</button></div>`);
 }
 
 function confirmLiveMerge(gameId) {
   const live=state.live,match=state.games.find(game=>game.id===gameId);if(!live||!match)return;
   match.events = mergeEvents(match.events || [],live.events.filter(event => !event.undone));
   match.availability = {...(match.availability || {}), manual:true};
+  match.livePlayerIds = [...new Set([...(match.livePlayerIds||[]),...(live.players||[]).map(p=>p.id)])];
   record('replace-game', {game:match});
   state.live = null;
   save();
@@ -1339,7 +1368,7 @@ function mergePendingManual(pendingId,targetId) {
 }
 
 function keepLivePending() {
-  state.games.push({id:uid(), opponent:state.live.opponent, date:state.live.date, home:true, us:null, them:null, players:[], opponentPlayers:[], events:state.live.events.filter(event => !event.undone), shotsFor:[], shotsAgainst:[], source:'live-pending', availability:{manual:true, boxscore:false, opponentBoxscore:false, shotMap:false}});
+  state.games.push({id:uid(), opponent:state.live.opponent, date:state.live.date, home:true, us:null, them:null, players:[], opponentPlayers:[], livePlayerIds:(state.live.players||[]).map(p=>p.id), events:state.live.events.filter(event => !event.undone), shotsFor:[], shotsAgainst:[], source:'live-pending', availability:{manual:true, boxscore:false, opponentBoxscore:false, shotMap:false}});
   record('replace-game', {game:state.games.at(-1)});
   state.live = null;
   save();
@@ -1348,7 +1377,7 @@ function keepLivePending() {
   setView('games');
 }
 
-function serviceUrl(){return String(localStorage.getItem('estadisticas_service_api')||APP_CONFIG.serviceApi||state.settings.api||'').trim().replace(/\/$/,'');}
+function serviceUrl(){const local=/^(localhost|127\.0\.0\.1)$/.test(location.hostname)?localStorage.getItem('estadisticas_service_api'):'';return String(local||APP_CONFIG.serviceApi||state.settings.api||'').trim().replace(/\/$/,'');}
 function workspaceStatus(item){const settings=item.data?.settings||{};return settings.teamId||settings.api?'En la nube':'Solo en este dispositivo';}
 function openTeams(){
   const rows=workspaceBook.workspaces.map(item=>`<div class="workspace-row ${item.id===workspaceBook.activeId?'active':''}"><button data-action="switch-team" data-id="${item.id}"><span><b>${esc(item.data?.team?.name||item.name||'Mi equipo')}</b><small>${esc(item.data?.team?.season||'Sin temporada')} · ${workspaceStatus(item)}</small></span><strong>${item.id===workspaceBook.activeId?'Activo':'Abrir'}</strong></button>${workspaceBook.workspaces.length>1?`<button class="icon-button danger" data-action="remove-team" data-id="${item.id}" aria-label="Quitar del dispositivo">×</button>`:''}</div>`).join('');
@@ -1356,7 +1385,7 @@ function openTeams(){
 }
 function switchWorkspace(id){
   if(id===workspaceBook.activeId){closeModal();return;}
-  persistWorkspace();const target=workspaceBook.workspaces.find(item=>item.id===id);if(!target)return;
+  persistWorkspace();lastSyncOk=null;const target=workspaceBook.workspaces.find(item=>item.id===id);if(!target)return;
   workspaceBook.activeId=id;state=sanitise(target.data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();syncNow();window.scrollTo(0,0);
 }
 async function createWorkspace(){
@@ -1365,14 +1394,29 @@ async function createWorkspace(){
   if(api){try{const response=await fetch(`${api}/api/v3/teams`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({name,season,gender,color})});const json=await response.json();if(!response.ok)throw Error(json.error||'Servidor no preparado');data.settings={...data.settings,api,token:json.admin.token,role:'admin',teamId:json.team.id,syncMode:'team'};cloud=true;}catch(error){console.warn('Equipo creado solo en local:',error.message);}}
   const id=uid();workspaceBook.workspaces.push({id,name,data,legacy:false});workspaceBook.activeId=id;state=sanitise(data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();if(cloud){state.ops.push({id:uid(),at:new Date().toISOString(),type:'set-team',payload:{team:state.team}});save();syncNow();}toast(cloud?'Equipo creado y protegido en la nube':'Equipo creado en este dispositivo');
 }
+function confirmRemoveWorkspace(id){
+  const item=workspaceBook.workspaces.find(row=>row.id===id);if(!item)return;const local=!(item.data?.settings?.token);
+  openModal('Equipos','Quitar equipo',`<p class="metric-explain">Vas a quitar <b>${esc(item.data?.team?.name||item.name)}</b> de este dispositivo.</p>${local?'<div class="data-warning"><b>Este equipo solo está en este dispositivo</b><span>Si lo quitas se perderán sus datos para siempre. Exporta una copia antes.</span></div>':'<p class="muted">Está en la nube: podrás recuperarlo abriendo de nuevo su enlace.</p>'}<div class="confirm-actions"><button class="btn" data-action="open-teams">Cancelar</button><button class="btn danger" data-action="confirm-remove-team" data-id="${esc(id)}">Quitar</button></div>`);
+}
 function removeWorkspace(id){
   if(workspaceBook.workspaces.length<2)return;const item=workspaceBook.workspaces.find(row=>row.id===id);if(!item)return;
   if(id===workspaceBook.activeId){const next=workspaceBook.workspaces.find(row=>row.id!==id);workspaceBook.activeId=next.id;}
   workspaceBook.workspaces=workspaceBook.workspaces.filter(row=>row.id!==id);state=sanitise(activeWorkspace().data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));openTeams();render();toast('Quitado solo de este dispositivo');
 }
+function openRosterManager(){
+  const rows=state.roster.map(player=>`<div class="roster-manage-row"><span><b>${esc(namePretty(player.name))}</b><small>${genderTerms().number}: ${esc(player.number||'—')}</small></span><button class="btn danger" data-action="remove-roster-player" data-id="${esc(player.id)}">Quitar</button></div>`).join('');
+  openModal('Plantilla','Gestionar plantilla',`<p class="metric-explain">Quitar a una persona solo la elimina de la plantilla actual. Sus estadísticas y apariciones en partidos anteriores se conservan.</p>${rows?`<div class="roster-manage-list">${rows}</div>`:'<div class="empty-inline">La plantilla está vacía.</div>'}<button class="btn wide" data-action="import-roster">Actualizar desde Excel</button>`);
+}
+function confirmRemoveRosterPlayer(id){const player=state.roster.find(item=>item.id===id);if(!player)return;openModal('Plantilla','Quitar de la plantilla',`<p class="metric-explain">Vas a quitar a <b>${esc(namePretty(player.name))}</b> de la plantilla. No se borrará ninguna estadística de los partidos ya guardados.</p><div class="confirm-actions"><button class="btn" data-action="manage-roster">Cancelar</button><button class="btn danger" data-action="confirm-remove-roster-player" data-id="${esc(id)}">Quitar de la plantilla</button></div>`);}
+function removeRosterPlayer(id){const player=state.roster.find(item=>item.id===id);if(!player)return;state.roster=state.roster.filter(item=>item.id!==id);state.liveDraft.selected=(state.liveDraft.selected||[]).filter(playerId=>playerId!==id);record('set-roster',{roster:state.roster,replace:true});toast(`${namePretty(player.name)} ya no está en la plantilla`);openRosterManager();render();}
+
+function requestDeleteCloudTeam(){openModal('Zona peligrosa','Borrar equipo de la nube',`<div class="data-warning"><b>Esta acción no se puede deshacer</b><span>Se borrarán el equipo, todos sus eventos y todos sus enlaces de la nube. Exporta una copia antes si quieres conservarlo.</span></div><label class="field">Escribe exactamente <b>${esc(teamLabel())}</b><input id="deleteTeamConfirm" autocomplete="off" placeholder="${esc(teamLabel())}"></label><div class="confirm-actions"><button class="btn" data-action="open-settings">Cancelar</button><button class="btn danger" id="deleteCloudTeamButton" data-action="confirm-delete-cloud-team" disabled>Borrar definitivamente</button></div>`);}
+async function deleteCloudTeam(){if($('#deleteTeamConfirm')?.value.trim()!==teamLabel())return toast('El nombre no coincide');try{const response=await fetch(`${state.settings.api}/api/v3/teams/${encodeURIComponent(state.settings.teamId)}`,{method:'DELETE',headers:{'Accept':'application/json','Authorization':`Bearer ${state.settings.token}`}}),body=await response.json().catch(()=>({}));if(!response.ok)throw Error(response.status===404?'Actualiza primero el Worker de Cloudflare a v12.3. El equipo no se ha borrado.':body.error||'No se pudo borrar');const current=activeWorkspace();if(workspaceBook.workspaces.length>1){workspaceBook.workspaces=workspaceBook.workspaces.filter(item=>item.id!==current.id);workspaceBook.activeId=workspaceBook.workspaces[0].id;state=sanitise(activeWorkspace().data);}else{current.data=blank('Mi equipo','','neutral','blue');current.name='Mi equipo';state=sanitise(current.data);}localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();toast('Equipo y datos borrados de la nube');}catch(error){toast(error.message);}}
+
 function openSettings(){
+  const viewer=state.settings.role==='viewer';
   const cloud=state.settings.teamId||state.settings.api?'En la nube':'Solo en este dispositivo',canShare=state.settings.role!=='viewer';
-  openModal('Aplicación','Ajustes',`<article class="team-settings-summary"><b>${esc(teamLabel())}</b><span>${esc(state.team.season||'Sin temporada')} · ${cloud}</span></article><div class="setup-fields"><label class="field">Nombre del equipo<input id="teamName" value="${esc(teamLabel())}"></label><label class="field">Temporada<input id="teamSeason" value="${esc(state.team.season||'')}"></label><label class="field">Categoría<select id="teamGender">${genderOptions(state.team.gender)}</select></label><label class="field">Color propio<select id="teamColor">${colorOptions(state.team.color)}</select></label></div><div class="action-row"><button class="btn primary" data-action="save-settings">Guardar</button><button class="btn" data-action="export-json">Exportar este equipo</button><button class="btn" data-action="share-install">Compartir página de instalación</button></div>${canShare?`<article class="settings-block share-simple"><div class="share-heading"><span class="share-icon">↗</span><div><h3>Compartir equipo</h3><p>${state.settings.api?'Ya está sincronizado. Crea un enlace para cada persona.':'La primera vez subiremos automáticamente todos los datos a una nube privada.'}</p></div></div><label class="field">Nombre opcional<input id="inviteLabel" placeholder="Ej.: Entrenador asistente"></label><div class="share-actions"><button class="btn primary" data-action="create-invite" data-role="editor"><b>Editor</b><span>Puede añadir y cambiar datos</span></button><button class="btn" data-action="create-invite" data-role="viewer"><b>Lector</b><span>Solo puede consultar</span></button></div><div id="inviteResult"></div>${state.settings.api?`<button class="text-link" data-action="load-invites">Ver o revocar enlaces</button><div id="inviteManager"></div>`:''}<p class="privacy-note">Privado: solo accede quien reciba uno de estos enlaces.</p></article>`:''}`);
+  openModal('Aplicación','Ajustes',`<article class="team-settings-summary"><b>${esc(teamLabel())}</b><span>${esc(state.team.season||'Sin temporada')} · ${cloud}</span></article><div class="setup-fields"><fieldset class="settings-fields" ${viewer?'disabled':''}><label class="field">Nombre del equipo<input id="teamName" value="${esc(teamLabel())}"></label><label class="field">Temporada<input id="teamSeason" value="${esc(state.team.season||'')}"></label><label class="field">Categoría<select id="teamGender">${genderOptions(state.team.gender)}</select></label><label class="field">Color propio<select id="teamColor">${colorOptions(state.team.color)}</select></label></fieldset>${viewer?'<p class="muted">Enlace de solo lectura: los datos del equipo los cambia quien lo administra.</p>':''}</div><div class="action-row">${viewer?'':'<button class="btn primary" data-action="save-settings">Guardar</button>'}<button class="btn" data-action="export-json">Exportar copia</button><button class="btn" data-action="restore-backup">Restaurar copia</button><button class="btn" data-action="share-install">Compartir página de instalación</button></div>${canShare?`<article class="settings-block share-simple"><div class="share-heading"><span class="share-icon">↗</span><div><h3>Compartir equipo</h3><p>${state.settings.api?'Ya está sincronizado. Crea un enlace para cada persona.':'La primera vez subiremos automáticamente todos los datos a una nube privada.'}</p></div></div><label class="field">Nombre opcional<input id="inviteLabel" placeholder="Ej.: Entrenador asistente"></label><div class="share-actions"><button class="btn primary" data-action="create-invite" data-role="editor"><b>Editor</b><span>Puede añadir y cambiar datos</span></button><button class="btn" data-action="create-invite" data-role="viewer"><b>Lector</b><span>Solo puede consultar</span></button></div><div id="inviteResult"></div>${state.settings.api?`<button class="text-link" data-action="load-invites">Ver o revocar enlaces</button><div id="inviteManager"></div>`:''}<p class="privacy-note">Privado: solo accede quien reciba uno de estos enlaces.</p></article>`:''}${state.settings.role==='admin'&&state.settings.teamId?`<article class="settings-block danger-zone"><h3>Borrar este equipo de la nube</h3><p>Solo el propietario puede hacerlo. Se borran datos y enlaces, no solo este dispositivo.</p><button class="btn danger" data-action="delete-cloud-team">Borrar equipo y todos sus datos</button></article>`:''}`);
 }
 function saveSettings(){
   const previous=deepSignature(state.team);state.team.name=($('#teamName')?.value||teamLabel()).trim()||'Mi equipo';state.team.season=($('#teamSeason')?.value||'').trim();state.team.gender=$('#teamGender')?.value||'neutral';state.team.color=$('#teamColor')?.value||'blue';
@@ -1380,13 +1424,13 @@ function saveSettings(){
 }
 function snapshotOps(){
   const at=new Date().toISOString(),make=(type,payload)=>({id:uid(),at,type,payload});
-  return [make('set-team',{team:state.team}),make('set-roster',{roster:state.roster}),...state.games.map(game=>make('replace-game',{game})),...(state.live?[make('live-upsert',{live:state.live})]:[])];
+  return [make('set-team',{team:state.team}),make('set-roster',{roster:state.roster,replace:true}),...state.games.map(game=>make('replace-game',{game})),...(state.live?[make('live-upsert',{live:state.live})]:[])];
 }
 async function ensureCloudTeam(){
   if(state.settings.api&&state.settings.token)return;
   const api=serviceUrl();if(!api)throw Error('La sincronización todavía no está activada. La app sigue funcionando en este dispositivo.');
   const response=await fetch(`${api}/api/v3/teams`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({name:teamLabel(),season:state.team.season||'',gender:state.team.gender,color:state.team.color})});
-  const json=await response.json().catch(()=>({}));if(!response.ok||!json.admin?.token||!json.team?.id)throw Error('El servidor todavía no admite compartir equipos nuevos. Actualiza Cloudflare con el Worker v12; no se ha perdido ningún dato.');
+  const json=await response.json().catch(()=>({}));if(!response.ok||!json.admin?.token||!json.team?.id)throw Error('El servidor todavía no admite compartir equipos nuevos. Actualiza Cloudflare con el Worker v12.3; no se ha perdido ningún dato.');
   state.settings={...state.settings,api,token:json.admin.token,role:'admin',teamId:json.team.id,syncMode:'team'};state.lastSeq=0;state.ops=[...state.ops,...snapshotOps()];save();paintSync(true);await syncNow();paintSync();if(state.ops.length)throw Error('No se pudo terminar la primera subida. Revisa la conexión y vuelve a intentarlo; tus datos siguen guardados.');
 }
 async function createInvite(role){
@@ -1399,7 +1443,18 @@ async function loadInvites(){
 async function revokeInvite(id){try{const path=state.settings.teamId?`/api/v3/teams/${encodeURIComponent(state.settings.teamId)}/invites/${encodeURIComponent(id)}`:`/api/invites/${encodeURIComponent(id)}`,response=await fetch(`${state.settings.api}${path}`,{method:'DELETE',headers:{'Authorization':`Bearer ${state.settings.token}`}}),json=await response.json();if(!response.ok)throw Error(json.error||'No se pudo revocar');toast('Enlace revocado');loadInvites();}catch(error){toast(error.message);}}
 function scheduleSync(){clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,700);}
 
-function applyRemote(row){const event=row.event||row;if(state.ops.some(x=>x.id===event.id))return false;const p=event.payload||{};if(event.type==='set-roster')state.roster=mergeRoster(state.roster,p.roster||[]);if(event.type==='set-team'&&p.team)state.team={...state.team,...p.team};if(event.type==='replace-game'){const i=state.games.findIndex(g=>g.id===p.game.id);i<0?state.games.push(sanitise({...blank(),games:[p.game]}).games[0]):state.games[i]=sanitise({...blank(),games:[p.game]}).games[0];}if(event.type==='merge-game'&&p.game){const merged=sanitise({...blank(),games:[p.game]}).games[0],i=state.games.findIndex(g=>g.id===(p.targetId||merged.id));i<0?state.games.push(merged):state.games[i]=merged;state.games=state.games.filter(game=>game.id!==p.sourceId);}if(event.type==='live-upsert')state.live=p.live;if(event.type==='live-event'&&state.live?.id===p.liveId&&!state.live.events.some(e=>e.id===p.event.id))state.live.events.push(p.event);if(event.type==='live-undo'&&state.live?.id===p.liveId){const e=state.live.events.find(e=>e.id===p.eventId);if(e)e.undone=true;}if(event.type==='shot-set'){const g=state.games.find(g=>g.id===p.gameId);if(g){g.shotsFor=p.shotsFor||[];g.shotsAgainst=p.shotsAgainst||[];}}return true;}
+function applyRemote(row){
+  const event=row.event||row;if(state.ops.some(item=>item.id===event.id))return false;const payload=event.payload||{};
+  if(event.type==='set-roster')state.roster=payload.replace?(payload.roster||[]):mergeRoster(state.roster,payload.roster||[]);
+  if(event.type==='set-team'&&payload.team)state.team={...state.team,...payload.team};
+  if(event.type==='replace-game'&&payload.game){const incoming=sanitise({...blank(),games:[payload.game]}).games[0],index=state.games.findIndex(game=>game.id===incoming.id);index<0?state.games.push(incoming):state.games[index]=mergeGameVersions(state.games[index],incoming);}
+  if(event.type==='merge-game'&&payload.game){const incoming=sanitise({...blank(),games:[payload.game]}).games[0],index=state.games.findIndex(game=>game.id===(payload.targetId||incoming.id));index<0?state.games.push(incoming):state.games[index]=mergeGameVersions(state.games[index],incoming);state.games=state.games.filter(game=>game.id!==payload.sourceId);}
+  if(event.type==='live-upsert')state.live=mergeLiveVersions(state.live,payload.live);
+  if(event.type==='live-event'&&state.live?.id===payload.liveId&&!state.live.events.some(item=>item.id===payload.event.id))state.live.events.push(payload.event);
+  if(event.type==='live-undo'&&state.live?.id===payload.liveId){const target=state.live.events.find(item=>item.id===payload.eventId);if(target)target.undone=true;}
+  if(event.type==='shot-set'){const game=state.games.find(item=>item.id===payload.gameId);if(game){const incoming={...game,shotsFor:payload.shotsFor||[],shotsAgainst:payload.shotsAgainst||[],mapRevision:Number(payload.mapRevision)||0,mapUpdatedAt:payload.mapUpdatedAt||event.at||''},order=compareVersion(incoming,game,true);if(order>0){game.shotsFor=incoming.shotsFor;game.shotsAgainst=incoming.shotsAgainst;game.mapRevision=incoming.mapRevision;game.mapUpdatedAt=incoming.mapUpdatedAt;}else if(order===0){game.shotsFor=mergeShots(game.shotsFor,incoming.shotsFor);game.shotsAgainst=mergeShots(game.shotsAgainst,incoming.shotsAgainst);}game.availability={...(game.availability||{}),shotMap:!!(game.shotsFor.length||game.shotsAgainst.length)};}}
+  return true;
+}
 async function syncNow(){
   if(syncing||!state.settings.api||!state.settings.token)return;
   const workspaceId=workspaceBook.activeId,teamId=state.settings.teamId||'',base=teamId?`/api/v3/teams/${encodeURIComponent(teamId)}/events`:'/api/events';
@@ -1412,58 +1467,68 @@ async function syncNow(){
       state.ops=state.ops.filter(event=>!sentIds.has(event.id));save();
     }
     const before=deepSignature({roster:state.roster,games:state.games,live:state.live});
-    const response=await fetch(`${state.settings.api}${base}?since=${state.lastSeq}`,{cache:'no-store',headers:{'Accept':'application/json','Authorization':`Bearer ${state.settings.token}`}});
-    if(!response.ok)throw Error('No se pudo leer');const contentType=response.headers.get('content-type')||'';if(!contentType.includes('application/json'))throw Error('La sincronización recibió una respuesta no válida');
-    const json=await response.json();if(!Array.isArray(json.events))throw Error('La sincronización recibió datos incompletos');if(workspaceBook.activeId!==workspaceId)return;
-    json.events.forEach(applyRemote);state.lastSeq=json.lastSeq||state.lastSeq;save();$('#syncStatus').classList.add('online');
+    for(let page=0;page<20;page++){
+      const response=await fetch(`${state.settings.api}${base}?since=${state.lastSeq}`,{cache:'no-store',headers:{'Accept':'application/json','Authorization':`Bearer ${state.settings.token}`}});
+      if(!response.ok)throw Error(response.status===401?'Enlace no válido o revocado':'No se pudo leer');const contentType=response.headers.get('content-type')||'';if(!contentType.includes('application/json'))throw Error('La sincronización recibió una respuesta no válida');
+      const json=await response.json();if(!Array.isArray(json.events))throw Error('La sincronización recibió datos incompletos');if(workspaceBook.activeId!==workspaceId)return;
+      json.events.forEach(applyRemote);state.lastSeq=json.lastSeq||state.lastSeq;save();
+      if(json.events.length<1000)break;
+    }
+    lastSyncOk=true;lastSyncError='';
     const changed=before!==deepSignature({roster:state.roster,games:state.games,live:state.live}),editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);if(changed&&!editing)render();else if(changed)renderAfterEdit=true;
-  }catch(error){console.warn(error);$('#syncStatus').classList.remove('online');}
+  }catch(error){console.warn(error);lastSyncOk=false;lastSyncError=error.message||'Sin conexión';}
   finally{syncing=false;paintSync();if(workspaceBook.activeId===workspaceId&&state.ops.length&&state.settings.role!=='viewer')scheduleSync();}
 }
 
-function paintSync(busy=false){const s=$('#syncStatus');if(!s)return;s.querySelector('b').textContent=busy?'Sincronizando':state.settings.api?'En la nube':'Local';s.classList.toggle('online',!!state.settings.api&&!busy);}
+let lastSyncOk=null,lastSyncError='';
+function paintSync(busy=false){const s=$('#syncStatus');if(!s)return;const cloud=!!state.settings.api,pending=state.ops.length,failed=cloud&&lastSyncOk===false;s.querySelector('b').textContent=busy?'Sincronizando':!cloud?'Local':failed?(pending?`Sin enviar · ${pending}`:'Sin conexión'):pending?`Pendiente · ${pending}`:'En la nube';s.classList.toggle('online',cloud&&!busy&&!failed&&!pending);s.classList.toggle('error',failed);s.title=failed?lastSyncError:'';}
 
 async function copyText(text){try{await navigator.clipboard.writeText(text);}catch(error){const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.append(area);area.select();if(!document.execCommand('copy'))throw error;area.remove();}toast('Copiado');}
 async function shareInstallPage(){const url=new URL('./instalar.html',location.href).href;try{if(navigator.share)await navigator.share({title:'Instalar Estadísticas',text:'Instala la app de estadísticas de baloncesto',url});else await copyText(url);}catch(error){if(error?.name!=='AbortError')await copyText(url);}}
-function exportJSON(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download=`estadisticas-${today()}.json`;a.click();URL.revokeObjectURL(a.href);}
+function exportJSON(){const copy=JSON.parse(JSON.stringify(state));copy.settings={...copy.settings,token:'',api:'',role:'admin'};copy.ops=[];copy.lastSeq=0;copy.exportedAt=new Date().toISOString();const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(copy,null,2)],{type:'application/json'}));a.download=`estadisticas-${norm(teamLabel()).toLowerCase().replace(/ /g,'-')}-${today()}.json`;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},4000);toast('Copia exportada sin claves de acceso');}
+async function restoreBackup(file){try{const data=JSON.parse(await file.text());if(!data||typeof data!=='object'||!Array.isArray(data.games))throw Error('El archivo no es una copia de Estadísticas.');const clean=sanitise({...data,settings:{...(data.settings||{}),token:'',api:'',teamId:'',role:'admin',syncMode:'local'},ops:[],lastSeq:0});persistWorkspace();const id=uid(),name=`${clean.team.name||'Equipo'} (copia)`;clean.team.name=name;workspaceBook.workspaces.push({id,name,data:clean,legacy:false});workspaceBook.activeId=id;state=sanitise(clean);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();toast(`Copia restaurada como equipo nuevo: ${clean.games.length} partidos`);}catch(error){toast(error.message||'No se pudo leer la copia');}}
 function install(){if(installPrompt){installPrompt.prompt();installPrompt=null;}else openModal('Instalar','Instalar aplicación','<p>En Chrome abre el menú y pulsa «Instalar aplicación».</p>');}
 function applyTheme(theme){theme=theme==='dark'?'dark':'light';document.documentElement.dataset.theme=theme;const color=theme==='dark'?'#0b0f16':'#f3f5f8',meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=color;document.documentElement.style.backgroundColor=color;document.body.style.backgroundColor=color;applyTeamIdentity();}
 
 function updateDraftFromInput(target){if(target.id==='rival')state.liveDraft.rival=target.value;if(target.id==='liveDate'){state.liveDraft.date=target.value;state.liveDraft.dateManual=true;}if(target.matches('.roster-card input')){const set=new Set(state.liveDraft.selected);target.checked?set.add(target.value):set.delete(target.value);state.liveDraft.selected=[...set];const card=target.closest('.roster-card');card.classList.toggle('selected',target.checked);card.querySelector('.check').textContent=target.checked?'✓':'';$('#selectedCount').textContent=`${set.size} convocad${state.team.gender==='female'?'as':'os'}`;}save();}
 
-document.addEventListener('input',e=>{if(view==='live'&&!state.live&&(e.target.id==='rival'||e.target.id==='liveDate'))updateDraftFromInput(e.target);});
+document.addEventListener('input',e=>{if(view==='live'&&!state.live&&(e.target.id==='rival'||e.target.id==='liveDate'))updateDraftFromInput(e.target);if(e.target.id==='deleteTeamConfirm'){const button=$('#deleteCloudTeamButton');if(button)button.disabled=e.target.value.trim()!==teamLabel();}});
 document.addEventListener('change',e=>{if(view==='live'&&!state.live&&(e.target.id==='liveDate'||e.target.matches('.roster-card input')))updateDraftFromInput(e.target);if(e.target.matches('#heatOpponent,#heatHome'))renderHeatFiltered();if(e.target.id==='playerMetric'&&modalContext?.type==='player')openPlayerDetail(modalContext.key,e.target.value,modalContext.shareMode||'average');if(e.target.id==='minutesScope'){minutesScope=e.target.value;render();}});
 document.addEventListener('click',async e=>{
   const go=e.target.closest('[data-go]');if(go)return setView(go.dataset.go);
   const d=e.target.closest('[data-detail]');if(d)return detail(d.dataset.detail);
   const a=e.target.closest('[data-action]');if(!a)return;const act=a.dataset.action;
-  const write=new Set(['import-games','import-roster','confirm-import','start-live','quarter','add-live','pick-live-player','undo-live','discard-live','confirm-discard-live','finish-live','confirm-live-merge','keep-live-pending','merge-pending-manual','open-shot','shot-for-game','shot-kind','swap-shot-teams','delete-selected-shot','clear-shots','apply-shot-json','save-shots']);
+  const write=new Set(['save-settings','remove-roster-player','confirm-remove-roster-player','delete-cloud-team','confirm-delete-cloud-team','pick-own-team','import-roster','confirm-import','start-live','quarter','add-live','pick-live-player','undo-live','discard-live','confirm-discard-live','finish-live','confirm-live-merge','keep-live-pending','merge-pending-manual','open-shot','shot-for-game','shot-kind','swap-shot-teams','delete-selected-shot','clear-shots','apply-shot-json','save-shots']);
   if(state.settings.role==='viewer'&&write.has(act))return toast('Enlace de solo lectura');
-  if(act==='close-modal')return closeModal();if(act==='toggle-theme'){const th=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(th);localStorage.setItem('estadisticas_theme',th);render();return;}if(act==='install')return install();if(act==='open-teams')return openTeams();if(act==='switch-team')return switchWorkspace(a.dataset.id);if(act==='create-team')return createWorkspace();if(act==='remove-team')return removeWorkspace(a.dataset.id);if(act==='open-settings'||act==='open-sync')return openSettings();if(act==='save-settings')return saveSettings();if(act==='load-invites')return loadInvites();if(act==='revoke-invite')return revokeInvite(a.dataset.id);if(act==='export-json')return exportJSON();if(act==='share-install')return shareInstallPage();if(act==='create-invite')return createInvite(a.dataset.role);if(act==='copy-invite')return copyText($('#inviteLink').value);
+  if(act==='close-modal')return closeModal();if(act==='toggle-theme'){const th=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(th);localStorage.setItem('estadisticas_theme',th);render();return;}if(act==='install')return install();if(act==='open-teams')return openTeams();if(act==='switch-team')return switchWorkspace(a.dataset.id);if(act==='create-team')return createWorkspace();if(act==='remove-team')return confirmRemoveWorkspace(a.dataset.id);if(act==='confirm-remove-team')return removeWorkspace(a.dataset.id);if(act==='open-settings'||act==='open-sync')return openSettings();if(act==='manage-roster')return openRosterManager();if(act==='remove-roster-player')return confirmRemoveRosterPlayer(a.dataset.id);if(act==='confirm-remove-roster-player')return removeRosterPlayer(a.dataset.id);if(act==='delete-cloud-team')return requestDeleteCloudTeam();if(act==='confirm-delete-cloud-team')return deleteCloudTeam();if(act==='save-settings')return saveSettings();if(act==='load-invites')return loadInvites();if(act==='revoke-invite')return revokeInvite(a.dataset.id);if(act==='export-json')return exportJSON();if(act==='restore-backup'){fileMode='backup';$('#fileInput').accept='.json,application/json';$('#fileInput').multiple=false;$('#fileInput').value='';return $('#fileInput').click();}if(act==='pick-own-team'){state.team.name=a.dataset.name;record('set-team',{team:state.team});closeModal();render();return pendingImportFiles&&handleFiles(pendingImportFiles);}if(act==='share-install')return shareInstallPage();if(act==='create-invite')return createInvite(a.dataset.role);if(act==='copy-invite')return copyText($('#inviteLink').value);
   if(act==='stats-mode'){statsMode=['average','total','compare'].includes(a.dataset.mode)?a.dataset.mode:'average';return render();}
   if(act==='metric-breakdown'&&modalContext?.type==='metric')return openTeamMetricDetail(modalContext.key,a.dataset.mode==='average'?'average':'total');
    if(act==='player-share'&&modalContext?.type==='player')return openPlayerDetail(modalContext.key,modalContext.metric,a.dataset.mode==='season'?'season':'average');
-  if(act==='import-games'||act==='import-roster'){fileMode=act==='import-roster'?'roster':'games';importPendingId=act==='import-games'?(a.dataset.pendingId||''):'';$('#fileInput').value='';return $('#fileInput').click();}if(act==='confirm-import')return commitImport();
+  if(act==='import-games'||act==='import-roster'){fileMode=act==='import-roster'?'roster':'games';$('#fileInput').accept='.xlsx';$('#fileInput').multiple=fileMode==='games';importPendingId=act==='import-games'?(a.dataset.pendingId||''):'';$('#fileInput').value='';return $('#fileInput').click();}if(act==='confirm-import')return commitImport();
   if(act==='start-live')return startLive();if(act==='quarter'){state.live.quarter=+a.dataset.q;record('live-upsert',{live:state.live});return render();}if(act==='add-live')return addLive(a.dataset.type);if(act==='pick-live-player')return commitLiveEvent(a.dataset.type,a.dataset.id||null);if(act==='undo-live')return undoLive();if(act==='discard-live')return requestDiscardLive();if(act==='confirm-discard-live')return discardLive();if(act==='finish-live')return finishLive();if(act==='confirm-live-merge')return confirmLiveMerge(a.dataset.id);if(act==='keep-live-pending')return keepLivePending();if(act==='merge-pending-manual')return mergePendingManual(a.dataset.id,$('#pendingTarget')?.value);
   if(act==='sort-players'){const key=a.dataset.key;if(playerSort===key)playerSortDir*=-1;else{playerSort=key;playerSortDir=-1;}return render();}
   if(act==='trend-game')return openGameDetail(a.dataset.id);if(act==='game-team'){modalContext.side=a.dataset.side;return renderGameDetail();}if(act==='sort-box'){const k=a.dataset.key;if(modalContext.sort===k)modalContext.dir*=-1;else{modalContext.sort=k;modalContext.dir=k==='number'?1:-1;}return renderGameDetail();}if(act==='game-map'){modalContext.map=a.dataset.mode;return renderGameDetail();}
   if(act==='heat-mode')return openHeatAnalysis(`heat-${a.dataset.mode==='both'?'compare':a.dataset.mode}`);
   if(act==='open-shot')return openShotDetail();if(act==='shot-for-game')return openShotDetail(a.dataset.id);if(act==='copy-shot-prompt')return copyText(shotPrompt());if(act==='shot-kind'){modalContext.kind=a.dataset.kind;$$('.shot-kind button').forEach(b=>b.classList.toggle('active',b===a));return;}if(act==='swap-shot-teams'){[modalContext.shotsFor,modalContext.shotsAgainst]=[modalContext.shotsAgainst,modalContext.shotsFor];modalContext.selected='';repaintShotCourt();return;}if(act==='delete-selected-shot'){if(!modalContext.selected)return toast('Selecciona un punto');const[k,i]=modalContext.selected.split(':'),arr=k==='for'?modalContext.shotsFor:modalContext.shotsAgainst;arr.splice(+i,1);modalContext.selected='';repaintShotCourt();return;}if(act==='clear-shots'){modalContext.shotsFor=[];modalContext.shotsAgainst=[];modalContext.selected='';repaintShotCourt();return;}
   if(act==='apply-shot-json'){try{const raw=$('#shotJson').value.replace(/```(?:json)?|```/g,'').trim(),j=JSON.parse(raw);if(!Array.isArray(j.ownShots)||!Array.isArray(j.opponentShots))throw Error('Faltan ownShots u opponentShots');const all=[...j.ownShots,...j.opponentShots];if(all.some(point=>!Number.isFinite(+point.x)||!Number.isFinite(+point.y)||+point.x<0||+point.x>1||+point.y<0||+point.y>1))throw Error('Hay coordenadas fuera de 0–1');const own=j.ownIdentification||{},opp=j.opponentIdentification||{};if(own.checksAgree===false||opp.checksAgree===false||own.conflict||opp.conflict)throw Error(`La IA detectó un conflicto: ${own.conflict||opp.conflict||'revisa cabecera, color y lista'}`);modalContext.shotsFor=foldShots(j.ownShots,j.court||'half',own.side||'left');modalContext.shotsAgainst=foldShots(j.opponentShots,j.court||'half',opp.side||'right');modalContext.selected='';repaintShotCourt();const assignment=$('#shotAssignment');if(assignment)assignment.textContent=`✓ ${modalContext.shotsFor.length} ataque · ${modalContext.shotsAgainst.length} defensa · revisa la pista antes de guardar`;toast('Puntos colocados');}catch(error){const assignment=$('#shotAssignment');if(assignment)assignment.textContent=error.message||'JSON no válido';toast(error.message||'JSON no válido');}return;}
-  if(act==='save-shots'){const g=state.games.find(x=>x.id===$('#shotGame').value);g.shotsFor=modalContext.shotsFor;g.shotsAgainst=modalContext.shotsAgainst;g.availability={...(g.availability||{}),shotMap:!!(g.shotsFor.length||g.shotsAgainst.length)};save();record('shot-set',{gameId:g.id,shotsFor:g.shotsFor,shotsAgainst:g.shotsAgainst});closeModal();render();}
+  if(act==='save-shots'){const g=state.games.find(x=>x.id===$('#shotGame').value);g.shotsFor=modalContext.shotsFor;g.shotsAgainst=modalContext.shotsAgainst;g.availability={...(g.availability||{}),shotMap:!!(g.shotsFor.length||g.shotsAgainst.length)};touchGame(g,{map:true});save();record('shot-set',{gameId:g.id,shotsFor:g.shotsFor,shotsAgainst:g.shotsAgainst,mapRevision:g.mapRevision,mapUpdatedAt:g.mapUpdatedAt});closeModal();render();}
 });
 
-$('#fileInput').addEventListener('change',e=>handleFiles([...e.target.files]));
+$('#fileInput').addEventListener('change',e=>{const list=[...e.target.files];if(!list.length)return;if(fileMode==='backup')return restoreBackup(list[0]);handleFiles(list);});
 document.addEventListener('focusout',()=>setTimeout(()=>{if(renderAfterEdit&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){renderAfterEdit=false;render();}},0));
 document.addEventListener('keydown',e=>{const modal=$('#modal');if(e.key==='Escape'&&!modal.hidden){closeModal();return;}if(e.key==='Tab'&&!modal.hidden){const focusable=$$('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',$('.modal-sheet')).filter(item=>item.offsetParent!==null);if(focusable.length){const first=focusable[0],last=focusable.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-detail],[data-action="trend-game"]'))e.target.click();});
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;});
-if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js?v=12',{updateViaCache:'none'}).then(reg=>reg.update()).catch(console.warn);
+if('serviceWorker' in navigator){const hadController=!!navigator.serviceWorker.controller;let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadController||reloaded||state.live)return;reloaded=true;save();location.reload();});navigator.serviceWorker.register('./sw.js?v=12.3',{updateViaCache:'none'}).then(reg=>reg.update()).catch(console.warn);}
 function importSharedTeamFromQuery(){
   const query=new URLSearchParams(location.search),fragment=new URLSearchParams(location.hash.replace(/^#/,'')),source=query.get('api')?query:fragment,api=source.get('api'),token=source.get('token');if(!api||!token)return;
   persistWorkspace();const teamId=source.get('team')||'',name=source.get('name')||'Equipo compartido',season=source.get('season')||'',gender=source.get('gender')||'neutral',color=source.get('color')||'blue';
   let item=teamId?workspaceBook.workspaces.find(row=>row.data?.settings?.teamId===teamId):null;
   if(!item){const current=activeWorkspace(),isBlank=workspaceBook.workspaces.length===1&&!current.data?.games?.length&&!current.data?.roster?.length&&!current.data?.settings?.token;if(isBlank)item=current;else{item={id:uid(),name,data:blank(name,season,gender,color),legacy:!teamId};workspaceBook.workspaces.push(item);}}
-  item.data=sanitise(item.data||blank(name,season));item.data.team.name=name;item.data.team.season=season;item.data.team.gender=GENDERS[gender]?gender:'neutral';item.data.team.color=PALETTES[color]?color:'blue';item.data.settings={...item.data.settings,api:api.replace(/\/$/,''),token,role:source.get('role')||'viewer',teamId,syncMode:teamId?'team':'legacy'};workspaceBook.activeId=item.id;state=sanitise(item.data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));history.replaceState({},'',location.pathname);
+  item.data=sanitise(item.data||blank(name,season));item.data.team.name=name;item.data.team.season=season;item.data.team.gender=GENDERS[gender]?gender:'neutral';item.data.team.color=PALETTES[color]?color:'blue';const rank={viewer:0,editor:1,admin:2},incoming=['viewer','editor','admin'].includes(source.get('role'))?source.get('role'):'viewer',currentRole=item.data.settings?.token?item.data.settings.role:'';if(currentRole&&rank[currentRole]>rank[incoming]){setTimeout(()=>toast(`Ya tenías acceso de ${currentRole==='admin'?'propietario':'editor'} a este equipo; se conserva.`),300);}else item.data.settings={...item.data.settings,api:api.replace(/\/$/,''),token,role:incoming,teamId,syncMode:teamId?'team':'legacy'};workspaceBook.activeId=item.id;state=sanitise(item.data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));history.replaceState({},'',location.pathname);
 }
-importSharedTeamFromQuery();repairPendingGames();paintSync();render();if(state.settings.api){syncNow();setInterval(syncNow,5000);}
-window.__ESTADISTICAS__={getState:()=>state,getWorkspaceBook:()=>workspaceBook,switchWorkspace,createWorkspace,setState:s=>{state=sanitise(s);repairPendingGames();save();render();},foldShots,splitLegacyShots,parseGame,detectGender,genderTerms,applyTeamIdentity,validateTotals,effectiveTotals,teamStats,playerAgg,teamMetricRows,aggregateMetric,playerMetricRows,playerSeasonReference,liveMetricRows,recordedLiveGames,validGames,hasManualData,currentStreak,syncNow,repairPendingGames,automaticPendingMatch,mergePendingManual,gameScore,PLAYER_METRICS,TEAM_METRICS,LIVE_METRICS,APP_VERSION,STORE};
+async function verifyRole(){
+  if(!state.settings.api||!state.settings.token||!state.settings.teamId)return;
+  try{const response=await fetch(`${state.settings.api}/api/v3/teams/${encodeURIComponent(state.settings.teamId)}`,{cache:'no-store',headers:{'Accept':'application/json','Authorization':`Bearer ${state.settings.token}`}});if(!response.ok)return;const json=await response.json();if(['viewer','editor','admin'].includes(json.role)&&json.role!==state.settings.role){state.settings.role=json.role;if(json.role==='viewer')state.ops=[];save();render();}}catch(error){console.warn(error);}
+}
+importSharedTeamFromQuery();repairPendingGames();paintSync();render();verifyRole();syncNow();setInterval(()=>{if(!document.hidden)syncNow();},5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow();});window.addEventListener('online',()=>syncNow());
+window.__ESTADISTICAS__={getState:()=>state,getWorkspaceBook:()=>workspaceBook,switchWorkspace,createWorkspace,setState:s=>{state=sanitise(s);repairPendingGames();save();render();},foldShots,splitLegacyShots,parseGame,detectGender,genderTerms,applyTeamIdentity,validateTotals,effectiveTotals,teamStats,playerAgg,teamMetricRows,aggregateMetric,playerMetricRows,playerSeasonReference,liveMetricRows,recordedLiveGames,validGames,hasManualData,currentStreak,syncNow,repairPendingGames,automaticPendingMatch,mergePendingManual,gameScore,mergeGameVersions,mergeLiveVersions,compareVersion,PLAYER_METRICS,TEAM_METRICS,LIVE_METRICS,APP_VERSION,STORE};

@@ -1,12 +1,14 @@
-# AGENTS · v12
-- Conserva `STORE = 'estadisticas_shared_v2'` y `MULTI_STORE = 'estadisticas_multiteam_v11'` para migración.
-- No renombres ni borres rutas/tablas w2. No llames a `/api/setup` en actualizaciones.
+# AGENTS · v12.3
+- Conserva `STORE = 'estadisticas_shared_v2'` y `MULTI_STORE = 'estadisticas_multiteam_v11'`.
+- No renombres ni borres rutas/tablas w2. No recrees D1 y no pidas `/api/setup` en actualizaciones.
+- Migraciones del Worker: aditivas, versionadas y tolerantes a columnas existentes.
 - No incluyas tokens, copias privadas ni capturas con credenciales.
-- No entregues ni modifiques `assets/` o el logo `data-logo="aro-vector"`.
-- Directo ausente es `null`/hueco, nunca cero.
-- Posesiones extra = `(orbFor + steal) - (orbAgainst + turnover)`.
-- «per» en estos datos significa pérdidas, no Player Efficiency Rating.
-- Mantén género, paleta y aislamiento por workspace/teamId.
-- Ejecuta `tools/validate.py` y `tests/smoke.py` antes de publicar.
-- `instalar.html` debe instalar la PWA real (manifest/start_url raíz), no otra app; mantener fallbacks iOS/in-app y capturas anonimizadas.
-- `actualizar.html` no se bloquea a una versión: conservar contexto íntegro, partes, `content`, create/delete y autocambio. Nunca permitir `assets/`.
+- No entregues ni modifiques `assets/` ni el logo `data-logo="aro-vector"`.
+- Directo ausente es hueco/null, nunca cero. Eventos de Directo se fusionan por id.
+- Un `replace-game` remoto antiguo no puede pisar una revisión/updatedAt más nueva.
+- Quitar de plantilla no elimina filas históricas de partidos.
+- Posesiones extra = `(orbFor + steal) - (orbAgainst + turnover)`; `per` significa pérdidas.
+- Mantén género, paleta, aislamiento por workspace/teamId y la ficha individual sin color por columna.
+- Ejecuta validate, worker_mock, smoke (incluido Pozuelo) y updater_e2e antes de publicar.
+- `instalar.html` instala la PWA raíz y conserva fallbacks iOS/in-app, accesibilidad y capturas anonimizadas.
+- `actualizar.html` conserva contexto íntegro, multipartes, `content`, create/delete y bloqueo de `assets/`.

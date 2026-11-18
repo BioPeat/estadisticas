@@ -41,9 +41,9 @@ try:
 
     # 1) Cambio visual multiarchivo + crear y borrar archivos.
     page=open_updater(browser);page.evaluate("window.__ACTUALIZAR__.files.set('docs/OBSOLETO.md','# antiguo')")
-    patch={'schema':'estadisticas-update','updateId':'visual-multi','targetVersion':'v12','files':[
+    patch={'schema':'estadisticas-update','updateId':'visual-multi','targetVersion':'v12.3','files':[
       {'path':'styles.css','changes':[{'find':'/* v12 · universal, legible, sin solapes y compartir sin configuración */','replace':'/* v12 · universal, legible, sin solapes y compartir sin configuración */\n/* E2E: ajuste visual multiarchivo */'}]},
-      {'path':'index.html','changes':[{'find':'Estadísticas v12 universal y multiequipo','replace':'Estadísticas v12 universal, clara y multiequipo'}]},
+      {'path':'index.html','changes':[{'find':'Estadísticas v12.3 universal y multiequipo','replace':'Estadísticas v12.3 universal, clara y multiequipo'}]},
       {'path':'docs/NUEVO_DISENO.md','content':'# Diseño\nCambio visual coordinado.\n'},
       {'path':'docs/OBSOLETO.md','delete':True}]}
     z=build_download(page,patch)
@@ -55,8 +55,8 @@ try:
     # 2) Cambio grande: app.js completo repartido en dos respuestas, unido sin programar.
     page=open_updater(browser);app=(ROOT/'app.js').read_text(encoding='utf-8')+'\n// E2E CAMBIO GRANDE APP COMPLETA\n';readme=(ROOT/'README.md').read_text(encoding='utf-8')+'\nPrueba multipartes validada.\n'
     parts=[
-      {'schema':'estadisticas-update','updateId':'app-grande','part':1,'totalParts':2,'targetVersion':'v12','files':[{'path':'app.js','content':app}]},
-      {'schema':'estadisticas-update','updateId':'app-grande','part':2,'totalParts':2,'targetVersion':'v12','files':[{'path':'README.md','content':readme}]}
+      {'schema':'estadisticas-update','updateId':'app-grande','part':1,'totalParts':2,'targetVersion':'v12.3','files':[{'path':'app.js','content':app}]},
+      {'schema':'estadisticas-update','updateId':'app-grande','part':2,'totalParts':2,'targetVersion':'v12.3','files':[{'path':'README.md','content':readme}]}
     ]
     z=build_download(page,parts=parts)
     with zipfile.ZipFile(z) as archive:
@@ -66,10 +66,10 @@ try:
 
     # 3) Worker + documentación + actualización de versión y del propio actualizar.html.
     page=open_updater(browser)
-    app=(ROOT/'app.js').read_text(encoding='utf-8').replace("APP_VERSION = 'v12'","APP_VERSION = 'v13'").replace('version: 12,','version: 13,').replace('version:12','version:13').replace('state.version = 12','state.version = 13')
-    index=(ROOT/'index.html').read_text(encoding='utf-8').replace('v12','v13').replace('?v=12','?v=13')
-    sw=(ROOT/'sw.js').read_text(encoding='utf-8').replace('estadisticas-v12-','estadisticas-v13-').replace('?v=12','?v=13')
-    worker=(ROOT/'worker.js').read_text(encoding='utf-8').replace('w4-v12','w4-v13')+'\n// E2E worker y documentación\n'
+    app=(ROOT/'app.js').read_text(encoding='utf-8').replace("APP_VERSION = 'v12.3'","APP_VERSION = 'v13'").replace('version: 12.3,','version: 13,').replace('version:12.3','version:13').replace('state.version = 12.3','state.version = 13')
+    index=(ROOT/'index.html').read_text(encoding='utf-8').replace('v12.3','v13').replace('?v=12.3','?v=13')
+    sw=(ROOT/'sw.js').read_text(encoding='utf-8').replace('estadisticas-v12.3-','estadisticas-v13-').replace('?v=12.3','?v=13')
+    worker=(ROOT/'worker.js').read_text(encoding='utf-8').replace('w5-v12.3','w5-v13')+'\n// E2E worker y documentación\n'
     updater=(ROOT/'actualizar.html').read_text(encoding='utf-8').replace('<html lang="es">','<html lang="es" data-e2e="worker-doc">',1)
     changelog=(ROOT/'CHANGELOG.md').read_text(encoding='utf-8').replace('# CHANGELOG\n','# CHANGELOG\n\n## v13\n- Prueba E2E de versión, Worker y documentación.\n',1)
     docs=(ROOT/'CONTEXTO_ESTADISTICAS.md').read_text(encoding='utf-8')+'\nPrueba E2E worker-doc.\n'

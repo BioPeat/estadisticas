@@ -1,12 +1,12 @@
-# Mapa del código v12
-- `app.js`: estado/migración; importación FBM; agregados; gráficos; UI; Directo; multiequipo; `snapshotOps`, `ensureCloudTeam`, invitaciones y sync.
-- `styles.css`: diseño responsive, paletas, marcador, tarjetas, jugadores, compartir.
-- `sw.js`: caché v12 network-first y limpieza de cachés anteriores.
-- `worker.js`: D1 w2 compatible + equipos v3 + límites básicos.
-- `config.js`: solo URL pública del servicio; nunca tokens.
-- `actualizar.html`: parche multiarchivo v12.
-- `tests/smoke.py`: tamaños, temas, datos reales, 25 partidos, migración y nube simulada.
-- `tools/validate.py`: sintaxis, estructura, fixtures y fuga de secretos.
-- `instalar.html` + `landing/*.webp`: landing pública, instalación PWA real, fallbacks y capturas anonimizadas.
-- `tests/updater_e2e.py`: tres actualizaciones E2E, contexto completo/partido, autocambio y salto de versión.
-- `PRUEBAS_ACTUALIZADOR_E2E.md`: evidencia y límites de tamaño.
+# Mapa del código · v12.3
+
+- `index.html`, `styles.css`, `app.js`: interfaz, estado local, importación FBM, estadísticas, Directo, mapas, multiequipo, conflictos y sincronización.
+- `worker.js`: API Cloudflare/D1 compatible w2 y equipos v3; CORS, autenticación, cuotas, migraciones y borrado.
+- `sw.js`, `manifest.json`: instalación y caché PWA.
+- `instalar.html`: landing de conversión e instalación.
+- `configurar.html`: comprobación y generación de `config.js`.
+- `actualizar.html`: contexto/patch multiarchivo para IA.
+- `tests/smoke.py`: UI, datos reales, dos clientes, landing y copias.
+- `tests/worker_mock.mjs`: D1 simulado, w2, CORS, límites, caducidad y borrado.
+- `tests/updater_e2e.py`: actualizador universal.
+- `tools/validate.py`: estructura, sintaxis, fixtures y secretos.
