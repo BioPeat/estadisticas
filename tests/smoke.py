@@ -11,9 +11,11 @@ ROOT=Path(__file__).resolve().parents[1]
 STATE=json.loads((ROOT/'tests/fixtures/real_3_partidos.json').read_text(encoding='utf-8'))
 DEHESA=json.loads((ROOT/'tests/fixtures/dehesa_directo_sanitizado.json').read_text(encoding='utf-8'))
 REAL_PATH=os.environ.get('ESTADISTICAS_REAL_BACKUP','')
-REAL=json.loads(Path(REAL_PATH).read_text(encoding='utf-8')) if REAL_PATH else None
+REAL=json.loads(Path(REAL_PATH).read_text(encoding='utf-8')) if REAL_PATH and Path(REAL_PATH).is_file() else None
+if REAL_PATH and REAL is None: print(f'Aviso: no existe {REAL_PATH}; se omite esa prueba opcional.')
 SECOND_PATH=os.environ.get('ESTADISTICAS_SECOND_BACKUP','')
-SECOND=json.loads(Path(SECOND_PATH).read_text(encoding='utf-8')) if SECOND_PATH else None
+SECOND=json.loads(Path(SECOND_PATH).read_text(encoding='utf-8')) if SECOND_PATH and Path(SECOND_PATH).is_file() else None
+if SECOND_PATH and SECOND is None: print(f'Aviso: no existe {SECOND_PATH}; se omite esa prueba opcional.')
 
 class Quiet(SimpleHTTPRequestHandler):
     def log_message(self,*args): pass
