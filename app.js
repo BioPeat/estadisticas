@@ -139,6 +139,33 @@ function hasLegacyFields(g) {
   );
 }
 
+function sanitiseQuarters(list) {
+  if (!Array.isArray(list)) return [];
+  const map = new Map();
+  list.forEach((item, index) => {
+    if (!item || typeof item !== 'object') return;
+    const rawQ = item.quarter ?? item.q ?? item.period ?? (index + 1);
+    let qNum;
+    if (typeof rawQ === 'number' && Number.isFinite(rawQ)) qNum = Math.trunc(rawQ);
+    else {
+      const s = String(rawQ || '').trim();
+      const pr = s.match(/^PR\s*(\d+)/i);
+      const dm = s.match(/\d+/);
+      qNum = pr ? 4 + Number(pr[1]) : dm ? Number(dm[0]) : (index + 1);
+    }
+    if (!Number.isInteger(qNum) || qNum < 1 || qNum > 10) return;
+    const us = safeNum(item.us ?? item.own ?? item.ownPoints ?? item.for);
+    const them = safeNum(item.them ?? item.opponent ?? item.opponentPoints ?? item.opp ?? item.against);
+    if (us === null || them === null || us < 0 || them < 0 || us > 200 || them > 200) return;
+    map.set(qNum, {quarter:qNum, us:Math.trunc(us), them:Math.trunc(them)});
+  });
+  return [...map.values()].sort((a, b) => a.quarter - b.quarter);
+}
+const hasQuarterData = game => Array.isArray(game?.quarters) && game.quarters.length > 0;
+const quarterGames = () => chronological(validGames().filter(hasQuarterData));
+const quarterLabel = n => n <= 4 ? `Q${n}` : `PR${n - 4}`;
+const quarterShort = n => n <= 4 ? `${n}º` : `PR${n - 4}`;
+
 function sanitiseLive(live){
   if(!live||typeof live!=='object')return null;
   return {...live,id:safeId(live.id),opponent:String(live.opponent||'Rival'),date:safeDate(live.date)||today(),quarter:Math.min(10,Math.max(1,+live.quarter||1)),players:(Array.isArray(live.players)?live.players:[]).filter(p=>p&&typeof p==='object'&&p.name).map(p=>({...p,id:safeId(p.id),name:String(p.name),number:String(p.number||'')})),events:(Array.isArray(live.events)?live.events:[]).filter(e=>e&&typeof e==='object').map(e=>({...e,id:safeId(e.id),quarter:Math.min(10,Math.max(1,+e.quarter||1))}))};
@@ -157,16 +184,17 @@ function sanitise(s) {
     const opponentPlayers = arr(g.opponentPlayers || g.rivalPlayers).filter(p => p && typeof p === 'object' && p.name).map(legacyPlayer).map(p => ({...p, id:safeId(p.id)}));
     const events = arr(g.events).filter(e => e && typeof e === 'object' && !e.demo && !e.seed).map(e => ({...e, id:safeId(e.id), quarter:Math.min(10,Math.max(1,+e.quarter||1))}));
     const needsReimport = g.source !== 'live-pending' && (!!g.needsReimport || !opponentPlayers.length || !g.teamTotals || !g.opponentTotals || hasLegacyFields(g));
+    const quarters = sanitiseQuarters(g.quarters);
     return {
       ...g, id:safeId(g.id), date:safeDate(g.date), us:safeNum(g.us), them:safeNum(g.them), opponent:String(g.opponent || 'Rival'), players, opponentPlayers,
       revision:Math.max(0,Number(g.revision)||0), updatedAt:String(g.updatedAt||g.importedAt||''), mapRevision:Math.max(0,Number(g.mapRevision)||0), mapUpdatedAt:String(g.mapUpdatedAt||''),
       livePlayerIds:arr(g.livePlayerIds).filter(id => SAFE_ID.test(String(id))),
       teamTotals:g.teamTotals ? legacyPlayer(g.teamTotals) : null,
       opponentTotals:g.opponentTotals ? legacyPlayer(g.opponentTotals) : null,
-      events,
+      events, quarters,
       shotsFor:pair.for, shotsAgainst:pair.against, shots:undefined,
       needsReimport,
-      availability:{...(g.availability || {}), boxscore:players.length > 0, opponentBoxscore:opponentPlayers.length > 0, manual:events.some(e => !e.undone), shotMap:!!(pair.for.length || pair.against.length)}
+      availability:{...(g.availability || {}), boxscore:players.length > 0, opponentBoxscore:opponentPlayers.length > 0, manual:events.some(e => !e.undone), shotMap:!!(pair.for.length || pair.against.length), quarters:quarters.length > 0}
     };
   });
   out.liveDraft = {...base.liveDraft, ...(s.liveDraft || {})};
@@ -300,8 +328,8 @@ function parseGame(rows, fileName) {
     id:uid(), opponent:other.team, home:groups[0] === own, us:own.score, them:other.score,
     players:own.players, opponentPlayers:other.players, teamTotals:own.total, opponentTotals:other.total,
     importWarnings:[...(own.score === other.score ? ['Marcador empatado: en baloncesto no debería ocurrir. Revisa el Excel.'] : []), ...own.warnings.map(x => `${teamLabel()} · ${x}`), ...other.warnings.map(x => `${other.team} · ${x}`)],
-    events:[], shotsFor:[], shotsAgainst:[], source:'fbm', fileName, date:today(), importedAt:new Date().toISOString(), needsReimport:false,
-    availability:{boxscore:true, opponentBoxscore:true, manual:false, shotMap:false}
+    events:[], quarters:[], shotsFor:[], shotsAgainst:[], source:'fbm', fileName, date:today(), importedAt:new Date().toISOString(), needsReimport:false,
+    availability:{boxscore:true, opponentBoxscore:true, manual:false, shotMap:false, quarters:false}
   };
 }
 
@@ -406,8 +434,11 @@ function mergeGameVersions(current,incoming){
   if(!current)return incoming;if(!incoming)return current;
   const newer=compareVersion(incoming,current)>=0?incoming:current,older=newer===incoming?current:incoming,merged={...older,...newer};
   merged.events=mergeEvents(current.events||[],incoming.events||[]);merged.livePlayerIds=[...new Set([...(current.livePlayerIds||[]),...(incoming.livePlayerIds||[])])];
-  const mapOrder=compareVersion(incoming,current,true);if(mapOrder>0){merged.shotsFor=incoming.shotsFor||[];merged.shotsAgainst=incoming.shotsAgainst||[];merged.mapUpdatedAt=incoming.mapUpdatedAt||'';}else if(mapOrder<0){merged.shotsFor=current.shotsFor||[];merged.shotsAgainst=current.shotsAgainst||[];merged.mapUpdatedAt=current.mapUpdatedAt||'';}else{merged.shotsFor=mergeShots(current.shotsFor,incoming.shotsFor);merged.shotsAgainst=mergeShots(current.shotsAgainst,incoming.shotsAgainst);merged.mapUpdatedAt=(Date.parse(incoming.mapUpdatedAt||'')||0)>=(Date.parse(current.mapUpdatedAt||'')||0)?(incoming.mapUpdatedAt||current.mapUpdatedAt||''):(current.mapUpdatedAt||'');}
-  merged.revision=Math.max(Number(current.revision)||0,Number(incoming.revision)||0);merged.mapRevision=Math.max(Number(current.mapRevision)||0,Number(incoming.mapRevision)||0);merged.availability={...(older.availability||{}),...(newer.availability||{}),manual:!!merged.events.some(event=>!event.undone),shotMap:!!(merged.shotsFor.length||merged.shotsAgainst.length)};return merged;
+  const mapOrder=compareVersion(incoming,current,true),cq=sanitiseQuarters(current.quarters),iq=sanitiseQuarters(incoming.quarters);
+  if(mapOrder>0){merged.shotsFor=incoming.shotsFor||[];merged.shotsAgainst=incoming.shotsAgainst||[];merged.mapUpdatedAt=incoming.mapUpdatedAt||'';merged.quarters=iq;}
+  else if(mapOrder<0){merged.shotsFor=current.shotsFor||[];merged.shotsAgainst=current.shotsAgainst||[];merged.mapUpdatedAt=current.mapUpdatedAt||'';merged.quarters=cq;}
+  else{merged.shotsFor=mergeShots(current.shotsFor,incoming.shotsFor);merged.shotsAgainst=mergeShots(current.shotsAgainst,incoming.shotsAgainst);merged.mapUpdatedAt=(Date.parse(incoming.mapUpdatedAt||'')||0)>=(Date.parse(current.mapUpdatedAt||'')||0)?(incoming.mapUpdatedAt||current.mapUpdatedAt||''):(current.mapUpdatedAt||'');merged.quarters=(iq.length&&cq.length)?(newer===incoming?iq:cq):(iq.length?iq:cq);}
+  merged.revision=Math.max(Number(current.revision)||0,Number(incoming.revision)||0);merged.mapRevision=Math.max(Number(current.mapRevision)||0,Number(incoming.mapRevision)||0);merged.availability={...(older.availability||{}),...(newer.availability||{}),manual:!!merged.events.some(event=>!event.undone),shotMap:!!(merged.shotsFor.length||merged.shotsAgainst.length),quarters:merged.quarters.length>0};return merged;
 }
 function mergeLiveVersions(current,incoming){if(!current||!incoming||current.id!==incoming.id)return incoming;return {...current,...incoming,events:mergeEvents(current.events||[],incoming.events||[])};}
 function mergePendingIntoGame(pending,target) {
@@ -415,8 +446,9 @@ function mergePendingIntoGame(pending,target) {
   target.events=mergeEvents(target.events||[],pending.events||[]);
   target.shotsFor=mergeShots(target.shotsFor,pending.shotsFor);
   target.shotsAgainst=mergeShots(target.shotsAgainst,pending.shotsAgainst);
+  target.quarters=sanitiseQuarters(target.quarters?.length?target.quarters:pending.quarters);
   target.livePlayerIds=[...new Set([...(target.livePlayerIds||[]),...(pending.livePlayerIds||[])])];
-  target.availability={...(target.availability||{}),manual:(target.events||[]).some(e=>!e.undone),shotMap:!!((target.shotsFor||[]).length||(target.shotsAgainst||[]).length)};
+  target.availability={...(target.availability||{}),manual:(target.events||[]).some(e=>!e.undone),shotMap:!!((target.shotsFor||[]).length||(target.shotsAgainst||[]).length),quarters:target.quarters.length>0};
   state.games=state.games.filter(game=>game.id!==pending.id);
   return target;
 }
@@ -449,9 +481,9 @@ function commitImport() {
     if(!existing&&pending)existing=pending;
     if(pending)joined++;
     if (existing) {
-      const events=mergeEvents(existing.events||[],pending&&pending!==existing?pending.events||[]:[]),shotsFor=mergeShots(existing.shotsFor,pending&&pending!==existing?pending.shotsFor:[]),shotsAgainst=mergeShots(existing.shotsAgainst,pending&&pending!==existing?pending.shotsAgainst:[]);
-      Object.assign(existing, {...g, id:existing.id, date:g.date || existing.date, events, shotsFor, shotsAgainst, needsReimport:false,
-        availability:{...g.availability, manual:events.some(e=>!e.undone), shotMap:!!(shotsFor.length || shotsAgainst.length)}});
+      const events=mergeEvents(existing.events||[],pending&&pending!==existing?pending.events||[]:[]),shotsFor=mergeShots(existing.shotsFor,pending&&pending!==existing?pending.shotsFor:[]),shotsAgainst=mergeShots(existing.shotsAgainst,pending&&pending!==existing?pending.shotsAgainst:[]),quarters=sanitiseQuarters(existing.quarters?.length?existing.quarters:pending?.quarters);
+      Object.assign(existing, {...g, id:existing.id, date:g.date || existing.date, events, quarters, shotsFor, shotsAgainst, needsReimport:false,
+        availability:{...g.availability, manual:events.some(e=>!e.undone), shotMap:!!(shotsFor.length || shotsAgainst.length), quarters:quarters.length > 0}});
       if(pending&&pending!==existing){mergePendingIntoGame(pending,existing);queueMerge(pending,existing);}
     } else state.games.push(g);
     const saved = existing || g;
@@ -855,6 +887,92 @@ function liveMetricCard(key) {
   return `<button class="stat-card live-stat-card ${compareMode?'comparison-card':''}" data-detail="live:${key}"><header><span>${metric.label}</span><small>Directo · ${compareMode?'balance total':totalMode?'total':'por partido'}</small></header>${values}${visual}<footer>${insight}<b>Ver detalle →</b></footer></button>`;
 }
 
+function quarterStats() {
+  const games = quarterGames();
+  if (!games.length) return null;
+  const maxQ = Math.max(4, ...games.flatMap(g => (g.quarters || []).map(q => q.quarter)));
+  const periods = [];
+  for (let q = 1; q <= maxQ; q++) {
+    const entries = games.map(g => {
+      const row = (g.quarters || []).find(item => item.quarter === q);
+      return row ? {game:g, us:row.us, them:row.them, diff:row.us - row.them} : null;
+    }).filter(Boolean);
+    if (!entries.length && q > 4) continue;
+    const n = entries.length;
+    const usTotal = sum(entries, e => e.us), themTotal = sum(entries, e => e.them), diffTotal = usTotal - themTotal;
+    const won = entries.filter(e => e.diff > 0).length, tied = entries.filter(e => e.diff === 0).length, lost = entries.filter(e => e.diff < 0).length;
+    const sorted = [...entries].sort((a, b) => b.diff - a.diff);
+    periods.push({
+      quarter:q, label:quarterLabel(q), short:quarterShort(q), gamesCount:n,
+      usTotal, themTotal, diffTotal,
+      usAvg:n ? usTotal / n : null, themAvg:n ? themTotal / n : null, diffAvg:n ? diffTotal / n : null,
+      won, tied, lost, winPct:n ? won / n * 100 : null,
+      bestDiff:sorted[0] || null, worstDiff:sorted.at(-1) || null
+    });
+  }
+  const regular = periods.filter(p => p.quarter <= 4 && p.gamesCount > 0);
+  const fullRegGames = games.filter(g => [1,2,3,4].every(q => (g.quarters || []).some(item => item.quarter === q)));
+  const halfCalc = qs => {
+    if (!fullRegGames.length) return {gamesCount:0, usTotal:0, themTotal:0, diffTotal:0, usAvg:null, themAvg:null, diffAvg:null};
+    const rows = fullRegGames.map(g => {
+      const items = (g.quarters || []).filter(item => qs.includes(item.quarter));
+      const us = sum(items, x => x.us), them = sum(items, x => x.them);
+      return {game:g, us, them, diff:us - them};
+    });
+    const usTotal = sum(rows, r => r.us), themTotal = sum(rows, r => r.them);
+    return {gamesCount:rows.length, usTotal, themTotal, diffTotal:usTotal - themTotal, usAvg:usTotal / rows.length, themAvg:themTotal / rows.length, diffAvg:(usTotal - themTotal) / rows.length};
+  };
+  const firstHalf = halfCalc([1, 2]), secondHalf = halfCalc([3, 4]);
+  const totalWon = sum(regular, p => p.won), totalTied = sum(regular, p => p.tied), totalLost = sum(regular, p => p.lost), totalPlayed = totalWon + totalTied + totalLost;
+  const bestQuarter = [...regular].sort((a, b) => (b.diffAvg ?? -Infinity) - (a.diffAvg ?? -Infinity))[0] || null;
+  const worstQuarter = [...regular].sort((a, b) => (a.diffAvg ?? Infinity) - (b.diffAvg ?? Infinity))[0] || null;
+  const bestOffenseQuarter = [...regular].sort((a, b) => (b.usAvg ?? -Infinity) - (a.usAvg ?? -Infinity))[0] || null;
+  const bestDefenseQuarter = [...regular].sort((a, b) => (a.themAvg ?? Infinity) - (b.themAvg ?? Infinity))[0] || null;
+  const corr = pred => {
+    const subset = fullRegGames.filter(pred);
+    return {played:subset.length, wins:subset.filter(g => +g.us > +g.them).length, losses:subset.filter(g => +g.us < +g.them).length};
+  };
+  const qVal = (g, q) => (g.quarters || []).find(item => item.quarter === q);
+  const correlations = {
+    winQ1: corr(g => { const x = qVal(g, 1); return x && x.us > x.them; }),
+    loseQ1: corr(g => { const x = qVal(g, 1); return x && x.us < x.them; }),
+    leadHalf: corr(g => { const x1 = qVal(g, 1), x2 = qVal(g, 2); return x1 && x2 && (x1.us + x2.us) > (x1.them + x2.them); }),
+    trailHalf: corr(g => { const x1 = qVal(g, 1), x2 = qVal(g, 2); return x1 && x2 && (x1.us + x2.us) < (x1.them + x2.them); })
+  };
+  return {games, periods, regular, fullRegGames, firstHalf, secondHalf, totalWon, totalTied, totalLost, totalPlayed, bestQuarter, worstQuarter, bestOffenseQuarter, bestDefenseQuarter, correlations};
+}
+
+function quarterCardsHTML(qStats) {
+  if (!qStats || !qStats.regular.length) return '';
+  const totalMode = statsMode === 'total', compareMode = statsMode === 'compare', digits = totalMode ? 0 : 1;
+  const regs = qStats.regular, nGames = qStats.games.length;
+  const val = (p, side) => totalMode ? p[side === 'us' ? 'usTotal' : side === 'them' ? 'themTotal' : 'diffTotal'] : p[side === 'us' ? 'usAvg' : side === 'them' ? 'themAvg' : 'diffAvg'];
+  const miniBars = (side, tone) => {
+    const max = Math.max(1, ...regs.map(p => val(p, side) || 0));
+    return `<div class="quarter-bars-mini">${regs.map(p => {const v = val(p, side) || 0, h = Math.max(8, v / max * 100); return `<span class="qb-col"><b class="qb-val">${num(v, digits)}</b><span class="qb-track"><i class="${tone}" style="height:${h}%"></i></span><small>${p.label}</small></span>`;}).join('')}</div>`;
+  };
+  const ownSum = sum(regs, p => val(p, 'us') || 0), oppSum = sum(regs, p => val(p, 'them') || 0);
+  const ownPerQ = regs.length ? ownSum / regs.length : 0, oppPerQ = regs.length ? oppSum / regs.length : 0;
+  const bestOff = qStats.bestOffenseQuarter, bestDef = qStats.bestDefenseQuarter, bestQ = qStats.bestQuarter;
+  const offFooter = bestOff ? `Mejor ${bestOff.label}: ${num(val(bestOff, 'us'), digits)} · ${nGames} partido${nGames === 1 ? '' : 's'}` : `${nGames} partido${nGames === 1 ? '' : 's'}`;
+  const defFooter = bestDef ? `Más sólido ${bestDef.label}: ${num(val(bestDef, 'them'), digits)} · ${nGames} partido${nGames === 1 ? '' : 's'}` : `${nGames} partido${nGames === 1 ? '' : 's'}`;
+  const maxAbsDiff = Math.max(1, ...regs.map(p => Math.abs(val(p, 'diff') || 0)));
+  const divBars = `<div class="quarter-div-wrap"><div class="balance-mini diverging">${regs.map(p => {const d = val(p, 'diff') || 0, h = Math.max(4, Math.abs(d) / maxAbsDiff * 50); return `<span class="div-col" title="${p.label}: ${signed(d).replace(',0', '')}"><i class="${d >= 0 ? 'positive up' : 'negative down'}" style="height:${h}%"></i></span>`;}).join('')}</div><div class="quarter-div-labels">${regs.map(p => {const d = val(p, 'diff') || 0; return `<span><b>${p.label}</b><small class="${d > 0 ? 'positive' : d < 0 ? 'negative' : ''}">${signed(d).replace(',0', '')}</small></span>`;}).join('')}</div></div>`;
+  const h1 = qStats.firstHalf.gamesCount ? (totalMode ? qStats.firstHalf.diffTotal : qStats.firstHalf.diffAvg) : null;
+  const h2 = qStats.secondHalf.gamesCount ? (totalMode ? qStats.secondHalf.diffTotal : qStats.secondHalf.diffAvg) : null;
+  const marginFooter = (h1 !== null && h2 !== null) ? `1ª ${signed(h1).replace(',0', '')} · 2ª ${signed(h2).replace(',0', '')}` : `${nGames} partido${nGames === 1 ? '' : 's'} con cuartos`;
+  const offHeaderVal = compareMode ? `${num(ownPerQ, 1)}` : num(totalMode ? ownSum : ownPerQ, digits);
+  const defHeaderVal = compareMode ? `${num(oppPerQ, 1)}` : num(totalMode ? oppSum : oppPerQ, digits);
+  const offSub = totalMode ? 'total en cuartos' : 'media por cuarto';
+  const marginValue = compareMode && bestQ
+    ? `<div class="comparison-value"><strong>${bestQ.label} ${signed(val(bestQ, 'diff')).replace(',0', '')}</strong><span>mejor cuarto medio</span></div>`
+    : `<div class="comparison-value"><strong>${qStats.totalWon}–${qStats.totalLost}${qStats.totalTied ? `–${qStats.totalTied}` : ''}</strong><span>cuartos ganados${qStats.totalPlayed ? ` · ${pct(qStats.totalWon / qStats.totalPlayed * 100)}` : ''}</span></div>`;
+  return `
+    <button class="stat-card quarter-stat-card" data-detail="quarters:offense"><header><span>Puntos por cuarto</span><small>${esc(teamLabel())} · ${totalMode ? 'total' : 'por partido'}</small></header><div class="stat-values own-only"><strong>${offHeaderVal}</strong><span>${offSub}</span></div><div class="metric-evolution">${miniBars('us', 'own')}<small>${nGames} partido${nGames === 1 ? '' : 's'} con parciales</small></div><footer>${offFooter}<b>Ver detalle →</b></footer></button>
+    <button class="stat-card quarter-stat-card" data-detail="quarters:defense"><header><span>Permitidos por cuarto</span><small>Rival · ${totalMode ? 'total' : 'por partido'}</small></header><div class="stat-values own-only opp-value"><strong>${defHeaderVal}</strong><span>${offSub}</span></div><div class="metric-evolution">${miniBars('them', 'opp')}<small>${nGames} partido${nGames === 1 ? '' : 's'} con parciales</small></div><footer>${defFooter}<b>Ver detalle →</b></footer></button>
+    <button class="stat-card quarter-stat-card single-value-card ${compareMode ? 'comparison-card' : ''}" data-detail="quarters:margin"><header><span>Parcial por cuarto</span><small>${esc(teamLabel())} − Rival</small></header>${marginValue}<div class="metric-evolution visual-balance">${divBars}<small>${totalMode ? 'balance total' : 'media por cuarto'} · ausencia ≠ 0</small></div><footer>${marginFooter}<b>Ver detalle →</b></footer></button>`;
+}
+
 function renderTeam() {
   const stats = teamStats();
   if (!stats.played) return head('team-page','Equipo',`<button class="btn primary" data-action="import-games">Importar actas</button>`) + reimportBanner() + `<div class="empty card"><div class="empty-icon">▦</div><h2>Sin partidos</h2><button class="btn primary" data-action="import-games">Elegir Excel</button></div></section>`;
@@ -862,6 +980,7 @@ function renderTeam() {
   const oppTotals=stats.opp.reduce((out,row)=>{['p2m','p3m','ftm','fta','fouls','val'].forEach(key=>out[key]=(out[key]||0)+(+row[key]||0));return out;},{});
   const current=currentStreak(stats.games), currentWins=current.startsWith('V');
   const liveCards=recordedLiveGames().length?liveMetricCard('ball')+liveMetricCard('orb')+liveMetricCard('possession'):'';
+  const qStats=quarterStats(), quarterCards=qStats?quarterCardsHTML(qStats):'';
   return head('team-page','Equipo',`<button class="btn" data-action="import-games">Importar acta</button>`,`${stats.played} partidos · ${state.team.season}`) + reimportBanner() + `
     <div class="summary-grid">
       <article class="score-summary card"><div><span>Balance</span><strong>${stats.wins}–${stats.losses}</strong><em>${pct(stats.wins/stats.played*100)}</em></div><div><span>Anota</span><strong>${num(stats.ppg)}</strong><em>por partido</em></div><div><span>Recibe</span><strong>${num(stats.papg)}</strong><em>por partido</em></div><div><span>Racha</span><strong>${current}</strong><em>${currentWins?'victorias':'derrotas'} seguidas</em></div></article>
@@ -874,7 +993,7 @@ function renderTeam() {
       ${renderMinutesCard(stats)}
     </div>
     <div class="section-title stats-title"><div><h2>Todas las estadísticas</h2><p>Elige por partido, totales o comparación. Toca una tarjeta para ver ratios, evolución y desglose.</p></div><div class="segmented" aria-label="Escala de las estadísticas"><button data-action="stats-mode" data-mode="average" class="${statsMode==='average'?'active':''}">Por partido</button><button data-action="stats-mode" data-mode="total" class="${statsMode==='total'?'active':''}">Totales</button><button data-action="stats-mode" data-mode="compare" class="${statsMode==='compare'?'active':''}">Comparar</button></div></div>
-    <div class="stats-grid">${availableTeamMetricKeys().map(teamMetricCard).join('')}${liveCards}</div>
+    <div class="stats-grid">${availableTeamMetricKeys().map(teamMetricCard).join('')}${liveCards}${quarterCards}</div>
     <div class="section-title"><div><h2>Mapas</h2><p>Solo partidos con mapa importado o editado.</p></div></div>
     <div class="analysis-grid maps-grid">
       <button class="card visual-card map-card" data-detail="heat-attack"><div class="card-title"><div><h3>Ataque</h3><span>${stats.shotsFor.length?`${stats.shotsFor.length} canastas · ${validGames().filter(g=>(g.shotsFor||[]).length).length} partidos con mapa`:'Sin mapa'}</span></div></div>${stats.shotsFor.length?courtHTML(stats.shotsFor,[],true)+zoneBars(stats.shotsFor,'attack'):'<div class="empty-chart">Sin mapas de ataque todavía. Añádelos desde Partidos.</div>'}</button>
@@ -1111,7 +1230,17 @@ function renderGameDetail() {
   const warning = g.needsReimport || (!own && !players.length) ? `<div class="reimport-inline"><b>Faltan datos del rival</b><span>Vuelve a importar el acta. La actualización conserva Directo y mapas.</span><button class="btn" data-action="import-games">Reimportar</button></div>` : '';
   const directWarning=directWarnings.length?`<div class="data-warning"><b>Revisar Directo</b><span>Las filas individuales y el total no cuadran (${directWarnings.map(k=>({liveSteals:'ROB',liveTurnovers:'PER',liveOrb:'REB O'}[k])).join(', ')}). Puede faltar alguna ${genderTerms().singular.toLowerCase()} en el acta.</span></div>`:'';
   const manualNotice=own&&!manualAvailable?`<div class="manual-table-notice"><b>ROB · PER · REB O · REB R</b><span>Sin datos registrados todavía. Las columnas se muestran para distinguir ausencia de un cero real.</span></div>`:'';
-  $('#gameDetail').innerHTML = `<div class="score-hero"><div><span>${esc(gameSides(g))} · ${fmtDate(g.date)} · local–visitante</span><strong>${gameScore(g)}</strong></div><div class="result-pill ${g.us > g.them ? 'win' : 'loss'}">${g.us > g.them ? 'Victoria' : 'Derrota'}</div></div>${warning}${directWarning}${manualNotice}<div class="team-tabs"><button class="${own ? 'active' : ''}" data-action="game-team" data-side="own">${esc(teamLabel())} · ${g.us}</button><button class="${!own ? 'active' : ''}" data-action="game-team" data-side="opp">${esc(g.opponent)} · ${g.them}</button></div><div class="box-hint">Desliza la tabla</div><div class="box-wrap"><table class="boxscore"><thead><tr><th class="identity" rowspan="2" data-action="sort-box" data-key="number">${genderTerms().number} · Nombre</th>${groups.map(group => `<th colspan="${group.cols.length}">${group.label}</th>`).join('')}</tr><tr>${groups.map(group => group.cols.map(([k,label]) => `<th data-action="sort-box" data-key="${k}">${label}${modalContext.sort === k ? (modalContext.dir === 1 ? ' ↑' : ' ↓') : ''}</th>`).join('')).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="${r._teamUnassigned?'team-unassigned':''}"><td class="identity" title="${esc(namePretty(r.name))}"><b>${esc(r.number || '—')}</b><span>${esc(r._teamUnassigned?'Equipo / sin asignar':firstName(r.name))}</span></td>${columns.map(([k]) => `<td>${formatBox(r,k)}</td>`).join('')}</tr>`).join('')}<tr class="totals"><td class="identity"><b></b><span>TOTALES</span></td>${columns.map(([k]) => `<td>${formatBox(total,k)}</td>`).join('')}</tr></tbody></table></div><div class="game-map-block"><div class="map-switch"><button class="${modalContext.map === 'attack' ? 'active' : ''}" data-action="game-map" data-mode="attack">Ataque</button><button class="${modalContext.map === 'defense' ? 'active' : ''}" data-action="game-map" data-mode="defense">Defensa</button><button class="${modalContext.map === 'both' ? 'active' : ''}" data-action="game-map" data-mode="both">Juntos</button></div>${courtHTML(modalContext.map === 'defense' ? [] : g.shotsFor || [], modalContext.map === 'attack' ? [] : g.shotsAgainst || [], false)}<button class="btn" data-action="shot-for-game" data-id="${g.id}">Editar mapa</button></div>`;
+  const quartersStrip = hasQuarterData(g) ? (() => {
+    const qs = sanitiseQuarters(g.quarters);
+    const q1 = qs.find(x => x.quarter === 1), q2 = qs.find(x => x.quarter === 2), q3 = qs.find(x => x.quarter === 3), q4 = qs.find(x => x.quarter === 4);
+    const halves = (q1 && q2 && q3 && q4) ? (() => {
+      const h1u = q1.us + q2.us, h1t = q1.them + q2.them, h1d = h1u - h1t;
+      const h2u = q3.us + q4.us, h2t = q3.them + q4.them, h2d = h2u - h2t;
+      return `<div class="game-halves-summary"><span><b>Descanso:</b> ${h1u}–${h1t} <em class="${h1d > 0 ? 'positive' : h1d < 0 ? 'negative' : ''}">(${h1d > 0 ? '+' : ''}${h1d})</em></span><span><b>2ª parte:</b> ${h2u}–${h2t} <em class="${h2d > 0 ? 'positive' : h2d < 0 ? 'negative' : ''}">(${h2d > 0 ? '+' : ''}${h2d})</em></span></div>`;
+    })() : '';
+    return `<section class="game-quarters-strip" aria-label="Parciales por cuarto"><div class="game-quarters-head"><b>Parciales (${esc(teamLabel())}–Rival)</b></div><div class="game-quarters-pills">${qs.map(item => {const d = item.us - item.them; return `<div class="game-quarter-pill ${d > 0 ? 'win' : d < 0 ? 'loss' : ''}"><span>${quarterShort(item.quarter)}</span><strong>${item.us}–${item.them}</strong><em>${d > 0 ? '+' : ''}${d}</em></div>`;}).join('')}</div>${halves}</section>`;
+  })() : '';
+  $('#gameDetail').innerHTML = `<div class="score-hero"><div><span>${esc(gameSides(g))} · ${fmtDate(g.date)} · local–visitante</span><strong>${gameScore(g)}</strong></div><div class="result-pill ${g.us > g.them ? 'win' : 'loss'}">${g.us > g.them ? 'Victoria' : 'Derrota'}</div></div>${quartersStrip}${warning}${directWarning}${manualNotice}<div class="team-tabs"><button class="${own ? 'active' : ''}" data-action="game-team" data-side="own">${esc(teamLabel())} · ${g.us}</button><button class="${!own ? 'active' : ''}" data-action="game-team" data-side="opp">${esc(g.opponent)} · ${g.them}</button></div><div class="box-hint">Desliza la tabla</div><div class="box-wrap"><table class="boxscore"><thead><tr><th class="identity" rowspan="2" data-action="sort-box" data-key="number">${genderTerms().number} · Nombre</th>${groups.map(group => `<th colspan="${group.cols.length}">${group.label}</th>`).join('')}</tr><tr>${groups.map(group => group.cols.map(([k,label]) => `<th data-action="sort-box" data-key="${k}">${label}${modalContext.sort === k ? (modalContext.dir === 1 ? ' ↑' : ' ↓') : ''}</th>`).join('')).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="${r._teamUnassigned?'team-unassigned':''}"><td class="identity" title="${esc(namePretty(r.name))}"><b>${esc(r.number || '—')}</b><span>${esc(r._teamUnassigned?'Equipo / sin asignar':firstName(r.name))}</span></td>${columns.map(([k]) => `<td>${formatBox(r,k)}</td>`).join('')}</tr>`).join('')}<tr class="totals"><td class="identity"><b></b><span>TOTALES</span></td>${columns.map(([k]) => `<td>${formatBox(total,k)}</td>`).join('')}</tr></tbody></table></div><div class="game-map-block"><div class="map-switch"><button class="${modalContext.map === 'attack' ? 'active' : ''}" data-action="game-map" data-mode="attack">Ataque</button><button class="${modalContext.map === 'defense' ? 'active' : ''}" data-action="game-map" data-mode="defense">Defensa</button><button class="${modalContext.map === 'both' ? 'active' : ''}" data-action="game-map" data-mode="both">Juntos</button></div>${courtHTML(modalContext.map === 'defense' ? [] : g.shotsFor || [], modalContext.map === 'attack' ? [] : g.shotsAgainst || [], false)}<button class="btn" data-action="shot-for-game" data-id="${g.id}">Editar mapa</button></div>`;
 }
 
 function openScoringMixDetail() {
@@ -1187,12 +1316,65 @@ function openMinutesDetail() {
   openModal('Minutos','Carga y evolución',`<p class="metric-explain">Minutos de acta. La cuota compara los minutos de cada ${genderTerms().singular.toLowerCase()} con los ${Math.round(sum(games,teamMinutes))} minutos de equipo disponibles (5 en pista; incluye prórrogas si el acta las recoge).</p><div class="metric-summary three"><div><span>Partidos</span><strong>${games.length}</strong></div><div><span>Minutos equipo</span><strong>${formatMinutes(sum(games,teamMinutes))}</strong></div><div><span>Media ${genderTerms().singular.toLowerCase()}-acta</span><strong>${formatMinutes(teamPlayerAverage)}</strong></div></div><section class="detail-block"><div class="card-title"><div><h3>Mapa de minutos</h3><span>Desliza lateralmente · toca una fila</span></div></div><div class="minutes-scroll" tabindex="0" aria-label="Tabla de minutos; desliza a derecha e izquierda">${minutesHeatmap(players,games)}</div></section><section class="detail-block"><div class="card-title"><div><h3>Evolución individual</h3><span>Mini gráfico, media y cuota de temporada</span></div></div><div class="minutes-evolution">${players.map(player=>{const series=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null),avg=player.gp?player.min/player.gp:0,share=games.length?player.min/sum(games,teamMinutes)*100:0;return `<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span>${sparkline(series,'player',180,40)}<b>${formatMinutes(avg)} /P</b><strong>${num(share,0)}%</strong></button>`;}).join('')}</div></section>`);
 }
 
+function openQuarterDetail(focus = 'margin', mode = statsMode === 'total' ? 'total' : 'average') {
+  const qStats = quarterStats();
+  if (!qStats) return openModal('Cuartos', 'Parciales por cuarto', noData('Sin parciales registrados todavía'));
+  modalContext = {type:'quarters', focus, mode};
+  const totalMode = mode === 'total', digits = totalMode ? 0 : 1;
+  const pv = (p, side) => totalMode ? p[side === 'us' ? 'usTotal' : side === 'them' ? 'themTotal' : 'diffTotal'] : p[side === 'us' ? 'usAvg' : side === 'them' ? 'themAvg' : 'diffAvg'];
+  const hv = h => totalMode ? h.diffTotal : h.diffAvg;
+  const hUs = h => totalMode ? h.usTotal : h.usAvg;
+  const hThem = h => totalMode ? h.themTotal : h.themAvg;
+  const {games, periods, regular, firstHalf, secondHalf, totalWon, totalTied, totalLost, totalPlayed, bestQuarter, worstQuarter, bestOffenseQuarter, bestDefenseQuarter, correlations} = qStats;
+  const q1 = regular.find(p => p.quarter === 1), q4 = regular.find(p => p.quarter === 4);
+  const insights = [];
+  if (firstHalf.gamesCount) {
+    insights.push({title:'1ª parte vs 2ª parte', value:`${signed(hv(firstHalf)).replace(',0','')} vs ${signed(hv(secondHalf)).replace(',0','')}`, detail:`1ª parte ${num(hUs(firstHalf),digits)}–${num(hThem(firstHalf),digits)} · 2ª parte ${num(hUs(secondHalf),digits)}–${num(hThem(secondHalf),digits)}`});
+  }
+  if (q1 && q4) {
+    insights.push({title:'Salida (Q1) vs Cierre (Q4)', value:`${signed(pv(q1,'diff')).replace(',0','')} vs ${signed(pv(q4,'diff')).replace(',0','')}`, detail:`Q1 ${num(pv(q1,'us'),digits)}–${num(pv(q1,'them'),digits)} · Q4 ${num(pv(q4,'us'),digits)}–${num(pv(q4,'them'),digits)}`});
+  }
+  if (bestOffenseQuarter && bestDefenseQuarter) {
+    insights.push({title:'Picos de anotación y defensa', value:`${bestOffenseQuarter.label} / ${bestDefenseQuarter.label}`, detail:`Mayor ataque: ${bestOffenseQuarter.label} (${num(pv(bestOffenseQuarter,'us'),digits)}) · Mejor defensa: ${bestDefenseQuarter.label} (${num(pv(bestDefenseQuarter,'them'),digits)} recib.)`});
+  }
+  const corrItems = [];
+  if (correlations.winQ1.played) corrItems.push(`Ganando Q1: ${correlations.winQ1.wins}V–${correlations.winQ1.losses}D`);
+  if (correlations.loseQ1.played) corrItems.push(`Perdiendo Q1: ${correlations.loseQ1.wins}V–${correlations.loseQ1.losses}D`);
+  if (correlations.leadHalf.played) corrItems.push(`Delante al descanso: ${correlations.leadHalf.wins}V–${correlations.leadHalf.losses}D`);
+  if (correlations.trailHalf.played) corrItems.push(`Detrás al descanso: ${correlations.trailHalf.wins}V–${correlations.trailHalf.losses}D`);
+  if (corrItems.length) {
+    insights.push({title:'Tendencia según el marcador', value:`${qStats.fullRegGames.length} partido${qStats.fullRegGames.length === 1 ? '' : 's'}`, detail:corrItems.join(' · ')});
+  }
+  const cols = periods.map(p => p.quarter);
+  const title = focus === 'offense' ? 'Puntos por cuarto' : focus === 'defense' ? 'Permitidos por cuarto' : 'Parciales por cuarto';
+  openModal('Equipo · Cuartos', title, `
+    <p class="metric-explain">Rendimiento real por cuarto a partir de los parciales guardados en mapa de tiro (${games.length} partido${games.length === 1 ? '' : 's'} con registro; el resto no entra en medias ni totales).</p>
+    <div class="segmented" aria-label="Escala de cuartos"><button data-action="quarter-mode" data-mode="average" class="${!totalMode ? 'active' : ''}">Por partido</button><button data-action="quarter-mode" data-mode="total" class="${totalMode ? 'active' : ''}">Totales</button></div>
+    <div class="metric-summary">
+      <div><span>Mejor cuarto</span><strong>${bestQuarter ? `${bestQuarter.label} (${signed(pv(bestQuarter,'diff')).replace(',0','')})` : '—'}</strong></div>
+      <div><span>Cuarto más débil</span><strong>${worstQuarter ? `${worstQuarter.label} (${signed(pv(worstQuarter,'diff')).replace(',0','')})` : '—'}</strong></div>
+      <div><span>1ª / 2ª parte</span><strong>${firstHalf.gamesCount ? `${signed(hv(firstHalf)).replace(',0','')} / ${signed(hv(secondHalf)).replace(',0','')}` : '—'}</strong></div>
+      <div><span>Cuartos ganados</span><strong>${totalWon}–${totalLost}${totalTied ? `–${totalTied}` : ''} (${pct(totalPlayed ? totalWon / totalPlayed * 100 : null)})</strong></div>
+    </div>
+    <section class="detail-block">
+      <div class="card-title"><div><h3>Desglose por cuarto</h3><span>${esc(teamLabel())} vs Rival · ${totalMode ? 'acumulado' : 'media por partido'}</span></div></div>
+      <div class="quarter-breakdown">${periods.map(p => {const d = pv(p, 'diff'); return `<div class="quarter-detail-row">${compareBar(p.label, pv(p,'us'), pv(p,'them'), v => num(v, digits))}<div class="quarter-detail-meta"><em class="${d > 0 ? 'positive' : d < 0 ? 'negative' : ''}">${signed(d).replace(',0','')}</em><small>${p.won}G${p.tied ? ` · ${p.tied}E` : ''} · ${p.lost}P${p.gamesCount !== games.length ? ` (${p.gamesCount} part.)` : ''}</small></div></div>`;}).join('')}</div>
+    </section>
+    ${insights.length ? `<section class="detail-block"><h3>Lectura por tramos</h3><div class="quarter-insights">${insights.map(item => `<div><span>${esc(item.title)}</span><strong>${esc(item.value)}</strong><small>${esc(item.detail)}</small></div>`).join('')}</div></section>` : ''}
+    <section class="detail-block">
+      <div class="card-title"><div><h3>Partido a partido</h3><span>Diferencial por cuarto · toca una fila para abrir el acta</span></div></div>
+      <div class="quarter-matrix-wrap"><table class="quarter-matrix"><thead><tr><th>Partido</th>${cols.map(q => `<th>${quarterLabel(q)}</th>`).join('')}<th>1ª / 2ª</th><th>Final</th></tr></thead><tbody>${games.map(g => {const qs = g.quarters || [], qMap = new Map(qs.map(x => [x.quarter, x])); const x1 = qMap.get(1), x2 = qMap.get(2), x3 = qMap.get(3), x4 = qMap.get(4); const halves = (x1 && x2 && x3 && x4) ? `${signed((x1.us+x2.us)-(x1.them+x2.them)).replace(',0','')} / ${signed((x3.us+x4.us)-(x3.them+x4.them)).replace(',0','')}` : '—'; return `<tr data-detail="game:${g.id}" tabindex="0" role="button"><td><b>${esc(g.opponent)}</b><small>${fmtDate(g.date)}</small></td>${cols.map(q => {const r = qMap.get(q); if (!r) return '<td class="empty-q">—</td>'; const d = r.us - r.them; return `<td class="${d > 0 ? 'positive' : d < 0 ? 'negative' : ''}" title="${r.us}–${r.them}"><b>${d > 0 ? '+' : ''}${d}</b><small>${r.us}–${r.them}</small></td>`;}).join('')}<td>${halves}</td><td><strong>${g.us}–${g.them}</strong></td></tr>`;}).join('')}</tbody></table></div>
+    </section>
+  `);
+}
+
 function detail(id) {
   if (id==='heat-attack'||id==='heat-defense'||id==='heat-compare') return openHeatAnalysis(id);
   if (id==='minutes') return openMinutesDetail();
   if (id==='point-share') return openPointShareDetail();
   if (id==='scoring-mix') return openScoringMixDetail();
   if (id==='score-chart') return openScoreChartDetail();
+  if (id.startsWith('quarters:')) return openQuarterDetail(id.slice(9));
   if (id.startsWith('live:')) return openLiveMetricDetail(id.slice(5));
   if (id.startsWith('metric:')) return openTeamMetricDetail(id.slice(7));
   if (id.startsWith('player:')) return openPlayerDetail(decodeURIComponent(id.slice(7)));
@@ -1224,14 +1406,52 @@ function renderHeatFiltered() {
   $('#heatContent').innerHTML = `<div class="heat-grid"><div>${courtHTML(mode==='defense'?[]:own,mode==='attack'?[]:against,true)}</div><div>${mode==='both'?`<h3>Ataque</h3>${zoneBars(own,'attack')}<h3>Defensa</h3>${zoneBars(against,'defense')}`:zoneBars(mode==='defense'?against:own,mode==='defense'?'defense':'attack')}</div></div>`;
 }
 
-function openShotDetail(gameId='') {
-  const games=validGames(); if(!games.length) return openModal('Mapa','Sin partido','<p>Importa un acta.</p>');
-  const g=games.find(x=>x.id===gameId)||games[0]; modalContext={type:'shot',gameId:g.id,shotsFor:(g.shotsFor||[]).map(p=>({...p})),shotsAgainst:(g.shotsAgainst||[]).map(p=>({...p})),kind:'for',selected:''};
-  openModal('Mapa', 'Editar', `<label class="field">Partido<select id="shotGame">${games.map(x=>`<option value="${x.id}" ${x.id===g.id?'selected':''}>${esc(x.opponent)}</option>`).join('')}</select></label><section class="shot-ai-workflow"><div><h3>1 · Lleva la captura a la IA</h3><p>La cabecera manda: equipo de arriba = mitad izquierda; equipo de abajo = mitad derecha. La IA debe confirmar cabecera, color y lista.</p><button class="btn" data-action="copy-shot-prompt">Copiar instrucciones para la IA</button></div><div><h3>2 · Pega aquí su respuesta</h3><label class="field" for="shotJson">JSON de la IA<textarea id="shotJson" rows="7" placeholder='Pega el bloque que empieza por { y termina por }'></textarea></label><button class="btn primary" data-action="apply-shot-json">Leer y colocar puntos</button><div id="shotAssignment" class="shot-assignment" aria-live="polite"></div></div></section><div class="court-wrap"><div id="shotCourt">${courtHTML(modalContext.shotsFor,modalContext.shotsAgainst,false,modalContext.selected)}</div><div><div class="shot-kind"><button class="active" data-action="shot-kind" data-kind="for">Ataque</button><button data-action="shot-kind" data-kind="against">Defensa</button></div><p class="muted">Toca para añadir. Arrastra para mover.</p><div class="action-row"><button class="btn" data-action="swap-shot-teams">Intercambiar</button><button class="btn danger" data-action="delete-selected-shot">Borrar punto</button><button class="btn danger" data-action="clear-shots">Vaciar</button></div><button class="btn primary wide" data-action="save-shots">Guardar mapa</button></div></div>`); bindShotCourt();
+function shotQuartersSumHTML() {
+  const g = state.games.find(x => x.id === modalContext?.gameId);
+  const valid = sanitiseQuarters(modalContext?.quarters || []);
+  const incomplete = (modalContext?.quarters || []).some(q => (q.us === null) !== (q.them === null));
+  if (!valid.length && !incomplete) return `<div class="shot-quarters-sum muted" id="shotQuartersSum">Opcional: pega el JSON de la IA o introduce los parciales de cada cuarto (${esc(teamLabel())} vs Rival).</div>`;
+  const sumUs = sum(valid, q => q.us), sumThem = sum(valid, q => q.them);
+  const matches = !incomplete && g && hasScore(g.us) && hasScore(g.them) && sumUs === +g.us && sumThem === +g.them;
+  const swapped = !incomplete && g && hasScore(g.us) && hasScore(g.them) && sumUs === +g.them && sumThem === +g.us && +g.us !== +g.them;
+  const msg = incomplete
+    ? `Suma parcial: ${sumUs}–${sumThem} · completa ambos campos en cada cuarto usado`
+    : matches
+      ? `✓ Suma de cuartos: ${sumUs}–${sumThem} · coincide con el acta`
+      : swapped
+        ? `⚠ Suma ${sumUs}–${sumThem} invertida respecto al acta (${g.us}–${g.them}). Pulsa Intercambiar.`
+        : g && hasScore(g.us) && hasScore(g.them)
+          ? `⚠ Suma ${sumUs}–${sumThem} · el acta marca ${g.us}–${g.them}`
+          : `Suma de cuartos: ${sumUs}–${sumThem}`;
+  return `<div class="shot-quarters-sum ${matches ? 'ok' : (swapped || incomplete || (g && hasScore(g.us))) ? 'warn' : ''}" id="shotQuartersSum">${esc(msg)}</div>`;
 }
 
-function shotPrompt() {
-  return `Analiza una captura del mapa de tiro de Afición FBM del partido de ${teamLabel()}. Identifica los equipos por la cabecera: el equipo de arriba corresponde siempre a la mitad izquierda y el de abajo a la mitad derecha. Antes de asignar puntos, cruza tres señales: nombre en cabecera, color y lista de jugadoras; si no coinciden, pon checksAgree=false y explica conflict. Separa ownShots (${teamLabel()}) y opponentShots (rival). Convierte ambas mitades a una media pista con x e y entre 0 y 1 y la canasta arriba. No inventes lanzamientos. Responde solo JSON válido: {"court":"half","ownIdentification":{"team":"${teamLabel()}","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"opponentIdentification":{"team":"RIVAL","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"ownShots":[{"x":0.42,"y":0.18}],"opponentShots":[{"x":0.55,"y":0.22}]}.`;
+function renderShotQuartersEditor() {
+  const host = $('#shotQuartersEditor');
+  if (!host || modalContext?.type !== 'shot') return;
+  const g = state.games.find(x => x.id === modalContext.gameId);
+  const maxQ = Math.max(4, ...(modalContext.quarters || []).map(q => q.quarter), modalContext.extraQuarters || 4);
+  const rows = [];
+  for (let q = 1; q <= maxQ; q++) {
+    const item = (modalContext.quarters || []).find(x => x.quarter === q);
+    const usVal = item?.us ?? '';
+    const themVal = item?.them ?? '';
+    const diff = (item && item.us !== null && item.them !== null) ? item.us - item.them : null;
+    rows.push(`<div class="shot-quarter-row" data-q-row="${q}"><span>${quarterShort(q)}</span><input type="number" min="0" max="200" inputmode="numeric" aria-label="${quarterShort(q)} ${esc(teamLabel())}" placeholder="${esc(teamLabel())}" data-q-num="${q}" data-q-side="us" value="${usVal === '' ? '' : usVal}"><input type="number" min="0" max="200" inputmode="numeric" aria-label="${quarterShort(q)} ${esc(g?.opponent || 'Rival')}" placeholder="Rival" data-q-num="${q}" data-q-side="them" value="${themVal === '' ? '' : themVal}"><strong class="${diff === null ? '' : diff > 0 ? 'positive' : diff < 0 ? 'negative' : ''}" data-q-diff="${q}">${diff === null ? '—' : `${diff > 0 ? '+' : ''}${diff}`}</strong></div>`);
+  }
+  host.innerHTML = `<div class="shot-quarters-head"><div><h3>Parciales por cuarto</h3><small>${esc(teamLabel())} vs ${esc(g?.opponent || 'Rival')}</small></div><button type="button" class="btn" data-action="add-quarter-ot">+ Prórroga</button></div><div class="shot-quarters-cols"><span></span><small>${esc(teamLabel())}</small><small>${esc(g?.opponent || 'Rival')}</small><small>Parcial</small></div><div class="shot-quarters-grid">${rows.join('')}</div>${shotQuartersSumHTML()}`;
+}
+
+function openShotDetail(gameId='') {
+  const games=validGames(); if(!games.length) return openModal('Mapa','Sin partido','<p>Importa un acta.</p>');
+  const g=games.find(x=>x.id===gameId)||games[0]; modalContext={type:'shot',gameId:g.id,shotsFor:(g.shotsFor||[]).map(p=>({...p})),shotsAgainst:(g.shotsAgainst||[]).map(p=>({...p})),quarters:sanitiseQuarters(g.quarters).map(q=>({...q})),extraQuarters:Math.max(4,...sanitiseQuarters(g.quarters).map(q=>q.quarter)),kind:'for',selected:''};
+  openModal('Mapa y parciales', 'Editar', `<label class="field">Partido<select id="shotGame">${games.map(x=>`<option value="${x.id}" ${x.id===g.id?'selected':''}>${esc(x.opponent)}</option>`).join('')}</select></label><section class="shot-ai-workflow"><div><h3>1 · Lleva la captura a la IA</h3><p>La cabecera manda: equipo de arriba = mitad izquierda e izquierdo de cada cuarto; equipo de abajo = mitad derecha y derecho de cada cuarto. La IA extrae tiros y parciales.</p><button class="btn" data-action="copy-shot-prompt">Copiar instrucciones para la IA</button></div><div><h3>2 · Pega aquí su respuesta</h3><label class="field" for="shotJson">JSON de la IA<textarea id="shotJson" rows="7" placeholder='Pega el bloque que empieza por { y termina por }'></textarea></label><button class="btn primary" data-action="apply-shot-json">Leer y colocar</button><div id="shotAssignment" class="shot-assignment" aria-live="polite"></div></div></section><section class="shot-quarters-editor" id="shotQuartersEditor"></section><div class="court-wrap"><div id="shotCourt">${courtHTML(modalContext.shotsFor,modalContext.shotsAgainst,false,modalContext.selected)}</div><div><div class="shot-kind"><button class="active" data-action="shot-kind" data-kind="for">Ataque</button><button data-action="shot-kind" data-kind="against">Defensa</button></div><p class="muted">Toca para añadir. Arrastra para mover.</p><div class="action-row"><button class="btn" data-action="swap-shot-teams">Intercambiar</button><button class="btn danger" data-action="delete-selected-shot">Borrar punto</button><button class="btn danger" data-action="clear-shots">Vaciar</button></div><button class="btn primary wide" data-action="save-shots">Guardar mapa y parciales</button></div></div>`); renderShotQuartersEditor(); bindShotCourt();
+}
+
+function shotPrompt(gameId = modalContext?.gameId) {
+  const g = state.games.find(x => x.id === gameId);
+  const gameHint = g ? ` Partido de referencia en el acta: ${teamLabel()} vs ${g.opponent} (marcador oficial: ${teamLabel()} ${g.us} – ${g.them} ${g.opponent}).` : '';
+  return `Analiza una captura del mapa de tiro de Afición FBM del partido de ${teamLabel()}.${gameHint} En la cabecera, el equipo de ARRIBA corresponde siempre a la mitad IZQUIERDA de la pista y al PRIMER número (izquierdo) de cada tarjeta de cuarto (1º, 2º, 3º, 4º y prórrogas si hay); el equipo de ABAJO corresponde a la mitad DERECHA de la pista y al SEGUNDO número (derecho) de cada tarjeta de cuarto. Antes de asignar tiros ni parciales, cruza tres señales: nombre en cabecera, color de círculos y lista inferior de jugadoras/jugadores; si no coinciden, pon checksAgree=false y explica conflict. Extrae también los parciales por cuarto en "quarters" asignando a "own" los puntos del lado de ${teamLabel()} y a "opponent" los del rival (si no aparecen parciales en la captura, devuelve "quarters":[]). Verifica obligatoriamente antes de responder que la suma de "own" en quarters coincide con el marcador total de ${teamLabel()} en cabecera y la suma de "opponent" con el del rival; si no coinciden, revisa los lados izquierdo/derecho antes de contestar. Separa ownShots (${teamLabel()}) y opponentShots (rival), convirtiendo ambas mitades a una media pista con x e y entre 0 y 1 y la canasta arriba. No inventes lanzamientos. Responde solo JSON válido: {"court":"half","ownIdentification":{"team":"${teamLabel()}","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"opponentIdentification":{"team":"RIVAL","side":"left|right","color":"nombre","checksAgree":true,"conflict":""},"quarters":[{"quarter":1,"own":15,"opponent":15},{"quarter":2,"own":29,"opponent":8},{"quarter":3,"own":16,"opponent":17},{"quarter":4,"own":15,"opponent":16}],"ownShots":[{"x":0.42,"y":0.18}],"opponentShots":[{"x":0.55,"y":0.22}]}.`;
 }
 function repaintShotCourt() {
   const wrap = $('#shotCourt');
@@ -1383,7 +1603,7 @@ function mergePendingManual(pendingId,targetId) {
 
 function keepLivePending() {
   const activeEvents=state.live.events.filter(event => !event.undone);
-  state.games.push({id:uid(), opponent:state.live.opponent, date:state.live.date, home:true, us:null, them:null, players:[], opponentPlayers:[], livePlayerIds:(state.live.players||[]).map(p=>p.id), events:activeEvents, shotsFor:[], shotsAgainst:[], source:'live-pending', availability:{manual:activeEvents.length>0, boxscore:false, opponentBoxscore:false, shotMap:false}});
+  state.games.push({id:uid(), opponent:state.live.opponent, date:state.live.date, home:true, us:null, them:null, players:[], opponentPlayers:[], livePlayerIds:(state.live.players||[]).map(p=>p.id), events:activeEvents, quarters:[], shotsFor:[], shotsAgainst:[], source:'live-pending', availability:{manual:activeEvents.length>0, boxscore:false, opponentBoxscore:false, shotMap:false, quarters:false}});
   record('replace-game', {game:state.games.at(-1)});
   state.live = null;
   save();
@@ -1497,7 +1717,7 @@ function applyRemote(row){
   if(event.type==='live-upsert')state.live=mergeLiveVersions(state.live,sanitiseLive(payload.live));
   if(event.type==='live-event'&&state.live?.id===payload.liveId&&payload.event&&typeof payload.event==='object'&&payload.event.id&&!state.live.events.some(item=>item.id===payload.event.id))state.live.events.push({...payload.event,id:safeId(payload.event.id),quarter:Math.min(10,Math.max(1,+payload.event.quarter||1))});
   if(event.type==='live-undo'&&state.live?.id===payload.liveId){const target=state.live.events.find(item=>item.id===payload.eventId);if(target)target.undone=true;}
-  if(event.type==='shot-set'){const game=state.games.find(item=>item.id===payload.gameId);if(game){const incoming={...game,shotsFor:foldShots(Array.isArray(payload.shotsFor)?payload.shotsFor:[]),shotsAgainst:foldShots(Array.isArray(payload.shotsAgainst)?payload.shotsAgainst:[]),mapRevision:Math.max(0,Number(payload.mapRevision)||0),mapUpdatedAt:String(payload.mapUpdatedAt||event.at||'')},order=compareVersion(incoming,game,true);if(order>0){game.shotsFor=incoming.shotsFor;game.shotsAgainst=incoming.shotsAgainst;game.mapRevision=incoming.mapRevision;game.mapUpdatedAt=incoming.mapUpdatedAt;}else if(order===0){game.shotsFor=mergeShots(game.shotsFor,incoming.shotsFor);game.shotsAgainst=mergeShots(game.shotsAgainst,incoming.shotsAgainst);game.mapUpdatedAt=(Date.parse(incoming.mapUpdatedAt||'')||0)>=(Date.parse(game.mapUpdatedAt||'')||0)?(incoming.mapUpdatedAt||game.mapUpdatedAt||''):(game.mapUpdatedAt||'');}game.availability={...(game.availability||{}),shotMap:!!(game.shotsFor.length||game.shotsAgainst.length)};}}
+  if(event.type==='shot-set'){const game=state.games.find(item=>item.id===payload.gameId);if(game){const incomingQuarters=Array.isArray(payload.quarters)?sanitiseQuarters(payload.quarters):null,incoming={...game,shotsFor:foldShots(Array.isArray(payload.shotsFor)?payload.shotsFor:[]),shotsAgainst:foldShots(Array.isArray(payload.shotsAgainst)?payload.shotsAgainst:[]),mapRevision:Math.max(0,Number(payload.mapRevision)||0),mapUpdatedAt:String(payload.mapUpdatedAt||event.at||'')},order=compareVersion(incoming,game,true);if(order>0){game.shotsFor=incoming.shotsFor;game.shotsAgainst=incoming.shotsAgainst;game.mapRevision=incoming.mapRevision;game.mapUpdatedAt=incoming.mapUpdatedAt;if(incomingQuarters)game.quarters=incomingQuarters;}else if(order===0){game.shotsFor=mergeShots(game.shotsFor,incoming.shotsFor);game.shotsAgainst=mergeShots(game.shotsAgainst,incoming.shotsAgainst);game.mapUpdatedAt=(Date.parse(incoming.mapUpdatedAt||'')||0)>=(Date.parse(game.mapUpdatedAt||'')||0)?(incoming.mapUpdatedAt||game.mapUpdatedAt||''):(game.mapUpdatedAt||'');if(incomingQuarters&&(incomingQuarters.length||!game.quarters?.length))game.quarters=incomingQuarters;}game.availability={...(game.availability||{}),shotMap:!!(game.shotsFor.length||game.shotsAgainst.length),quarters:!!(game.quarters?.length)};}}
   return true;
 }
 async function syncNow(){
@@ -1549,13 +1769,27 @@ function applyTheme(theme){theme=theme==='dark'?'dark':'light';document.document
 
 function updateDraftFromInput(target){if(target.id==='rival')state.liveDraft.rival=target.value;if(target.id==='liveDate'){state.liveDraft.date=target.value;state.liveDraft.dateManual=true;}if(target.matches('.roster-card input')){const set=new Set(state.liveDraft.selected);target.checked?set.add(target.value):set.delete(target.value);state.liveDraft.selected=[...set];const card=target.closest('.roster-card');card.classList.toggle('selected',target.checked);card.querySelector('.check').textContent=target.checked?'✓':'';$('#selectedCount').textContent=`${set.size} convocad${state.team.gender==='female'?'as':'os'}`;}save();}
 
-document.addEventListener('input',e=>{if(view==='live'&&!state.live&&(e.target.id==='rival'||e.target.id==='liveDate'))updateDraftFromInput(e.target);if(e.target.id==='deleteTeamConfirm'){const button=$('#deleteCloudTeamButton');if(button)button.disabled=e.target.value.trim()!==teamLabel();}});
-document.addEventListener('change',e=>{if(view==='live'&&!state.live&&(e.target.id==='liveDate'||e.target.matches('.roster-card input')))updateDraftFromInput(e.target);if(e.target.matches('#heatOpponent,#heatHome'))renderHeatFiltered();if(e.target.id==='playerMetric'&&modalContext?.type==='player')openPlayerDetail(modalContext.key,e.target.value,modalContext.shareMode||'average');if(e.target.id==='minutesScope'){minutesScope=e.target.value;render();}if(e.target.id==='shotGame'&&modalContext?.type==='shot'){const g=validGames().find(x=>x.id===e.target.value);if(!g)return;modalContext.gameId=g.id;modalContext.shotsFor=(g.shotsFor||[]).map(p=>({...p}));modalContext.shotsAgainst=(g.shotsAgainst||[]).map(p=>({...p}));modalContext.selected='';repaintShotCourt();}});
+document.addEventListener('input',e=>{
+  if(view==='live'&&!state.live&&(e.target.id==='rival'||e.target.id==='liveDate'))updateDraftFromInput(e.target);
+  if(e.target.id==='deleteTeamConfirm'){const button=$('#deleteCloudTeamButton');if(button)button.disabled=e.target.value.trim()!==teamLabel();}
+  if(e.target.matches('#shotQuartersEditor [data-q-num][data-q-side]')&&modalContext?.type==='shot'){
+    const q=+e.target.dataset.qNum;
+    const parsePart=el=>{const raw=String(el?.value??'').trim();if(!raw)return null;const n=Number(raw);return Number.isFinite(n)&&n>=0&&n<=200?Math.trunc(n):null;};
+    const us=parsePart($(`#shotQuartersEditor [data-q-num="${q}"][data-q-side="us"]`)),them=parsePart($(`#shotQuartersEditor [data-q-num="${q}"][data-q-side="them"]`));
+    modalContext.quarters=(modalContext.quarters||[]).filter(item=>item.quarter!==q);
+    if(us!==null||them!==null)modalContext.quarters.push({quarter:q,us,them});
+    modalContext.quarters.sort((a,b)=>a.quarter-b.quarter);
+    const diffEl=$(`#shotQuartersEditor [data-q-diff="${q}"]`);
+    if(diffEl){const diff=us!==null&&them!==null?us-them:null;diffEl.textContent=diff===null?'—':`${diff>0?'+':''}${diff}`;diffEl.className=diff===null?'':diff>0?'positive':diff<0?'negative':'';}
+    const sumEl=$('#shotQuartersSum');if(sumEl)sumEl.outerHTML=shotQuartersSumHTML();
+  }
+});
+document.addEventListener('change',e=>{if(view==='live'&&!state.live&&(e.target.id==='liveDate'||e.target.matches('.roster-card input')))updateDraftFromInput(e.target);if(e.target.matches('#heatOpponent,#heatHome'))renderHeatFiltered();if(e.target.id==='playerMetric'&&modalContext?.type==='player')openPlayerDetail(modalContext.key,e.target.value,modalContext.shareMode||'average');if(e.target.id==='minutesScope'){minutesScope=e.target.value;render();}if(e.target.id==='shotGame'&&modalContext?.type==='shot'){const g=validGames().find(x=>x.id===e.target.value);if(!g)return;modalContext.gameId=g.id;modalContext.shotsFor=(g.shotsFor||[]).map(p=>({...p}));modalContext.shotsAgainst=(g.shotsAgainst||[]).map(p=>({...p}));modalContext.quarters=sanitiseQuarters(g.quarters).map(q=>({...q}));modalContext.extraQuarters=Math.max(4,...modalContext.quarters.map(q=>q.quarter));modalContext.selected='';const assignment=$('#shotAssignment');if(assignment)assignment.textContent='';renderShotQuartersEditor();repaintShotCourt();}});
 document.addEventListener('click',async e=>{
   const go=e.target.closest('[data-go]');if(go)return setView(go.dataset.go);
   const d=e.target.closest('[data-detail]');if(d)return detail(d.dataset.detail);
   const a=e.target.closest('[data-action]');if(!a)return;const act=a.dataset.action;
-  const write=new Set(['save-settings','remove-roster-player','confirm-remove-roster-player','delete-cloud-team','confirm-delete-cloud-team','pick-own-team','import-roster','confirm-import','start-live','quarter','add-live','pick-live-player','undo-live','discard-live','confirm-discard-live','finish-live','confirm-live-merge','keep-live-pending','merge-pending-manual','open-shot','shot-for-game','shot-kind','swap-shot-teams','delete-selected-shot','clear-shots','apply-shot-json','save-shots']);
+  const write=new Set(['save-settings','remove-roster-player','confirm-remove-roster-player','delete-cloud-team','confirm-delete-cloud-team','pick-own-team','import-roster','confirm-import','start-live','quarter','add-live','pick-live-player','undo-live','discard-live','confirm-discard-live','finish-live','confirm-live-merge','keep-live-pending','merge-pending-manual','open-shot','shot-for-game','shot-kind','swap-shot-teams','delete-selected-shot','clear-shots','apply-shot-json','add-quarter-ot','save-shots']);
   if(state.settings.role==='viewer'&&write.has(act))return toast('Enlace de solo lectura');
   if(act==='close-modal')return closeModal();if(act==='toggle-theme'){const th=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(th);localStorage.setItem('estadisticas_theme',th);render();return;}if(act==='install')return install();if(act==='open-teams')return openTeams();if(act==='switch-team')return switchWorkspace(a.dataset.id);if(act==='create-team')return createWorkspace();if(act==='remove-team')return confirmRemoveWorkspace(a.dataset.id);if(act==='confirm-remove-team')return removeWorkspace(a.dataset.id);if(act==='open-settings'||act==='open-sync')return openSettings();if(act==='manage-roster')return openRosterManager();if(act==='remove-roster-player')return confirmRemoveRosterPlayer(a.dataset.id);if(act==='confirm-remove-roster-player')return removeRosterPlayer(a.dataset.id);if(act==='delete-cloud-team')return requestDeleteCloudTeam();if(act==='confirm-delete-cloud-team')return deleteCloudTeam();if(act==='save-settings')return saveSettings();if(act==='load-invites')return loadInvites();if(act==='revoke-invite')return revokeInvite(a.dataset.id);if(act==='export-json')return exportJSON();if(act==='restore-backup'){fileMode='backup';$('#fileInput').accept='.json,application/json';$('#fileInput').multiple=false;$('#fileInput').value='';return $('#fileInput').click();}if(act==='pick-own-team'){state.team.name=a.dataset.name;record('set-team',{team:state.team});closeModal();render();return pendingImportFiles&&handleFiles(pendingImportFiles);}if(act==='share-install')return shareInstallPage();if(act==='create-invite')return createInvite(a.dataset.role);if(act==='copy-invite')return copyText($('#inviteLink').value);
   if(act==='stats-mode'){statsMode=['average','total','compare'].includes(a.dataset.mode)?a.dataset.mode:'average';return render();}
@@ -1566,9 +1800,11 @@ document.addEventListener('click',async e=>{
   if(act==='sort-players'){const key=a.dataset.key;if(playerSort===key)playerSortDir*=-1;else{playerSort=key;playerSortDir=-1;}return render();}
   if(act==='trend-game')return openGameDetail(a.dataset.id);if(act==='game-team'){modalContext.side=a.dataset.side;return renderGameDetail();}if(act==='sort-box'){const k=a.dataset.key;if(modalContext.sort===k)modalContext.dir*=-1;else{modalContext.sort=k;modalContext.dir=k==='number'?1:-1;}return renderGameDetail();}if(act==='game-map'){modalContext.map=a.dataset.mode;return renderGameDetail();}
   if(act==='heat-mode')return openHeatAnalysis(`heat-${a.dataset.mode==='both'?'compare':a.dataset.mode}`);
-  if(act==='open-shot')return openShotDetail();if(act==='shot-for-game')return openShotDetail(a.dataset.id);if(act==='copy-shot-prompt')return copyText(shotPrompt());if(act==='shot-kind'){modalContext.kind=a.dataset.kind;$$('.shot-kind button').forEach(b=>b.classList.toggle('active',b===a));return;}if(act==='swap-shot-teams'){[modalContext.shotsFor,modalContext.shotsAgainst]=[modalContext.shotsAgainst,modalContext.shotsFor];modalContext.selected='';repaintShotCourt();return;}if(act==='delete-selected-shot'){if(!modalContext.selected)return toast('Selecciona un punto');const[k,i]=modalContext.selected.split(':'),arr=k==='for'?modalContext.shotsFor:modalContext.shotsAgainst;arr.splice(+i,1);modalContext.selected='';repaintShotCourt();return;}if(act==='clear-shots'){modalContext.shotsFor=[];modalContext.shotsAgainst=[];modalContext.selected='';repaintShotCourt();return;}
-  if(act==='apply-shot-json'){try{const raw=$('#shotJson').value.replace(/```(?:json)?|```/g,'').trim(),j=JSON.parse(raw);if(!Array.isArray(j.ownShots)||!Array.isArray(j.opponentShots))throw Error('Faltan ownShots u opponentShots');const all=[...j.ownShots,...j.opponentShots];if(all.some(point=>!Number.isFinite(+point.x)||!Number.isFinite(+point.y)||+point.x<0||+point.x>1||+point.y<0||+point.y>1))throw Error('Hay coordenadas fuera de 0–1');const own=j.ownIdentification||{},opp=j.opponentIdentification||{};if(own.checksAgree===false||opp.checksAgree===false||own.conflict||opp.conflict)throw Error(`La IA detectó un conflicto: ${own.conflict||opp.conflict||'revisa cabecera, color y lista'}`);modalContext.shotsFor=foldShots(j.ownShots,j.court||'half',own.side||'left');modalContext.shotsAgainst=foldShots(j.opponentShots,j.court||'half',opp.side||'right');modalContext.selected='';repaintShotCourt();const assignment=$('#shotAssignment');if(assignment)assignment.textContent=`✓ ${modalContext.shotsFor.length} ataque · ${modalContext.shotsAgainst.length} defensa · revisa la pista antes de guardar`;toast('Puntos colocados');}catch(error){const assignment=$('#shotAssignment');if(assignment)assignment.textContent=error.message||'JSON no válido';toast(error.message||'JSON no válido');}return;}
-  if(act==='save-shots'){const g=state.games.find(x=>x.id===$('#shotGame')?.value);if(!g)return;g.shotsFor=modalContext.shotsFor;g.shotsAgainst=modalContext.shotsAgainst;g.availability={...(g.availability||{}),shotMap:!!(g.shotsFor.length||g.shotsAgainst.length)};touchGame(g,{map:true});save();record('shot-set',{gameId:g.id,shotsFor:g.shotsFor,shotsAgainst:g.shotsAgainst,mapRevision:g.mapRevision,mapUpdatedAt:g.mapUpdatedAt});closeModal();render();}
+  if(act==='open-shot')return openShotDetail();if(act==='shot-for-game')return openShotDetail(a.dataset.id);if(act==='copy-shot-prompt')return copyText(shotPrompt());if(act==='shot-kind'){modalContext.kind=a.dataset.kind;$$('.shot-kind button').forEach(b=>b.classList.toggle('active',b===a));return;}if(act==='swap-shot-teams'){[modalContext.shotsFor,modalContext.shotsAgainst]=[modalContext.shotsAgainst,modalContext.shotsFor];modalContext.quarters=(modalContext.quarters||[]).map(q=>({...q,us:q.them,them:q.us}));modalContext.selected='';renderShotQuartersEditor();repaintShotCourt();return;}if(act==='delete-selected-shot'){if(!modalContext.selected)return toast('Selecciona un punto');const[k,i]=modalContext.selected.split(':'),arr=k==='for'?modalContext.shotsFor:modalContext.shotsAgainst;arr.splice(+i,1);modalContext.selected='';repaintShotCourt();return;}if(act==='clear-shots'){modalContext.shotsFor=[];modalContext.shotsAgainst=[];modalContext.quarters=[];modalContext.extraQuarters=4;modalContext.selected='';renderShotQuartersEditor();repaintShotCourt();return;}
+  if(act==='add-quarter-ot'&&modalContext?.type==='shot'){modalContext.extraQuarters=Math.min(10,Math.max(4,...(modalContext.quarters||[]).map(q=>q.quarter),modalContext.extraQuarters||4)+1);renderShotQuartersEditor();return;}
+  if(act==='quarter-mode'&&modalContext?.type==='quarters')return openQuarterDetail(modalContext.focus,a.dataset.mode==='total'?'total':'average');
+  if(act==='apply-shot-json'){try{const raw=$('#shotJson').value.replace(/```(?:json)?|```/g,'').trim(),j=JSON.parse(raw);if(!Array.isArray(j.ownShots)||!Array.isArray(j.opponentShots))throw Error('Faltan ownShots u opponentShots');const all=[...j.ownShots,...j.opponentShots];if(all.some(point=>!Number.isFinite(+point.x)||!Number.isFinite(+point.y)||+point.x<0||+point.x>1||+point.y<0||+point.y>1))throw Error('Hay coordenadas fuera de 0–1');const own=j.ownIdentification||{},opp=j.opponentIdentification||{};if(own.checksAgree===false||opp.checksAgree===false||own.conflict||opp.conflict)throw Error(`La IA detectó un conflicto: ${own.conflict||opp.conflict||'revisa cabecera, color y lista'}`);if(j.quarters!==undefined&&!Array.isArray(j.quarters))throw Error('El campo quarters debe ser una lista');const parsedQuarters=Array.isArray(j.quarters)?sanitiseQuarters(j.quarters):modalContext.quarters;modalContext.shotsFor=foldShots(j.ownShots,j.court||'half',own.side||'left');modalContext.shotsAgainst=foldShots(j.opponentShots,j.court||'half',opp.side||'right');modalContext.quarters=parsedQuarters;modalContext.extraQuarters=Math.max(4,...parsedQuarters.map(q=>q.quarter));modalContext.selected='';renderShotQuartersEditor();repaintShotCourt();const g=state.games.find(x=>x.id===modalContext.gameId),sumUs=sum(parsedQuarters,q=>q.us),sumThem=sum(parsedQuarters,q=>q.them);let qNote='';if(Array.isArray(j.quarters)&&parsedQuarters.length){if(g&&hasScore(g.us)&&hasScore(g.them)){if(sumUs===+g.us&&sumThem===+g.them)qNote=` · ✓ ${parsedQuarters.length} cuartos cuadran (${sumUs}–${sumThem})`;else if(sumUs===+g.them&&sumThem===+g.us&&+g.us!==+g.them)qNote=` · ⚠ ${parsedQuarters.length} cuartos invertidos (${sumUs}–${sumThem} vs ${g.us}–${g.them}); pulsa Intercambiar`;else qNote=` · ⚠ cuartos suman ${sumUs}–${sumThem} (acta ${g.us}–${g.them})`;}else qNote=` · ${parsedQuarters.length} cuartos`;}const assignment=$('#shotAssignment');if(assignment)assignment.textContent=`✓ ${modalContext.shotsFor.length} ataque · ${modalContext.shotsAgainst.length} defensa${qNote} · revisa antes de guardar`;toast(parsedQuarters.length?'Puntos y cuartos colocados':'Puntos colocados');}catch(error){const assignment=$('#shotAssignment');if(assignment)assignment.textContent=error.message||'JSON no válido';toast(error.message||'JSON no válido');}return;}
+  if(act==='save-shots'){const g=state.games.find(x=>x.id===$('#shotGame')?.value);if(!g)return;const quarters=sanitiseQuarters(modalContext.quarters);g.shotsFor=modalContext.shotsFor;g.shotsAgainst=modalContext.shotsAgainst;g.quarters=quarters;g.availability={...(g.availability||{}),shotMap:!!(g.shotsFor.length||g.shotsAgainst.length),quarters:quarters.length>0};touchGame(g,{map:true});save();record('shot-set',{gameId:g.id,shotsFor:g.shotsFor,shotsAgainst:g.shotsAgainst,quarters:g.quarters,mapRevision:g.mapRevision,mapUpdatedAt:g.mapUpdatedAt});toast(quarters.length?'Mapa y parciales guardados':'Mapa guardado');closeModal();render();}
 });
 
 $('#fileInput').addEventListener('change',e=>{const list=[...e.target.files];if(!list.length)return;if(fileMode==='backup')return restoreBackup(list[0]);handleFiles(list);});
@@ -1589,4 +1825,4 @@ async function verifyRole(){
   try{const response=await fetch(`${state.settings.api}/api/v3/teams/${encodeURIComponent(state.settings.teamId)}`,{cache:'no-store',headers:{'Accept':'application/json','Authorization':`Bearer ${state.settings.token}`}});if(!response.ok)return;const json=await response.json();if(workspaceBook.activeId!==workspaceId)return;if(['viewer','editor','admin'].includes(json.role)&&json.role!==state.settings.role){state.settings.role=json.role;if(json.role==='viewer')state.ops=[];save();render();}}catch(error){console.warn(error);}
 }
 importSharedTeamFromQuery();repairPendingGames();paintSync();render();verifyRole();syncNow();setInterval(()=>{if(!document.hidden)syncNow();},5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow();});window.addEventListener('online',()=>syncNow());
-window.__ESTADISTICAS__={getState:()=>state,getWorkspaceBook:()=>workspaceBook,switchWorkspace,createWorkspace,setState:s=>{state=sanitise(s);repairPendingGames();save();render();},foldShots,splitLegacyShots,parseGame,detectGender,genderTerms,applyTeamIdentity,validateTotals,effectiveTotals,teamStats,playerAgg,teamMetricRows,aggregateMetric,playerMetricRows,playerSeasonReference,liveMetricRows,recordedLiveGames,validGames,hasManualData,currentStreak,syncNow,repairPendingGames,automaticPendingMatch,mergePendingManual,gameScore,mergeGameVersions,mergeLiveVersions,compareVersion,PLAYER_METRICS,TEAM_METRICS,LIVE_METRICS,APP_VERSION,STORE};
+window.__ESTADISTICAS__={getState:()=>state,getWorkspaceBook:()=>workspaceBook,switchWorkspace,createWorkspace,setState:s=>{state=sanitise(s);repairPendingGames();save();render();},foldShots,splitLegacyShots,sanitiseQuarters,hasQuarterData,quarterGames,quarterStats,shotPrompt,parseGame,detectGender,genderTerms,applyTeamIdentity,validateTotals,effectiveTotals,teamStats,playerAgg,teamMetricRows,aggregateMetric,playerMetricRows,playerSeasonReference,liveMetricRows,recordedLiveGames,validGames,hasManualData,currentStreak,syncNow,repairPendingGames,automaticPendingMatch,mergePendingManual,gameScore,mergeGameVersions,mergeLiveVersions,compareVersion,PLAYER_METRICS,TEAM_METRICS,LIVE_METRICS,APP_VERSION,STORE};

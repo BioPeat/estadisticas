@@ -243,6 +243,53 @@ try:
     # Sin mapas: «Sin mapa» en vez de «0 canastas» (A-060).
     assert page.locator('.map-card .empty-chart').count()==2
     page.close()
+
+    # Parciales por cuarto en mapa de tiro, Equipo, detalle y Partido (3 tamaños, claro/oscuro).
+    for width,height in [(360,640),(390,844),(412,915)]:
+      page=browser.new_page(viewport={'width':width,'height':height});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+      page.goto(URL,wait_until='networkidle')
+      qstate=clean_state(STATE);qstate['games'][0]['opponent']='CORAZONISTAS';qstate['games'][0]['us']=75;qstate['games'][0]['them']=56
+      page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',qstate)
+      if width==390:
+        page.click('.bottom-nav [data-go="games"]');page.click('[data-action="open-shot"]')
+        page.select_option('#shotGame',qstate['games'][0]['id'])
+        prompt_text=page.evaluate('window.__ESTADISTICAS__.shotPrompt()')
+        assert '"quarters"' in prompt_text and 'IZQUIERDA' in prompt_text and 'DERECHA' in prompt_text
+        shot_payload={'court':'half','ownIdentification':{'team':'BUEN CONSEJO','side':'right','color':'gris','checksAgree':True,'conflict':''},'opponentIdentification':{'team':'CORAZONISTAS','side':'left','color':'rojo','checksAgree':True,'conflict':''},'quarters':[{'quarter':1,'own':15,'opponent':15},{'quarter':2,'own':29,'opponent':8},{'quarter':3,'own':16,'opponent':17},{'quarter':4,'own':15,'opponent':16}],'ownShots':[{'x':0.42,'y':0.18}],'opponentShots':[{'x':0.55,'y':0.22}]}
+        page.fill('#shotJson',json.dumps(shot_payload))
+        page.click('[data-action="apply-shot-json"]')
+        assert 'cuadran (75–56)' in page.locator('#shotAssignment').inner_text()
+        assert 'coincide con el acta' in page.locator('#shotQuartersSum').inner_text()
+        page.click('[data-action="swap-shot-teams"]')
+        assert 'invertida respecto al acta' in page.locator('#shotQuartersSum').inner_text()
+        page.click('[data-action="swap-shot-teams"]')
+        page.click('[data-action="save-shots"]')
+        assert page.evaluate("window.__ESTADISTICAS__.getState().ops.some(op=>op.type==='shot-set'&&Array.isArray(op.payload.quarters)&&op.payload.quarters.length===4)")
+        page.locator('.game-row',has_text='CORAZONISTAS').click()
+        assert page.locator('.game-quarters-strip').is_visible()
+        assert page.locator('.game-quarter-pill').count()==4
+        assert '+21' in page.locator('.game-halves-summary').inner_text() and '-2' in page.locator('.game-halves-summary').inner_text()
+        page.click('.modal-sheet .icon-button');page.click('.bottom-nav [data-go="team"]')
+      else:
+        page.evaluate("""() => {const s=window.__ESTADISTICAS__.getState();s.games[0].quarters=[{quarter:1,us:15,them:15},{quarter:2,us:29,them:8},{quarter:3,us:16,them:17},{quarter:4,us:15,them:16}];window.__ESTADISTICAS__.setState(s);}""")
+      assert page.locator('.quarter-stat-card').count()==3
+      for mode in ['average','total','compare']:
+        page.click(f'[data-action="stats-mode"][data-mode="{mode}"]')
+        assert page.locator('.quarter-stat-card').count()==3
+      assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth+1')
+      page.locator('[data-detail="quarters:margin"]').click()
+      assert page.locator('#modalTitle',has_text='Parciales por cuarto').is_visible()
+      assert 'Q2' in page.locator('.metric-summary').inner_text()
+      assert page.locator('.quarter-matrix tbody tr').count()==1
+      page.click('[data-action="quarter-mode"][data-mode="total"]')
+      assert '+21' in page.locator('.metric-summary').inner_text()
+      assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth+1')
+      page.click('.modal-sheet .icon-button')
+      page.click('[data-action="toggle-theme"]');assert page.locator('html').get_attribute('data-theme')=='dark'
+      assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth+1')
+      assert not errors,errors
+      page.close()
+
     # Landing de instalación: cuatro tamaños, temas, CTA real y fallback iOS.
     for width,height in [(360,640),(390,844),(412,915),(1440,900)]:
       page=browser.new_page(viewport={'width':width,'height':height});page.goto(URL+'instalar.html',wait_until='networkidle')
