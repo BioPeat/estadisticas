@@ -822,7 +822,7 @@ function metricMiniVisual(key, rows, mode=statsMode) {
   else if (mode==='compare') visual=balanceVisual(key,rows);
   else visual=dualTrendSVG(rows,key,true);
   const kind=key==='margin'||mode==='compare'?'balance':(rows.length===1||mode==='total')?'barras':'evolución';
-  return `<div class="metric-evolution visual-${kind}" aria-label="Vista de ${kind}">${visual}<small>${rows.length} partido${rows.length===1?'':'s'} · ${kind}${rows.length>1?' · toca para ampliar':''}</small></div>`;
+  return `<div class="metric-evolution visual-${kind}" aria-label="Vista de ${kind}">${visual}</div>`;
 }
 
 function teamMetricCard(key) {
@@ -832,12 +832,12 @@ function teamMetricCard(key) {
   const mode = ['ftp','threeShare','freeShare'].includes(key) ? 'total' : statsMode;
   const ownShown = mode === 'total' ? ownTotal : ownAverage, oppShown = mode === 'total' ? oppTotal : oppAverage;
   const modeLabel = ['ftp','threeShare','freeShare'].includes(key) ? 'temporada' : mode === 'total' ? 'total' : mode==='compare'?'diferencia media':'por partido';
-  const detail = key === 'ftp' ? `TL convertidos ${sum(rows,row=>effectiveTotals(row.game,'own').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'own').fta)}` : `${rows.length} partido${rows.length===1?'':'s'} con acta`;
-  if (key==='margin') return `<button class="stat-card stat-margin single-value-card" data-detail="metric:margin"><header><span>Diferencia</span><small>${esc(teamLabel())} − Rival</small></header><div class="comparison-value"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><span>${modeLabel}</span></div>${metricMiniVisual(key,rows,statsMode)}<footer>Positivo: ventaja · negativo: desventaja<b>Ver detalle →</b></footer></button>`;
-  if (statsMode==='compare' && metric.compare) {const delta=difference(ownAverage,oppAverage),shown=metric.percent?`${signed(delta)} pp`:signed(delta);return `<button class="stat-card stat-${key} comparison-card" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${esc(teamLabel())} − Rival</small></header><div class="comparison-value"><strong>${shown}</strong><span>media por partido</span></div>${metricMiniVisual(key,rows,statsMode)}<footer>Color del equipo = favorable; color rival = desfavorable<b>Ver detalle →</b></footer></button>`;}
-  if (!metric.compare) return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${esc(teamLabel())}</small></header><div class="stat-values own-only"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><span>${modeLabel}</span></div>${metricMiniVisual(key,rows,statsMode)}<footer>${detail}<b>Ver detalle →</b></footer></button>`;
+  const detail = key === 'ftp' ? `TL ${sum(rows,row=>effectiveTotals(row.game,'own').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'own').fta)}` : '';
+  if (key==='margin') return `<button class="stat-card stat-margin single-value-card" data-detail="metric:margin"><header><span>Diferencia</span><small>${esc(teamLabel())} − Rival</small></header><div class="comparison-value"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><span>${modeLabel}</span></div>${metricMiniVisual(key,rows,statsMode)}<footer><b>Ver detalle →</b></footer></button>`;
+  if (statsMode==='compare' && metric.compare) {const delta=difference(ownAverage,oppAverage),shown=metric.percent?`${signed(delta)} pp`:signed(delta);return `<button class="stat-card stat-${key} comparison-card" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${esc(teamLabel())} − Rival</small></header><div class="comparison-value"><strong>${shown}</strong><span>por partido</span></div>${metricMiniVisual(key,rows,statsMode)}<footer><b>Ver detalle →</b></footer></button>`;}
+  if (!metric.compare) return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${esc(teamLabel())}</small></header><div class="stat-values own-only"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><span>${modeLabel}</span></div>${metricMiniVisual(key,rows,statsMode)}<footer>${detail?`<span>${detail}</span>`:''}<b>Ver detalle →</b></footer></button>`;
   const hint=metric.lowerBetter?`${esc(teamLabel())} / Rival · menos`:`${esc(teamLabel())} / Rival`;
-  return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${hint}</small></header><div class="stat-values"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><strong>${metricValue(key,oppShown,mode==='total'?0:1)}</strong></div><div class="value-caption"><span>${esc(teamLabel())} · ${modeLabel}</span><span>Rival · ${modeLabel}</span></div>${metricMiniVisual(key,rows,statsMode)}<footer>${detail}<b>Ver detalle →</b></footer></button>`;
+  return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${hint}</small></header><div class="stat-values"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><strong>${metricValue(key,oppShown,mode==='total'?0:1)}</strong></div><div class="value-caption"><span>${esc(teamLabel())}</span><span>Rival</span></div>${metricMiniVisual(key,rows,statsMode)}<footer>${detail?`<span>${detail}</span>`:''}<b>Ver detalle →</b></footer></button>`;
 }
 
 function head(cls, title, actions = '', meta = '') {
@@ -875,16 +875,17 @@ function liveMetricRows(key) {
 }
 
 function liveMetricCard(key) {
-  const metric=LIVE_METRICS[key],rows=liveMetricRows(key),ownTotal=sum(rows,row=>row.own),oppTotal=sum(rows,row=>row.opp),ownAvg=mean(rows,row=>row.own),oppAvg=mean(rows,row=>row.opp),max=Math.max(1,...rows.flatMap(row=>[row.own,row.opp]).filter(Number.isFinite));
+  const metric=LIVE_METRICS[key],rows=liveMetricRows(key),ownTotal=sum(rows,row=>row.own),oppTotal=sum(rows,row=>row.opp),ownAvg=mean(rows,row=>row.own),oppAvg=mean(rows,row=>row.opp);
   if(!rows.length)return '';
   const compareMode=statsMode==='compare',totalMode=statsMode==='total',own=totalMode?ownTotal:ownAvg,opp=totalMode?oppTotal:oppAvg;
-  if(key==='possession'){const shown=totalMode?ownTotal:ownAvg,label=shown>0?'más para mi equipo':shown<0?'más para el rival':'equilibradas',visual=balanceVisual('possession',rows);return `<button class="stat-card live-stat-card possession-card single-value-card" data-detail="live:possession"><header><span>${metric.label}</span><small>Directo · ${totalMode?'total':'por partido'}</small></header><div class="comparison-value"><strong>${metricValue('possession',shown,totalMode?0:1)}</strong><span>${label}</span></div><div class="metric-evolution visual-balance">${visual}<small>${rows.length} partido${rows.length===1?'':'s'} con Directo · ausencia ≠ 0</small></div><footer>REB O + robos − REB O rival − pérdidas<b>Ver detalle →</b></footer></button>`;}
+  if(key==='possession'){const shown=totalMode?ownTotal:ownAvg,label=totalMode?'total':'por partido',visual=balanceVisual('possession',rows);return `<button class="stat-card live-stat-card possession-card single-value-card" data-detail="live:possession"><header><span>${metric.label}</span><small>Directo</small></header><div class="comparison-value"><strong>${metricValue('possession',shown,totalMode?0:1)}</strong><span>${label}</span></div><div class="metric-evolution visual-balance">${visual}</div><footer><b>Ver detalle →</b></footer></button>`;}
   const share=(ownTotal+oppTotal)?ownTotal/(ownTotal+oppTotal)*100:null, relation=ratio(ownTotal,oppTotal),balance=ownTotal-oppTotal;
-  const insight=key==='ball'?`Balance ${signed(balance).replace(',0','')} · ratio ROB/Pérd. ${relation===null?'—':num(relation,2)}`:`Cuota REB O ${share===null?'—':pct(share)}`;
-  const values=compareMode?`<div class="comparison-value"><strong>${signed(balance).replace(',0','')}</strong><span>${key==='ball'?'Robos − pérdidas':'REB O propio − rival'}</span></div>`:`<div class="stat-values"><strong>${num(own,totalMode?0:1)}</strong><strong>${num(opp,totalMode?0:1)}</strong></div><div class="live-card-labels"><span>${metric.ownLabel}</span><span>${metric.oppLabel}</span></div>`;
+  const insight=key==='ball'?`Ratio ${relation===null?'—':num(relation,2)}`:`Cuota ${share===null?'—':pct(share)}`;
+  const shortOwn=key==='ball'?'Robos':'Propio',shortOpp=key==='ball'?'Pérdidas':'Rival';
+  const values=compareMode?`<div class="comparison-value"><strong>${signed(balance).replace(',0','')}</strong><span>${key==='ball'?'Robos − pérdidas':'Propio − rival'}</span></div>`:`<div class="stat-values"><strong>${num(own,totalMode?0:1)}</strong><strong>${num(opp,totalMode?0:1)}</strong></div><div class="value-caption"><span>${shortOwn}</span><span>${shortOpp}</span></div>`;
   const mini=rows.length===1||totalMode?pairedBarsVisual(key,rows):compareMode?balanceVisual(key,rows):dualTrendSVG(rows,key,true);
-  const visual=`<div class="metric-evolution">${mini}<small>${rows.length} partido${rows.length===1?'':'s'} con Directo · sin datos ≠ 0</small></div>`;
-  return `<button class="stat-card live-stat-card ${compareMode?'comparison-card':''}" data-detail="live:${key}"><header><span>${metric.label}</span><small>Directo · ${compareMode?'balance total':totalMode?'total':'por partido'}</small></header>${values}${visual}<footer>${insight}<b>Ver detalle →</b></footer></button>`;
+  const visual=`<div class="metric-evolution">${mini}</div>`;
+  return `<button class="stat-card live-stat-card ${compareMode?'comparison-card':''}" data-detail="live:${key}"><header><span>${metric.label}</span><small>Directo</small></header>${values}${visual}<footer><span>${insight}</span><b>Ver detalle →</b></footer></button>`;
 }
 
 function quarterStats() {
@@ -935,8 +936,10 @@ function quarterStats() {
   const qVal = (g, q) => (g.quarters || []).find(item => item.quarter === q);
   const correlations = {
     winQ1: corr(g => { const x = qVal(g, 1); return x && x.us > x.them; }),
+    tieQ1: corr(g => { const x = qVal(g, 1); return x && x.us === x.them; }),
     loseQ1: corr(g => { const x = qVal(g, 1); return x && x.us < x.them; }),
     leadHalf: corr(g => { const x1 = qVal(g, 1), x2 = qVal(g, 2); return x1 && x2 && (x1.us + x2.us) > (x1.them + x2.them); }),
+    tieHalf: corr(g => { const x1 = qVal(g, 1), x2 = qVal(g, 2); return x1 && x2 && (x1.us + x2.us) === (x1.them + x2.them); }),
     trailHalf: corr(g => { const x1 = qVal(g, 1), x2 = qVal(g, 2); return x1 && x2 && (x1.us + x2.us) < (x1.them + x2.them); })
   };
   return {games, periods, regular, fullRegGames, firstHalf, secondHalf, totalWon, totalTied, totalLost, totalPlayed, bestQuarter, worstQuarter, bestOffenseQuarter, bestDefenseQuarter, correlations};
@@ -944,33 +947,33 @@ function quarterStats() {
 
 function quarterCardsHTML(qStats) {
   if (!qStats || !qStats.regular.length) return '';
-  const totalMode = statsMode === 'total', compareMode = statsMode === 'compare', digits = totalMode ? 0 : 1;
-  const regs = qStats.regular, nGames = qStats.games.length;
+  const totalMode = statsMode === 'total', digits = totalMode ? 0 : 1;
+  const regs = qStats.regular;
   const val = (p, side) => totalMode ? p[side === 'us' ? 'usTotal' : side === 'them' ? 'themTotal' : 'diffTotal'] : p[side === 'us' ? 'usAvg' : side === 'them' ? 'themAvg' : 'diffAvg'];
-  const miniBars = (side, tone) => {
+  const miniBars = (side, tone, peakQuarter) => {
     const max = Math.max(1, ...regs.map(p => val(p, side) || 0));
-    return `<div class="quarter-bars-mini">${regs.map(p => {const v = val(p, side) || 0, h = Math.max(8, v / max * 100); return `<span class="qb-col"><b class="qb-val">${num(v, digits)}</b><span class="qb-track"><i class="${tone}" style="height:${h}%"></i></span><small>${p.label}</small></span>`;}).join('')}</div>`;
+    return `<div class="quarter-bars-mini">${regs.map(p => {const v = val(p, side) || 0, h = Math.max(8, v / max * 100), isPeak = peakQuarter && p.quarter === peakQuarter.quarter; return `<span class="qb-col ${isPeak ? 'peak' : ''}"><b class="qb-val">${num(v, digits)}</b><span class="qb-track"><i class="${tone}" style="height:${h}%"></i></span><small>${p.label}</small></span>`;}).join('')}</div>`;
   };
   const ownSum = sum(regs, p => val(p, 'us') || 0), oppSum = sum(regs, p => val(p, 'them') || 0);
-  const ownPerQ = regs.length ? ownSum / regs.length : 0, oppPerQ = regs.length ? oppSum / regs.length : 0;
-  const bestOff = qStats.bestOffenseQuarter, bestDef = qStats.bestDefenseQuarter, bestQ = qStats.bestQuarter;
-  const offFooter = bestOff ? `Mejor ${bestOff.label}: ${num(val(bestOff, 'us'), digits)} · ${nGames} partido${nGames === 1 ? '' : 's'}` : `${nGames} partido${nGames === 1 ? '' : 's'}`;
-  const defFooter = bestDef ? `Más sólido ${bestDef.label}: ${num(val(bestDef, 'them'), digits)} · ${nGames} partido${nGames === 1 ? '' : 's'}` : `${nGames} partido${nGames === 1 ? '' : 's'}`;
+  const diffSum = sum(regs, p => val(p, 'diff') || 0);
+  const ownPerQ = regs.length ? ownSum / regs.length : 0, oppPerQ = regs.length ? oppSum / regs.length : 0, diffPerQ = regs.length ? diffSum / regs.length : 0;
+  const bestOff = qStats.bestOffenseQuarter, bestDef = qStats.bestDefenseQuarter;
+  const offFooter = bestOff ? `Mejor ${bestOff.label} (${num(val(bestOff, 'us'), digits)})` : '';
+  const defFooter = bestDef ? `Mejor ${bestDef.label} (${num(val(bestDef, 'them'), digits)})` : '';
   const maxAbsDiff = Math.max(1, ...regs.map(p => Math.abs(val(p, 'diff') || 0)));
   const divBars = `<div class="quarter-div-wrap"><div class="balance-mini diverging">${regs.map(p => {const d = val(p, 'diff') || 0, h = Math.max(4, Math.abs(d) / maxAbsDiff * 50); return `<span class="div-col" title="${p.label}: ${signed(d).replace(',0', '')}"><i class="${d >= 0 ? 'positive up' : 'negative down'}" style="height:${h}%"></i></span>`;}).join('')}</div><div class="quarter-div-labels">${regs.map(p => {const d = val(p, 'diff') || 0; return `<span><b>${p.label}</b><small class="${d > 0 ? 'positive' : d < 0 ? 'negative' : ''}">${signed(d).replace(',0', '')}</small></span>`;}).join('')}</div></div>`;
   const h1 = qStats.firstHalf.gamesCount ? (totalMode ? qStats.firstHalf.diffTotal : qStats.firstHalf.diffAvg) : null;
   const h2 = qStats.secondHalf.gamesCount ? (totalMode ? qStats.secondHalf.diffTotal : qStats.secondHalf.diffAvg) : null;
-  const marginFooter = (h1 !== null && h2 !== null) ? `1ª ${signed(h1).replace(',0', '')} · 2ª ${signed(h2).replace(',0', '')}` : `${nGames} partido${nGames === 1 ? '' : 's'} con cuartos`;
-  const offHeaderVal = compareMode ? `${num(ownPerQ, 1)}` : num(totalMode ? ownSum : ownPerQ, digits);
-  const defHeaderVal = compareMode ? `${num(oppPerQ, 1)}` : num(totalMode ? oppSum : oppPerQ, digits);
-  const offSub = totalMode ? 'total en cuartos' : 'media por cuarto';
-  const marginValue = compareMode && bestQ
-    ? `<div class="comparison-value"><strong>${bestQ.label} ${signed(val(bestQ, 'diff')).replace(',0', '')}</strong><span>mejor cuarto medio</span></div>`
-    : `<div class="comparison-value"><strong>${qStats.totalWon}–${qStats.totalLost}${qStats.totalTied ? `–${qStats.totalTied}` : ''}</strong><span>cuartos ganados${qStats.totalPlayed ? ` · ${pct(qStats.totalWon / qStats.totalPlayed * 100)}` : ''}</span></div>`;
+  const marginFooter = (h1 !== null && h2 !== null) ? `1ª ${signed(h1).replace(',0', '')} · 2ª ${signed(h2).replace(',0', '')}` : '';
+  const offHeaderVal = num(totalMode ? ownSum : ownPerQ, digits);
+  const defHeaderVal = num(totalMode ? oppSum : oppPerQ, digits);
+  const subCap = totalMode ? 'total en cuartos' : 'media / cuarto';
+  const diffMain = signed(totalMode ? diffSum : diffPerQ).replace(',0', '');
+  const diffCap = `${totalMode ? 'total' : 'media / cuarto'} · ${qStats.totalWon}G–${qStats.totalLost}P${qStats.totalTied ? `–${qStats.totalTied}E` : ''}`;
   return `
-    <button class="stat-card quarter-stat-card" data-detail="quarters:offense"><header><span>Puntos por cuarto</span><small>${esc(teamLabel())} · ${totalMode ? 'total' : 'por partido'}</small></header><div class="stat-values own-only"><strong>${offHeaderVal}</strong><span>${offSub}</span></div><div class="metric-evolution">${miniBars('us', 'own')}<small>${nGames} partido${nGames === 1 ? '' : 's'} con parciales</small></div><footer>${offFooter}<b>Ver detalle →</b></footer></button>
-    <button class="stat-card quarter-stat-card" data-detail="quarters:defense"><header><span>Permitidos por cuarto</span><small>Rival · ${totalMode ? 'total' : 'por partido'}</small></header><div class="stat-values own-only opp-value"><strong>${defHeaderVal}</strong><span>${offSub}</span></div><div class="metric-evolution">${miniBars('them', 'opp')}<small>${nGames} partido${nGames === 1 ? '' : 's'} con parciales</small></div><footer>${defFooter}<b>Ver detalle →</b></footer></button>
-    <button class="stat-card quarter-stat-card single-value-card ${compareMode ? 'comparison-card' : ''}" data-detail="quarters:margin"><header><span>Parcial por cuarto</span><small>${esc(teamLabel())} − Rival</small></header>${marginValue}<div class="metric-evolution visual-balance">${divBars}<small>${totalMode ? 'balance total' : 'media por cuarto'} · ausencia ≠ 0</small></div><footer>${marginFooter}<b>Ver detalle →</b></footer></button>`;
+    <button class="stat-card quarter-stat-card" data-detail="quarters:offense"><header><span>Puntos por cuarto</span><small>${esc(teamLabel())}</small></header><div class="stat-values own-only"><strong>${offHeaderVal}</strong></div><div class="value-caption single"><span>${subCap}</span></div><div class="metric-evolution">${miniBars('us', 'own', bestOff)}</div><footer>${offFooter?`<span>${offFooter}</span>`:''}<b>Ver detalle →</b></footer></button>
+    <button class="stat-card quarter-stat-card" data-detail="quarters:defense"><header><span>Permitidos por cuarto</span><small>Rival</small></header><div class="stat-values own-only opp-value"><strong>${defHeaderVal}</strong></div><div class="value-caption single"><span>${subCap}</span></div><div class="metric-evolution">${miniBars('them', 'opp', bestDef)}</div><footer>${defFooter?`<span>${defFooter}</span>`:''}<b>Ver detalle →</b></footer></button>
+    <button class="stat-card quarter-stat-card single-value-card" data-detail="quarters:margin"><header><span>Parcial por cuarto</span><small>${esc(teamLabel())} − Rival</small></header><div class="comparison-value"><strong>${diffMain}</strong></div><div class="value-caption single"><span>${diffCap}</span></div><div class="metric-evolution visual-balance">${divBars}</div><footer>${marginFooter?`<span>${marginFooter}</span>`:''}<b>Ver detalle →</b></footer></button>`;
 }
 
 function renderTeam() {
@@ -1325,34 +1328,38 @@ function openQuarterDetail(focus = 'margin', mode = statsMode === 'total' ? 'tot
   const hv = h => totalMode ? h.diffTotal : h.diffAvg;
   const hUs = h => totalMode ? h.usTotal : h.usAvg;
   const hThem = h => totalMode ? h.themTotal : h.themAvg;
-  const {games, periods, regular, firstHalf, secondHalf, totalWon, totalTied, totalLost, totalPlayed, bestQuarter, worstQuarter, bestOffenseQuarter, bestDefenseQuarter, correlations} = qStats;
+  const {games, periods, regular, firstHalf, secondHalf, totalWon, totalTied, totalLost, totalPlayed, bestQuarter, worstQuarter, correlations} = qStats;
   const q1 = regular.find(p => p.quarter === 1), q4 = regular.find(p => p.quarter === 4);
-  const insights = [];
-  if (firstHalf.gamesCount) {
-    insights.push({title:'1ª parte vs 2ª parte', value:`${signed(hv(firstHalf)).replace(',0','')} vs ${signed(hv(secondHalf)).replace(',0','')}`, detail:`1ª parte ${num(hUs(firstHalf),digits)}–${num(hThem(firstHalf),digits)} · 2ª parte ${num(hUs(secondHalf),digits)}–${num(hThem(secondHalf),digits)}`});
-  }
-  if (q1 && q4) {
-    insights.push({title:'Salida (Q1) vs Cierre (Q4)', value:`${signed(pv(q1,'diff')).replace(',0','')} vs ${signed(pv(q4,'diff')).replace(',0','')}`, detail:`Q1 ${num(pv(q1,'us'),digits)}–${num(pv(q1,'them'),digits)} · Q4 ${num(pv(q4,'us'),digits)}–${num(pv(q4,'them'),digits)}`});
-  }
-  if (bestOffenseQuarter && bestDefenseQuarter) {
-    insights.push({title:'Picos de anotación y defensa', value:`${bestOffenseQuarter.label} / ${bestDefenseQuarter.label}`, detail:`Mayor ataque: ${bestOffenseQuarter.label} (${num(pv(bestOffenseQuarter,'us'),digits)}) · Mejor defensa: ${bestDefenseQuarter.label} (${num(pv(bestDefenseQuarter,'them'),digits)} recib.)`});
-  }
-  const corrItems = [];
-  if (correlations.winQ1.played) corrItems.push(`Ganando Q1: ${correlations.winQ1.wins}V–${correlations.winQ1.losses}D`);
-  if (correlations.loseQ1.played) corrItems.push(`Perdiendo Q1: ${correlations.loseQ1.wins}V–${correlations.loseQ1.losses}D`);
-  if (correlations.leadHalf.played) corrItems.push(`Delante al descanso: ${correlations.leadHalf.wins}V–${correlations.leadHalf.losses}D`);
-  if (correlations.trailHalf.played) corrItems.push(`Detrás al descanso: ${correlations.trailHalf.wins}V–${correlations.trailHalf.losses}D`);
-  if (corrItems.length) {
-    insights.push({title:'Tendencia según el marcador', value:`${qStats.fullRegGames.length} partido${qStats.fullRegGames.length === 1 ? '' : 's'}`, detail:corrItems.join(' · ')});
-  }
+  const pill = d => { const cls = d > 0 ? 'positive' : d < 0 ? 'negative' : ''; return `<em class="quarter-pill ${cls}">${signed(d).replace(',0', '')}</em>`; };
+  const splitRow = (name, us, them, d) => `<div class="quarter-split-row"><span>${esc(name)}</span><b>${num(us, digits)}–${num(them, digits)}</b>${pill(d)}</div>`;
+  const outcomeGroup = (heading, rows) => {
+    const active = rows.filter(r => r.data.played > 0);
+    if (!active.length) return '';
+    return `<div class="quarter-outcome-group"><h4>${esc(heading)}</h4>${active.map(r => {
+      const rate = r.data.wins / r.data.played * 100;
+      return `<div class="quarter-outcome-row"><span>${esc(r.label)}</span><i class="outcome-bar"><b class="${r.data.wins > r.data.losses ? 'good' : r.data.wins < r.data.losses ? 'bad' : ''}" style="width:${rate}%"></b></i><strong>${r.data.wins}V–${r.data.losses}D</strong><em>${num(rate, 0)}%</em></div>`;
+    }).join('')}</div>`;
+  };
+  const halfOutcomes = outcomeGroup('Al descanso (Q1+Q2)', [
+    {label:'Delante al descanso', data:correlations.leadHalf},
+    {label:'Empatado al descanso', data:correlations.tieHalf},
+    {label:'Detrás al descanso', data:correlations.trailHalf}
+  ]);
+  const q1Outcomes = outcomeGroup('Tras el 1º cuarto', [
+    {label:'Ganando el 1º', data:correlations.winQ1},
+    {label:'Empatando el 1º', data:correlations.tieQ1},
+    {label:'Perdiendo el 1º', data:correlations.loseQ1}
+  ]);
   const cols = periods.map(p => p.quarter);
   const title = focus === 'offense' ? 'Puntos por cuarto' : focus === 'defense' ? 'Permitidos por cuarto' : 'Parciales por cuarto';
   openModal('Equipo · Cuartos', title, `
-    <p class="metric-explain">Rendimiento real por cuarto a partir de los parciales guardados en mapa de tiro (${games.length} partido${games.length === 1 ? '' : 's'} con registro; el resto no entra en medias ni totales).</p>
-    <div class="segmented" aria-label="Escala de cuartos"><button data-action="quarter-mode" data-mode="average" class="${!totalMode ? 'active' : ''}">Por partido</button><button data-action="quarter-mode" data-mode="total" class="${totalMode ? 'active' : ''}">Totales</button></div>
+    <div class="quarter-modal-bar">
+      <span class="quarter-sample">${games.length} partido${games.length === 1 ? '' : 's'} con parciales</span>
+      <div class="segmented" aria-label="Escala de cuartos"><button data-action="quarter-mode" data-mode="average" class="${!totalMode ? 'active' : ''}">Por partido</button><button data-action="quarter-mode" data-mode="total" class="${totalMode ? 'active' : ''}">Totales</button></div>
+    </div>
     <div class="metric-summary">
       <div><span>Mejor cuarto</span><strong>${bestQuarter ? `${bestQuarter.label} (${signed(pv(bestQuarter,'diff')).replace(',0','')})` : '—'}</strong></div>
-      <div><span>Cuarto más débil</span><strong>${worstQuarter ? `${worstQuarter.label} (${signed(pv(worstQuarter,'diff')).replace(',0','')})` : '—'}</strong></div>
+      <div><span>Más flojo</span><strong>${worstQuarter ? `${worstQuarter.label} (${signed(pv(worstQuarter,'diff')).replace(',0','')})` : '—'}</strong></div>
       <div><span>1ª / 2ª parte</span><strong>${firstHalf.gamesCount ? `${signed(hv(firstHalf)).replace(',0','')} / ${signed(hv(secondHalf)).replace(',0','')}` : '—'}</strong></div>
       <div><span>Cuartos ganados</span><strong>${totalWon}–${totalLost}${totalTied ? `–${totalTied}` : ''} (${pct(totalPlayed ? totalWon / totalPlayed * 100 : null)})</strong></div>
     </div>
@@ -1360,9 +1367,10 @@ function openQuarterDetail(focus = 'margin', mode = statsMode === 'total' ? 'tot
       <div class="card-title"><div><h3>Desglose por cuarto</h3><span>${esc(teamLabel())} vs Rival · ${totalMode ? 'acumulado' : 'media por partido'}</span></div></div>
       <div class="quarter-breakdown">${periods.map(p => {const d = pv(p, 'diff'); return `<div class="quarter-detail-row">${compareBar(p.label, pv(p,'us'), pv(p,'them'), v => num(v, digits))}<div class="quarter-detail-meta"><em class="${d > 0 ? 'positive' : d < 0 ? 'negative' : ''}">${signed(d).replace(',0','')}</em><small>${p.won}G${p.tied ? ` · ${p.tied}E` : ''} · ${p.lost}P${p.gamesCount !== games.length ? ` (${p.gamesCount} part.)` : ''}</small></div></div>`;}).join('')}</div>
     </section>
-    ${insights.length ? `<section class="detail-block"><h3>Lectura por tramos</h3><div class="quarter-insights">${insights.map(item => `<div><span>${esc(item.title)}</span><strong>${esc(item.value)}</strong><small>${esc(item.detail)}</small></div>`).join('')}</div></section>` : ''}
+    ${(firstHalf.gamesCount || (q1 && q4)) ? `<section class="detail-block"><h3>Tramos del partido</h3><div class="quarter-splits">${firstHalf.gamesCount ? `<div class="quarter-split-card"><h4>Mitades</h4>${splitRow('1ª parte (Q1–Q2)', hUs(firstHalf), hThem(firstHalf), hv(firstHalf))}${splitRow('2ª parte (Q3–Q4)', hUs(secondHalf), hThem(secondHalf), hv(secondHalf))}</div>` : ''}${(q1 && q4) ? `<div class="quarter-split-card"><h4>Inicio y cierre</h4>${splitRow('Salida (Q1)', pv(q1,'us'), pv(q1,'them'), pv(q1,'diff'))}${splitRow('Cierre (Q4)', pv(q4,'us'), pv(q4,'them'), pv(q4,'diff'))}</div>` : ''}</div></section>` : ''}
+    ${(halfOutcomes || q1Outcomes) ? `<section class="detail-block"><div class="card-title"><div><h3>Cómo acaba el partido</h3><span>Victorias finales según cómo va el marcador</span></div></div><div class="quarter-outcomes">${halfOutcomes}${q1Outcomes}</div></section>` : ''}
     <section class="detail-block">
-      <div class="card-title"><div><h3>Partido a partido</h3><span>Diferencial por cuarto · toca una fila para abrir el acta</span></div></div>
+      <div class="card-title"><div><h3>Partido a partido</h3><span>Toca una fila para abrir el acta</span></div></div>
       <div class="quarter-matrix-wrap"><table class="quarter-matrix"><thead><tr><th>Partido</th>${cols.map(q => `<th>${quarterLabel(q)}</th>`).join('')}<th>1ª / 2ª</th><th>Final</th></tr></thead><tbody>${games.map(g => {const qs = g.quarters || [], qMap = new Map(qs.map(x => [x.quarter, x])); const x1 = qMap.get(1), x2 = qMap.get(2), x3 = qMap.get(3), x4 = qMap.get(4); const halves = (x1 && x2 && x3 && x4) ? `${signed((x1.us+x2.us)-(x1.them+x2.them)).replace(',0','')} / ${signed((x3.us+x4.us)-(x3.them+x4.them)).replace(',0','')}` : '—'; return `<tr data-detail="game:${g.id}" tabindex="0" role="button"><td><b>${esc(g.opponent)}</b><small>${fmtDate(g.date)}</small></td>${cols.map(q => {const r = qMap.get(q); if (!r) return '<td class="empty-q">—</td>'; const d = r.us - r.them; return `<td class="${d > 0 ? 'positive' : d < 0 ? 'negative' : ''}" title="${r.us}–${r.them}"><b>${d > 0 ? '+' : ''}${d}</b><small>${r.us}–${r.them}</small></td>`;}).join('')}<td>${halves}</td><td><strong>${g.us}–${g.them}</strong></td></tr>`;}).join('')}</tbody></table></div>
     </section>
   `);
