@@ -5,7 +5,7 @@ from threading import Thread
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from functools import partial
 from playwright.sync_api import sync_playwright
-import json, zipfile, tempfile
+import json, os, zipfile, tempfile
 ROOT=Path(__file__).resolve().parents[1]
 class Quiet(SimpleHTTPRequestHandler):
     def log_message(self,*args): pass
@@ -22,7 +22,7 @@ def build_download(page,payload=None,parts=None):
     else: page.fill('#answer',json.dumps(payload,ensure_ascii=False))
     page.click('#build');page.wait_for_function("document.querySelector('#status').classList.contains('ok')")
     with page.expect_download() as info: page.click('#download')
-    target=Path(tempfile.mkstemp(suffix='.zip')[1]);info.value.save_as(target);return target
+    fd,tmp=tempfile.mkstemp(suffix='.zip');os.close(fd);target=Path(tmp);info.value.save_as(target);return target
 
 try:
   with sync_playwright() as pw:

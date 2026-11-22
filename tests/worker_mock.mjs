@@ -65,5 +65,9 @@ response=await call('/api/events',{method:'POST',token:legacyToken,body:JSON.str
 response=await call('/api/events',{method:'POST',token:legacyToken,body:JSON.stringify({events:[{id:'new-2',type:'set-team',payload:{}}]})});assert.equal(response.status,429,'límite atómico por token/ruta');
 response=await call('/api/v3/teams/team-expired',{token:expiredToken});assert.equal(response.status,401,'token caducado');
 const huge=JSON.stringify({events:[],pad:'x'.repeat(2_000_100)});response=await call('/api/events',{method:'POST',token:legacyToken,body:huge});assert.equal(response.status,413,'límite real leyendo el stream');
+response=await call('/api/events?since=abc',{token:legacyToken});assert.equal(response.status,200);assert.ok(Array.isArray((await response.json()).events),'since no numérico');
+response=await call('/api/v3/teams/%E0%A4%A',{token:adminToken});assert.equal(response.status,400,'URI malformada devuelve 400');
+response=await call('/api/v3/teams/team-1/typo',{method:'DELETE',token:adminToken});assert.notEqual(response.status,200,'ruta inválida no borra equipo');assert.equal(DB.data.teams.some(x=>x.id==='team-1'),true);
+response=await call('/api/v3/teams/team-1/events/extra',{method:'GET',token:adminToken});assert.equal(response.status,404,'ruta events con item devuelve 404');
 response=await call('/api/v3/teams/team-1',{method:'DELETE',token:adminToken});assert.equal(response.status,200);assert.equal(DB.data.teams.some(x=>x.id==='team-1'),false);assert.equal(DB.data.teamAccess.some(x=>x.team_id==='team-1'),false);assert.equal(DB.data.teamEvents.some(x=>x.team_id==='team-1'),false);
 console.log('OK · Worker v12.3: w2, CORS, stream, rate limit, caducidad y borrado');

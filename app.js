@@ -96,6 +96,12 @@ let installPrompt = null;
 let toastTimer;
 let syncing = false;
 let syncTimer;
+let syncPromise = null;
+let creatingTeam = false;
+let creatingInvite = false;
+let deletingTeam = false;
+const ownEventIds = new Set();
+function trackOwnEvent(id){if(!id)return;ownEventIds.add(id);if(ownEventIds.size>2000){const first=ownEventIds.values().next().value;ownEventIds.delete(first);}}
 let renderAfterEdit = false;
 let playerSort = 'pts';
 let playerSortDir = -1;
@@ -133,6 +139,11 @@ function hasLegacyFields(g) {
   );
 }
 
+function sanitiseLive(live){
+  if(!live||typeof live!=='object')return null;
+  return {...live,id:safeId(live.id),opponent:String(live.opponent||'Rival'),date:safeDate(live.date)||today(),quarter:Math.min(10,Math.max(1,+live.quarter||1)),players:(Array.isArray(live.players)?live.players:[]).filter(p=>p&&typeof p==='object'&&p.name).map(p=>({...p,id:safeId(p.id),name:String(p.name),number:String(p.number||'')})),events:(Array.isArray(live.events)?live.events:[]).filter(e=>e&&typeof e==='object').map(e=>({...e,id:safeId(e.id),quarter:Math.min(10,Math.max(1,+e.quarter||1))}))};
+}
+
 function sanitise(s) {
   const base = blank();
   const out = {...base, ...s, version:12.3, team:{...base.team, ...(s.team || {})}, settings:{...base.settings, ...(s.settings || {})}};
@@ -163,6 +174,7 @@ function sanitise(s) {
   // v9 persistía la fecha del Directo anterior. Solo conservamos una fecha
   // distinta de hoy cuando la persona la eligió de forma explícita en v10.
   if (!out.liveDraft.dateManual || !out.liveDraft.date) out.liveDraft.date = today();
+  out.live = sanitiseLive(s.live);
   return out;
 }
 
@@ -382,7 +394,7 @@ function eventKey(event) {
 }
 
 function mergeEvents(...lists) {
-  const map=new Map();lists.flat().filter(Boolean).forEach(event=>{const key=eventKey(event);if(!map.has(key))map.set(key,event)});return [...map.values()];
+  const map=new Map();lists.flat().filter(Boolean).forEach(event=>{const key=eventKey(event),prev=map.get(key);if(!prev)map.set(key,event);else if(event.undone&&!prev.undone)map.set(key,{...prev,undone:true});});return [...map.values()];
 }
 
 function mergeShots(a=[],b=[]) {
@@ -394,7 +406,7 @@ function mergeGameVersions(current,incoming){
   if(!current)return incoming;if(!incoming)return current;
   const newer=compareVersion(incoming,current)>=0?incoming:current,older=newer===incoming?current:incoming,merged={...older,...newer};
   merged.events=mergeEvents(current.events||[],incoming.events||[]);merged.livePlayerIds=[...new Set([...(current.livePlayerIds||[]),...(incoming.livePlayerIds||[])])];
-  const mapOrder=compareVersion(incoming,current,true);if(mapOrder>0){merged.shotsFor=incoming.shotsFor||[];merged.shotsAgainst=incoming.shotsAgainst||[];}else if(mapOrder<0){merged.shotsFor=current.shotsFor||[];merged.shotsAgainst=current.shotsAgainst||[];}else{merged.shotsFor=mergeShots(current.shotsFor,incoming.shotsFor);merged.shotsAgainst=mergeShots(current.shotsAgainst,incoming.shotsAgainst);}
+  const mapOrder=compareVersion(incoming,current,true);if(mapOrder>0){merged.shotsFor=incoming.shotsFor||[];merged.shotsAgainst=incoming.shotsAgainst||[];merged.mapUpdatedAt=incoming.mapUpdatedAt||'';}else if(mapOrder<0){merged.shotsFor=current.shotsFor||[];merged.shotsAgainst=current.shotsAgainst||[];merged.mapUpdatedAt=current.mapUpdatedAt||'';}else{merged.shotsFor=mergeShots(current.shotsFor,incoming.shotsFor);merged.shotsAgainst=mergeShots(current.shotsAgainst,incoming.shotsAgainst);merged.mapUpdatedAt=(Date.parse(incoming.mapUpdatedAt||'')||0)>=(Date.parse(current.mapUpdatedAt||'')||0)?(incoming.mapUpdatedAt||current.mapUpdatedAt||''):(current.mapUpdatedAt||'');}
   merged.revision=Math.max(Number(current.revision)||0,Number(incoming.revision)||0);merged.mapRevision=Math.max(Number(current.mapRevision)||0,Number(incoming.mapRevision)||0);merged.availability={...(older.availability||{}),...(newer.availability||{}),manual:!!merged.events.some(event=>!event.undone),shotMap:!!(merged.shotsFor.length||merged.shotsAgainst.length)};return merged;
 }
 function mergeLiveVersions(current,incoming){if(!current||!incoming||current.id!==incoming.id)return incoming;return {...current,...incoming,events:mergeEvents(current.events||[],incoming.events||[])};}
@@ -404,7 +416,7 @@ function mergePendingIntoGame(pending,target) {
   target.shotsFor=mergeShots(target.shotsFor,pending.shotsFor);
   target.shotsAgainst=mergeShots(target.shotsAgainst,pending.shotsAgainst);
   target.livePlayerIds=[...new Set([...(target.livePlayerIds||[]),...(pending.livePlayerIds||[])])];
-  target.availability={...(target.availability||{}),manual:hasManualData(target)||!!(pending.events||[]).length,shotMap:!!((target.shotsFor||[]).length||(target.shotsAgainst||[]).length)};
+  target.availability={...(target.availability||{}),manual:(target.events||[]).some(e=>!e.undone),shotMap:!!((target.shotsFor||[]).length||(target.shotsAgainst||[]).length)};
   state.games=state.games.filter(game=>game.id!==pending.id);
   return target;
 }
@@ -439,7 +451,7 @@ function commitImport() {
     if (existing) {
       const events=mergeEvents(existing.events||[],pending&&pending!==existing?pending.events||[]:[]),shotsFor=mergeShots(existing.shotsFor,pending&&pending!==existing?pending.shotsFor:[]),shotsAgainst=mergeShots(existing.shotsAgainst,pending&&pending!==existing?pending.shotsAgainst:[]);
       Object.assign(existing, {...g, id:existing.id, date:g.date || existing.date, events, shotsFor, shotsAgainst, needsReimport:false,
-        availability:{...g.availability, manual:!!events.length, shotMap:!!(shotsFor.length || shotsAgainst.length)}});
+        availability:{...g.availability, manual:events.some(e=>!e.undone), shotMap:!!(shotsFor.length || shotsAgainst.length)}});
       if(pending&&pending!==existing){mergePendingIntoGame(pending,existing);queueMerge(pending,existing);}
     } else state.games.push(g);
     const saved = existing || g;
@@ -598,7 +610,7 @@ function sparkline(values, tone = 'team', width = 150, height = 42) {
 
 function scoreChart(games, expanded = false) {
   if (!games.length) return '';
-  const ordered = [...games].sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  const ordered = chronological(games);
   const all = ordered.flatMap(game => [+game.us, +game.them]);
   const max = Math.max(...all, 1), min = Math.min(...all, 0), w = ordered.length > 6 ? Math.max(760, ordered.length * (expanded ? 108 : 92)) : 760, h = expanded ? 300 : 250;
   const left=54,right=54;
@@ -624,11 +636,11 @@ function scoreChart(games, expanded = false) {
 }
 
 function scoreOverviewSVG(games){
-  const rows=[...games].sort((a,b)=>String(a.date).localeCompare(String(b.date))),values=rows.flatMap(game=>[+game.us,+game.them]),min=Math.min(0,...values),max=Math.max(1,...values),w=760,h=118,x=index=>rows.length===1?w/2:18+index*(w-36)/(rows.length-1),y=value=>h-17-(value-min)/(max-min||1)*(h-34),line=key=>rows.map((game,index)=>`${x(index)},${y(game[key])}`).join(' ');
+  const rows=chronological(games),values=rows.flatMap(game=>[+game.us,+game.them]),min=Math.min(0,...values),max=Math.max(1,...values),w=760,h=118,x=index=>rows.length===1?w/2:18+index*(w-36)/(rows.length-1),y=value=>h-17-(value-min)/(max-min||1)*(h-34),line=key=>rows.map((game,index)=>`${x(index)},${y(game[key])}`).join(' ');
   return `<div class="score-overview"><span>Temporada completa · ${rows.length} partidos</span><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Vista completa de la temporada"><polyline class="score-us" points="${line('us')}"/><polyline class="score-them" points="${line('them')}"/>${rows.map((game,index)=>`<circle class="${game.us>=game.them?'win':'loss'}" cx="${x(index)}" cy="${y(game.us)}" r="${rows.length>16?3:5}"/>`).join('')}</svg></div>`;
 }
 function openScoreChartDetail(){
-  const games=validGames().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const games=chronological(validGames());
   const best=[...games].sort((a,b)=>(b.us-b.them)-(a.us-a.them))[0], worst=[...games].sort((a,b)=>(a.us-a.them)-(b.us-b.them))[0];
   modalContext={type:'score-chart'};
   openModal('Equipo','Marcador completo',`<p class="metric-explain">Todos los partidos, sin comprimir. La vista superior enseña la temporada completa; debajo puedes deslizar el detalle y tocar un punto para abrir el acta.</p>${scoreOverviewSVG(games)}${scoreChart(games,true)}<div class="best-worst"><div><span>Mayor diferencia</span><b>${best?signed(best.us-best.them).replace(',0',''):'—'}</b><small>${best?esc(best.opponent):''}</small></div><div><span>Menor diferencia</span><b>${worst?signed(worst.us-worst.them).replace(',0',''):'—'}</b><small>${worst?esc(worst.opponent):''}</small></div></div><section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${games.map((game,index)=>`<button data-detail="game:${game.id}"><span><b>P${index+1} · ${esc(game.opponent)}</b><small>${fmtDate(game.date)} · ${game.home?'Casa':'Fuera'}</small></span><strong>${gameScore(game)}</strong><em>${signed(game.us-game.them).replace(',0','')}</em></button>`).join('')}</div></section>`);
@@ -663,7 +675,7 @@ function stackedBar(items, label) {
 function scoringMixCompare(own, opp) {
   const row = (label, totals, side) => {
     const parts = [{label:'2P', value:totals.p2m*2, tone:'two'}, {label:'3P', value:totals.p3m*3, tone:'three'}, {label:'TL', value:totals.ftm, tone:'free'}];
-    return `<div class="mix-row"><div><b>${label}</b><span>${sum(parts, item => item.value)} pts</span></div>${stackedBar(parts, `Origen de puntos · ${label}`)}</div>`;
+    return `<div class="mix-row"><div><b>${esc(label)}</b><span>${sum(parts, item => item.value)} pts</span></div>${stackedBar(parts, `Origen de puntos · ${label}`)}</div>`;
   };
   return `<div class="mix-compare">${row(teamLabel(), own, 'own')}${row('Rival', opp, 'opp')}</div>`;
 }
@@ -710,7 +722,7 @@ function availableTeamMetricKeys() {
 
 function teamMetricRows(key) {
   const metric = TEAM_METRICS[key];
-  return validGames().sort((a,b) => String(a.date).localeCompare(String(b.date))).map(game => ({
+  return chronological(validGames()).map(game => ({
     game,
     own:metric.value(game, effectiveTotals(game,'own'), 'own'),
     opp:metric.value(game, effectiveTotals(game,'opp'), 'opp')
@@ -823,7 +835,7 @@ function recordedLiveGames() {
 
 function liveMetricRows(key) {
   const metric=LIVE_METRICS[key];
-  return recordedLiveGames().sort((a,b)=>String(a.date).localeCompare(String(b.date))).map(game=>{
+  return chronological(recordedLiveGames()).map(game=>{
     const events=(game.events||[]).filter(event=>!event.undone),count=type=>events.filter(event=>event.type===type).length;
     if(key==='possession')return {game,own:(count('orbFor')+count('steal'))-(count('orbAgainst')+count('turnover')),opp:null};
     return {game,own:count(metric.types[0]),opp:count(metric.types[1])};
@@ -873,7 +885,7 @@ function renderTeam() {
 
 function currentStreak(games) {
   let kind = '', n = 0;
-  for (const g of [...games].sort((a, b) => String(a.date).localeCompare(String(b.date))).reverse()) {
+  for (const g of chronological(games).reverse()) {
     const next = g.us > g.them ? 'V' : 'D'; if (!kind) kind = next; if (next !== kind) break; n++;
   }
   return n ? `${kind}${n}` : '—';
@@ -985,6 +997,7 @@ function playerTrendSVG(player,key) {
   const valid=rows.flatMap(row=>[row.value,row.team,season]).filter(value=>value!==null&&Number.isFinite(+value));
   const min=Math.min(0,...valid), max=Math.max(1,...valid), w=Math.max(780,rows.length*78),h=285;
   const x=index=>rows.length===1?w/2:46+index*(w-92)/(rows.length-1), y=value=>h-46-(value-min)/(max-min||1)*(h-88);
+  const missingText=key==='ftp'?'sin tiros':'sin datos';
   const buildSegments=field=>{const out=[];let current=[];rows.forEach((row,index)=>{const value=row[field];if(value===null||!Number.isFinite(+value)){if(current.length)out.push(current);current=[];}else current.push(`${x(index)},${y(value)}`)});if(current.length)out.push(current);return out;};
   return `<div class="trend-scroller"><svg class="player-trend" viewBox="0 0 ${w} ${h}" style="min-width:${Math.max(0,rows.length*72)}px" role="img" aria-label="Evolución de ${esc(metric.label)}">
     <line class="trend-grid zero-line" x1="28" y1="${y(0)}" x2="${w-28}" y2="${y(0)}"/><text class="axis-label" x="31" y="${Math.max(12,y(max)-5)}">máx ${metricValue(key,max)}</text><text class="axis-label" x="31" y="${Math.min(h-50,y(min)+14)}">mín ${metricValue(key,min)}</text><text class="axis-label zero-label" x="${w-31}" y="${Math.max(12,y(0)-5)}" text-anchor="end">0</text>
@@ -993,8 +1006,8 @@ function playerTrendSVG(player,key) {
     ${buildSegments('team').map(points=>`<polyline class="team-average" points="${points.join(' ')}"/>`).join('')}
     ${buildSegments('value').map(points=>`<polyline class="player-line" points="${points.join(' ')}"/>`).join('')}
     ${rows.map((row,index)=>`<g data-action="trend-game" data-id="${row.g.id}" tabindex="0" role="button">
-      ${row.value===null?`<circle class="missing" cx="${x(index)}" cy="${h-46}" r="7"/><text class="missing-label" x="${x(index)}" y="${h-57}" text-anchor="middle">sin tiros</text>`:`<circle cx="${x(index)}" cy="${y(row.value)}" r="8"/><text x="${x(index)}" y="${Math.max(15,y(row.value)-14)}" text-anchor="middle">${metricValue(key,row.value)}</text>`}
-      <text class="game-index" x="${x(index)}" y="${h-18}" text-anchor="middle">P${index+1}</text><title>${esc(row.g.opponent)} · ${metric.label} ${row.value===null?'sin tiros':metricValue(key,row.value)}</title>
+      ${row.value===null?`<circle class="missing" cx="${x(index)}" cy="${h-46}" r="7"/><text class="missing-label" x="${x(index)}" y="${h-57}" text-anchor="middle">${missingText}</text>`:`<circle cx="${x(index)}" cy="${y(row.value)}" r="8"/><text x="${x(index)}" y="${Math.max(15,y(row.value)-14)}" text-anchor="middle">${metricValue(key,row.value)}</text>`}
+      <text class="game-index" x="${x(index)}" y="${h-18}" text-anchor="middle">P${index+1}</text><title>${esc(row.g.opponent)} · ${metric.label} ${row.value===null?missingText:metricValue(key,row.value)}</title>
     </g>`).join('')}
   </svg></div><div class="trend-legend"><span class="player">${genderTerms().singular}</span><span class="average">Media de la plantilla · partido</span><span class="season">Equipo · temporada</span></div>`;
 }
@@ -1098,11 +1111,11 @@ function renderGameDetail() {
   const warning = g.needsReimport || (!own && !players.length) ? `<div class="reimport-inline"><b>Faltan datos del rival</b><span>Vuelve a importar el acta. La actualización conserva Directo y mapas.</span><button class="btn" data-action="import-games">Reimportar</button></div>` : '';
   const directWarning=directWarnings.length?`<div class="data-warning"><b>Revisar Directo</b><span>Las filas individuales y el total no cuadran (${directWarnings.map(k=>({liveSteals:'ROB',liveTurnovers:'PER',liveOrb:'REB O'}[k])).join(', ')}). Puede faltar alguna ${genderTerms().singular.toLowerCase()} en el acta.</span></div>`:'';
   const manualNotice=own&&!manualAvailable?`<div class="manual-table-notice"><b>ROB · PER · REB O · REB R</b><span>Sin datos registrados todavía. Las columnas se muestran para distinguir ausencia de un cero real.</span></div>`:'';
-  $('#gameDetail').innerHTML = `<div class="score-hero"><div><span>${gameSides(g)} · ${fmtDate(g.date)} · local–visitante</span><strong>${gameScore(g)}</strong></div><div class="result-pill ${g.us > g.them ? 'win' : 'loss'}">${g.us > g.them ? 'Victoria' : 'Derrota'}</div></div>${warning}${directWarning}${manualNotice}<div class="team-tabs"><button class="${own ? 'active' : ''}" data-action="game-team" data-side="own">${esc(teamLabel())} · ${g.us}</button><button class="${!own ? 'active' : ''}" data-action="game-team" data-side="opp">${esc(g.opponent)} · ${g.them}</button></div><div class="box-hint">Desliza la tabla</div><div class="box-wrap"><table class="boxscore"><thead><tr><th class="identity" rowspan="2" data-action="sort-box" data-key="number">${genderTerms().number} · Nombre</th>${groups.map(group => `<th colspan="${group.cols.length}">${group.label}</th>`).join('')}</tr><tr>${groups.map(group => group.cols.map(([k,label]) => `<th data-action="sort-box" data-key="${k}">${label}${modalContext.sort === k ? (modalContext.dir === 1 ? ' ↑' : ' ↓') : ''}</th>`).join('')).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="${r._teamUnassigned?'team-unassigned':''}"><td class="identity" title="${esc(namePretty(r.name))}"><b>${esc(r.number || '—')}</b><span>${esc(r._teamUnassigned?'Equipo / sin asignar':firstName(r.name))}</span></td>${columns.map(([k]) => `<td>${formatBox(r,k)}</td>`).join('')}</tr>`).join('')}<tr class="totals"><td class="identity"><b></b><span>TOTALES</span></td>${columns.map(([k]) => `<td>${formatBox(total,k)}</td>`).join('')}</tr></tbody></table></div><div class="game-map-block"><div class="map-switch"><button class="${modalContext.map === 'attack' ? 'active' : ''}" data-action="game-map" data-mode="attack">Ataque</button><button class="${modalContext.map === 'defense' ? 'active' : ''}" data-action="game-map" data-mode="defense">Defensa</button><button class="${modalContext.map === 'both' ? 'active' : ''}" data-action="game-map" data-mode="both">Juntos</button></div>${courtHTML(modalContext.map === 'defense' ? [] : g.shotsFor || [], modalContext.map === 'attack' ? [] : g.shotsAgainst || [], false)}<button class="btn" data-action="shot-for-game" data-id="${g.id}">Editar mapa</button></div>`;
+  $('#gameDetail').innerHTML = `<div class="score-hero"><div><span>${esc(gameSides(g))} · ${fmtDate(g.date)} · local–visitante</span><strong>${gameScore(g)}</strong></div><div class="result-pill ${g.us > g.them ? 'win' : 'loss'}">${g.us > g.them ? 'Victoria' : 'Derrota'}</div></div>${warning}${directWarning}${manualNotice}<div class="team-tabs"><button class="${own ? 'active' : ''}" data-action="game-team" data-side="own">${esc(teamLabel())} · ${g.us}</button><button class="${!own ? 'active' : ''}" data-action="game-team" data-side="opp">${esc(g.opponent)} · ${g.them}</button></div><div class="box-hint">Desliza la tabla</div><div class="box-wrap"><table class="boxscore"><thead><tr><th class="identity" rowspan="2" data-action="sort-box" data-key="number">${genderTerms().number} · Nombre</th>${groups.map(group => `<th colspan="${group.cols.length}">${group.label}</th>`).join('')}</tr><tr>${groups.map(group => group.cols.map(([k,label]) => `<th data-action="sort-box" data-key="${k}">${label}${modalContext.sort === k ? (modalContext.dir === 1 ? ' ↑' : ' ↓') : ''}</th>`).join('')).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="${r._teamUnassigned?'team-unassigned':''}"><td class="identity" title="${esc(namePretty(r.name))}"><b>${esc(r.number || '—')}</b><span>${esc(r._teamUnassigned?'Equipo / sin asignar':firstName(r.name))}</span></td>${columns.map(([k]) => `<td>${formatBox(r,k)}</td>`).join('')}</tr>`).join('')}<tr class="totals"><td class="identity"><b></b><span>TOTALES</span></td>${columns.map(([k]) => `<td>${formatBox(total,k)}</td>`).join('')}</tr></tbody></table></div><div class="game-map-block"><div class="map-switch"><button class="${modalContext.map === 'attack' ? 'active' : ''}" data-action="game-map" data-mode="attack">Ataque</button><button class="${modalContext.map === 'defense' ? 'active' : ''}" data-action="game-map" data-mode="defense">Defensa</button><button class="${modalContext.map === 'both' ? 'active' : ''}" data-action="game-map" data-mode="both">Juntos</button></div>${courtHTML(modalContext.map === 'defense' ? [] : g.shotsFor || [], modalContext.map === 'attack' ? [] : g.shotsAgainst || [], false)}<button class="btn" data-action="shot-for-game" data-id="${g.id}">Editar mapa</button></div>`;
 }
 
 function openScoringMixDetail() {
-  const games = validGames().sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  const games = chronological(validGames());
   const add = (out, total) => {
     ['p2m','p3m','ftm'].forEach(key => out[key] = (out[key] || 0) + (+total[key] || 0));
     return out;
@@ -1132,7 +1145,7 @@ function openTeamMetricDetail(key, breakdownMode='total') {
   const ftpExtra=key==='ftp'?`<div class="attempt-summary"><b>${esc(teamLabel())}</b><span>${sum(rows,row=>effectiveTotals(row.game,'own').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'own').fta)} TL</span><b>Rival</b><span>${sum(rows,row=>effectiveTotals(row.game,'opp').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'opp').fta)} TL</span></div>`:'';
   const per40=metric.per40?(()=>{const ownMinutes=sum(rows,row=>effectiveTotals(row.game,'own').min),oppMinutes=sum(rows,row=>effectiveTotals(row.game,'opp').min);return `<div class="metric-summary per40-summary"><div><span>Faltas propias / 40 min de partido</span><strong>${ownMinutes?num(ownTotal/(ownMinutes/5)*40):'—'}</strong></div><div><span>Faltas rival / 40 min de partido</span><strong>${oppMinutes?num(oppTotal/(oppMinutes/5)*40):'—'}</strong></div></div>`;})():'';
   modalContext={type:'metric',key,breakdownMode};
-  openModal('Estadística',metric.label,`<p class="metric-explain">${metric.note} En el detalle, el color elegido identifica al equipo y el color de contraste al rival.</p>${percentSummary}${per40}${ftpExtra}<section class="detail-block"><div class="card-title"><div><h3>Evolución por partido</h3><span>Desliza si hay muchos partidos · toca un punto para abrir el acta</span></div></div><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">${esc(teamLabel())}</span><span class="them">Rival</span></div></section><div class="best-worst"><div><span>${bestLabel}</span><b>${best?metricValue(key,best.own):'—'}</b><small>${best?esc(best.game.opponent):''}</small></div><div><span>${worstLabel}</span><b>${worst?metricValue(key,worst.own):'—'}</b><small>${worst?esc(worst.game.opponent):''}</small></div></div>${metricPlayerBreakdown(key,breakdownMode)}<section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${fmtDate(row.game.date)}</small></span><strong>${metricValue(key,row.own)} / ${metricValue(key,row.opp)}</strong><em title="Local–visitante">${gameScore(row.game)}</em></button>`).join('')}</div></section>`);
+  openModal('Estadística',metric.label,`<p class="metric-explain">${metric.note} En el detalle, el color elegido identifica al equipo y el color de contraste al rival.</p>${percentSummary}${per40}${ftpExtra}<section class="detail-block"><div class="card-title"><div><h3>Evolución por partido</h3><span>Desliza si hay muchos partidos · toca un punto para abrir el acta</span></div></div><div class="trend-scroller">${dualTrendSVG(rows,key,false)}</div><div class="chart-legend"><span class="us">${esc(teamLabel())}</span><span class="them">Rival</span></div></section><div class="best-worst"><div><span>${esc(bestLabel)}</span><b>${best?metricValue(key,best.own):'—'}</b><small>${best?esc(best.game.opponent):''}</small></div><div><span>${esc(worstLabel)}</span><b>${worst?metricValue(key,worst.own):'—'}</b><small>${worst?esc(worst.game.opponent):''}</small></div></div>${metricPlayerBreakdown(key,breakdownMode)}<section class="detail-block"><h3>Partido a partido</h3><div class="player-games">${rows.map(row=>`<button data-detail="game:${row.game.id}"><span><b>${esc(row.game.opponent)}</b><small>${fmtDate(row.game.date)}</small></span><strong>${metricValue(key,row.own)} / ${metricValue(key,row.opp)}</strong><em title="Local–visitante">${gameScore(row.game)}</em></button>`).join('')}</div></section>`);
 }
 
 function openPointShareDetail() {
@@ -1168,7 +1181,7 @@ function minutesHeatmap(players,games) {
 }
 
 function openMinutesDetail() {
-  const games=validGames().sort((a,b)=>String(a.date).localeCompare(String(b.date))), players=playerAgg().sort((a,b)=>(b.min||0)-(a.min||0)||namePretty(a.name).localeCompare(namePretty(b.name),'es'));
+  const games=chronological(validGames()), players=playerAgg().sort((a,b)=>(b.min||0)-(a.min||0)||namePretty(a.name).localeCompare(namePretty(b.name),'es'));
   const appearances=sum(players,player=>player.gp), teamPlayerAverage=appearances?sum(players,player=>player.min)/appearances:0;
   modalContext={type:'minutes'};
   openModal('Minutos','Carga y evolución',`<p class="metric-explain">Minutos de acta. La cuota compara los minutos de cada ${genderTerms().singular.toLowerCase()} con los ${Math.round(sum(games,teamMinutes))} minutos de equipo disponibles (5 en pista; incluye prórrogas si el acta las recoge).</p><div class="metric-summary three"><div><span>Partidos</span><strong>${games.length}</strong></div><div><span>Minutos equipo</span><strong>${formatMinutes(sum(games,teamMinutes))}</strong></div><div><span>Media ${genderTerms().singular.toLowerCase()}-acta</span><strong>${formatMinutes(teamPlayerAverage)}</strong></div></div><section class="detail-block"><div class="card-title"><div><h3>Mapa de minutos</h3><span>Desliza lateralmente · toca una fila</span></div></div><div class="minutes-scroll" tabindex="0" aria-label="Tabla de minutos; desliza a derecha e izquierda">${minutesHeatmap(players,games)}</div></section><section class="detail-block"><div class="card-title"><div><h3>Evolución individual</h3><span>Mini gráfico, media y cuota de temporada</span></div></div><div class="minutes-evolution">${players.map(player=>{const series=games.map(game=>(game.players||[]).find(item=>norm(item.name)===norm(player.name))?.min??null),avg=player.gp?player.min/player.gp:0,share=games.length?player.min/sum(games,teamMinutes)*100:0;return `<button data-detail="player:${encodeURIComponent(norm(player.name))}"><span>${esc(shortName(player.name))}</span>${sparkline(series,'player',180,40)}<b>${formatMinutes(avg)} /P</b><strong>${num(share,0)}%</strong></button>`;}).join('')}</div></section>`);
@@ -1213,7 +1226,7 @@ function renderHeatFiltered() {
 
 function openShotDetail(gameId='') {
   const games=validGames(); if(!games.length) return openModal('Mapa','Sin partido','<p>Importa un acta.</p>');
-  const g=games.find(x=>x.id===gameId)||games[0]; modalContext={type:'shot',gameId:g.id,shotsFor:[...(g.shotsFor||[])],shotsAgainst:[...(g.shotsAgainst||[])],kind:'for',selected:''};
+  const g=games.find(x=>x.id===gameId)||games[0]; modalContext={type:'shot',gameId:g.id,shotsFor:(g.shotsFor||[]).map(p=>({...p})),shotsAgainst:(g.shotsAgainst||[]).map(p=>({...p})),kind:'for',selected:''};
   openModal('Mapa', 'Editar', `<label class="field">Partido<select id="shotGame">${games.map(x=>`<option value="${x.id}" ${x.id===g.id?'selected':''}>${esc(x.opponent)}</option>`).join('')}</select></label><section class="shot-ai-workflow"><div><h3>1 · Lleva la captura a la IA</h3><p>La cabecera manda: equipo de arriba = mitad izquierda; equipo de abajo = mitad derecha. La IA debe confirmar cabecera, color y lista.</p><button class="btn" data-action="copy-shot-prompt">Copiar instrucciones para la IA</button></div><div><h3>2 · Pega aquí su respuesta</h3><label class="field" for="shotJson">JSON de la IA<textarea id="shotJson" rows="7" placeholder='Pega el bloque que empieza por { y termina por }'></textarea></label><button class="btn primary" data-action="apply-shot-json">Leer y colocar puntos</button><div id="shotAssignment" class="shot-assignment" aria-live="polite"></div></div></section><div class="court-wrap"><div id="shotCourt">${courtHTML(modalContext.shotsFor,modalContext.shotsAgainst,false,modalContext.selected)}</div><div><div class="shot-kind"><button class="active" data-action="shot-kind" data-kind="for">Ataque</button><button data-action="shot-kind" data-kind="against">Defensa</button></div><p class="muted">Toca para añadir. Arrastra para mover.</p><div class="action-row"><button class="btn" data-action="swap-shot-teams">Intercambiar</button><button class="btn danger" data-action="delete-selected-shot">Borrar punto</button><button class="btn danger" data-action="clear-shots">Vaciar</button></div><button class="btn primary wide" data-action="save-shots">Guardar mapa</button></div></div>`); bindShotCourt();
 }
 
@@ -1248,6 +1261,7 @@ function bindShotCourt() {
     const rect = court.getBoundingClientRect();
     const points = dragging.kind === 'for' ? modalContext.shotsFor : modalContext.shotsAgainst;
     const point = points[dragging.index];
+    if (!point) return;
     point.x = clamp((event.clientX - rect.left) / rect.width);
     point.y = clamp((event.clientY - rect.top) / rect.height);
     if (activeDot) {
@@ -1350,7 +1364,7 @@ function finishLive() {
 function confirmLiveMerge(gameId) {
   const live=state.live,match=state.games.find(game=>game.id===gameId);if(!live||!match)return;
   match.events = mergeEvents(match.events || [],live.events.filter(event => !event.undone));
-  match.availability = {...(match.availability || {}), manual:true};
+  match.availability = {...(match.availability || {}), manual:match.events.some(event => !event.undone)};
   match.livePlayerIds = [...new Set([...(match.livePlayerIds||[]),...(live.players||[]).map(p=>p.id)])];
   record('replace-game', {game:match});
   state.live = null;
@@ -1364,11 +1378,12 @@ function confirmLiveMerge(gameId) {
 function mergePendingManual(pendingId,targetId) {
   const pending=state.games.find(game=>game.id===pendingId&&game.source==='live-pending'),target=state.games.find(game=>game.id===targetId&&game.source!=='live-pending');
   if(!pending||!target)return toast('No se encuentra el Directo o el acta');
-  mergePendingIntoGame(pending,target);queueMerge(pending,target);save();scheduleSync();closeModal();toast('Directo unido sin duplicar eventos');setView('games');
+  mergePendingIntoGame(pending,target);queueMerge(pending,target);save();paintSync();scheduleSync();closeModal();toast('Directo unido sin duplicar eventos');setView('games');
 }
 
 function keepLivePending() {
-  state.games.push({id:uid(), opponent:state.live.opponent, date:state.live.date, home:true, us:null, them:null, players:[], opponentPlayers:[], livePlayerIds:(state.live.players||[]).map(p=>p.id), events:state.live.events.filter(event => !event.undone), shotsFor:[], shotsAgainst:[], source:'live-pending', availability:{manual:true, boxscore:false, opponentBoxscore:false, shotMap:false}});
+  const activeEvents=state.live.events.filter(event => !event.undone);
+  state.games.push({id:uid(), opponent:state.live.opponent, date:state.live.date, home:true, us:null, them:null, players:[], opponentPlayers:[], livePlayerIds:(state.live.players||[]).map(p=>p.id), events:activeEvents, shotsFor:[], shotsAgainst:[], source:'live-pending', availability:{manual:activeEvents.length>0, boxscore:false, opponentBoxscore:false, shotMap:false}});
   record('replace-game', {game:state.games.at(-1)});
   state.live = null;
   save();
@@ -1385,14 +1400,18 @@ function openTeams(){
 }
 function switchWorkspace(id){
   if(id===workspaceBook.activeId){closeModal();return;}
-  persistWorkspace();lastSyncOk=null;const target=workspaceBook.workspaces.find(item=>item.id===id);if(!target)return;
-  workspaceBook.activeId=id;state=sanitise(target.data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();syncNow();window.scrollTo(0,0);
+  persistWorkspace();clearTimeout(syncTimer);lastSyncOk=null;lastSyncError='';minutesScope='season';const target=workspaceBook.workspaces.find(item=>item.id===id);if(!target)return;
+  workspaceBook.activeId=id;state=sanitise(target.data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();verifyRole();syncNow();window.scrollTo(0,0);
 }
 async function createWorkspace(){
+  if(creatingTeam)return;
   const name=($('#newTeamName')?.value||'').trim(),season=($('#newTeamSeason')?.value||'').trim(),gender=$('#newTeamGender')?.value||'',color=$('#newTeamColor')?.value||'blue';if(!name)return toast('Escribe el nombre del equipo');if(!gender)return toast('Elige femenino, masculino o mixto/neutro');
-  persistWorkspace();let data=blank(name,season,gender,color),cloud=false;const api=serviceUrl();
-  if(api){try{const response=await fetch(`${api}/api/v3/teams`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({name,season,gender,color})});const json=await response.json();if(!response.ok)throw Error(json.error||'Servidor no preparado');data.settings={...data.settings,api,token:json.admin.token,role:'admin',teamId:json.team.id,syncMode:'team'};cloud=true;}catch(error){console.warn('Equipo creado solo en local:',error.message);}}
-  const id=uid();workspaceBook.workspaces.push({id,name,data,legacy:false});workspaceBook.activeId=id;state=sanitise(data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();if(cloud){state.ops.push({id:uid(),at:new Date().toISOString(),type:'set-team',payload:{team:state.team}});save();syncNow();}toast(cloud?'Equipo creado y protegido en la nube':'Equipo creado en este dispositivo');
+  creatingTeam=true;
+  try{
+    persistWorkspace();clearTimeout(syncTimer);lastSyncOk=null;lastSyncError='';minutesScope='season';let data=blank(name,season,gender,color),cloud=false;const api=serviceUrl();
+    if(api){try{const response=await fetch(`${api}/api/v3/teams`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({name,season,gender,color})});const json=await response.json();if(!response.ok)throw Error(json.error||'Servidor no preparado');data.settings={...data.settings,api,token:json.admin.token,role:'admin',teamId:json.team.id,syncMode:'team'};cloud=true;}catch(error){console.warn('Equipo creado solo en local:',error.message);}}
+    const id=uid();workspaceBook.workspaces.push({id,name,data,legacy:false});workspaceBook.activeId=id;state=sanitise(data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();if(cloud){state.ops.push({id:uid(),at:new Date().toISOString(),type:'set-team',payload:{team:state.team}});save();syncNow();}toast(cloud?'Equipo creado y protegido en la nube':'Equipo creado en este dispositivo');
+  }finally{creatingTeam=false;}
 }
 function confirmRemoveWorkspace(id){
   const item=workspaceBook.workspaces.find(row=>row.id===id);if(!item)return;const local=!(item.data?.settings?.token);
@@ -1400,8 +1419,9 @@ function confirmRemoveWorkspace(id){
 }
 function removeWorkspace(id){
   if(workspaceBook.workspaces.length<2)return;const item=workspaceBook.workspaces.find(row=>row.id===id);if(!item)return;
-  if(id===workspaceBook.activeId){const next=workspaceBook.workspaces.find(row=>row.id!==id);workspaceBook.activeId=next.id;}
-  workspaceBook.workspaces=workspaceBook.workspaces.filter(row=>row.id!==id);state=sanitise(activeWorkspace().data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));openTeams();render();toast('Quitado solo de este dispositivo');
+  const switched=id===workspaceBook.activeId;
+  if(switched){clearTimeout(syncTimer);lastSyncOk=null;lastSyncError='';minutesScope='season';const next=workspaceBook.workspaces.find(row=>row.id!==id);workspaceBook.activeId=next.id;}
+  workspaceBook.workspaces=workspaceBook.workspaces.filter(row=>row.id!==id);state=sanitise(activeWorkspace().data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));openTeams();render();paintSync();if(switched){verifyRole();syncNow();}toast('Quitado solo de este dispositivo');
 }
 function openRosterManager(){
   const rows=state.roster.map(player=>`<div class="roster-manage-row"><span><b>${esc(namePretty(player.name))}</b><small>${genderTerms().number}: ${esc(player.number||'—')}</small></span><button class="btn danger" data-action="remove-roster-player" data-id="${esc(player.id)}">Quitar</button></div>`).join('');
@@ -1411,7 +1431,21 @@ function confirmRemoveRosterPlayer(id){const player=state.roster.find(item=>item
 function removeRosterPlayer(id){const player=state.roster.find(item=>item.id===id);if(!player)return;state.roster=state.roster.filter(item=>item.id!==id);state.liveDraft.selected=(state.liveDraft.selected||[]).filter(playerId=>playerId!==id);record('set-roster',{roster:state.roster,replace:true});toast(`${namePretty(player.name)} ya no está en la plantilla`);openRosterManager();render();}
 
 function requestDeleteCloudTeam(){openModal('Zona peligrosa','Borrar equipo de la nube',`<div class="data-warning"><b>Esta acción no se puede deshacer</b><span>Se borrarán el equipo, todos sus eventos y todos sus enlaces de la nube. Exporta una copia antes si quieres conservarlo.</span></div><label class="field">Escribe exactamente <b>${esc(teamLabel())}</b><input id="deleteTeamConfirm" autocomplete="off" placeholder="${esc(teamLabel())}"></label><div class="confirm-actions"><button class="btn" data-action="open-settings">Cancelar</button><button class="btn danger" id="deleteCloudTeamButton" data-action="confirm-delete-cloud-team" disabled>Borrar definitivamente</button></div>`);}
-async function deleteCloudTeam(){if($('#deleteTeamConfirm')?.value.trim()!==teamLabel())return toast('El nombre no coincide');try{const response=await fetch(`${state.settings.api}/api/v3/teams/${encodeURIComponent(state.settings.teamId)}`,{method:'DELETE',headers:{'Accept':'application/json','Authorization':`Bearer ${state.settings.token}`}}),body=await response.json().catch(()=>({}));if(!response.ok)throw Error(response.status===404?'Actualiza primero el Worker de Cloudflare a v12.3. El equipo no se ha borrado.':body.error||'No se pudo borrar');const current=activeWorkspace();if(workspaceBook.workspaces.length>1){workspaceBook.workspaces=workspaceBook.workspaces.filter(item=>item.id!==current.id);workspaceBook.activeId=workspaceBook.workspaces[0].id;state=sanitise(activeWorkspace().data);}else{current.data=blank('Mi equipo','','neutral','blue');current.name='Mi equipo';state=sanitise(current.data);}localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();toast('Equipo y datos borrados de la nube');}catch(error){toast(error.message);}}
+async function deleteCloudTeam(){
+  if(deletingTeam)return;
+  if($('#deleteTeamConfirm')?.value.trim()!==teamLabel())return toast('El nombre no coincide');
+  deletingTeam=true;
+  try{
+    const response=await fetch(`${state.settings.api}/api/v3/teams/${encodeURIComponent(state.settings.teamId)}`,{method:'DELETE',headers:{'Accept':'application/json','Authorization':`Bearer ${state.settings.token}`}}),body=await response.json().catch(()=>({}));
+    if(!response.ok)throw Error(response.status===404?'Actualiza primero el Worker de Cloudflare a v12.3. El equipo no se ha borrado.':body.error||'No se pudo borrar');
+    clearTimeout(syncTimer);lastSyncOk=null;lastSyncError='';minutesScope='season';
+    const current=activeWorkspace();
+    if(workspaceBook.workspaces.length>1){workspaceBook.workspaces=workspaceBook.workspaces.filter(item=>item.id!==current.id);workspaceBook.activeId=workspaceBook.workspaces[0].id;state=sanitise(activeWorkspace().data);}
+    else{current.data=blank('Mi equipo','','neutral','blue');current.name='Mi equipo';state=sanitise(current.data);}
+    persistWorkspace();closeModal();view='team';render();paintSync();verifyRole();syncNow();toast('Equipo y datos borrados de la nube');
+  }catch(error){toast(error.message);}
+  finally{deletingTeam=false;}
+}
 
 function openSettings(){
   const viewer=state.settings.role==='viewer';
@@ -1427,14 +1461,25 @@ function snapshotOps(){
   return [make('set-team',{team:state.team}),make('set-roster',{roster:state.roster,replace:true}),...state.games.map(game=>make('replace-game',{game})),...(state.live?[make('live-upsert',{live:state.live})]:[])];
 }
 async function ensureCloudTeam(){
-  if(state.settings.api&&state.settings.token)return;
+  if(state.settings.api&&state.settings.token){
+    if(syncPromise)await syncPromise;
+    if(state.ops.length&&state.settings.role!=='viewer'){
+      await syncNow();
+      if(state.ops.length)throw Error('No se pudo terminar la sincronización pendiente. Revisa la conexión y vuelve a intentarlo.');
+    }
+    return;
+  }
   const api=serviceUrl();if(!api)throw Error('La sincronización todavía no está activada. La app sigue funcionando en este dispositivo.');
   const response=await fetch(`${api}/api/v3/teams`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({name:teamLabel(),season:state.team.season||'',gender:state.team.gender,color:state.team.color})});
   const json=await response.json().catch(()=>({}));if(!response.ok||!json.admin?.token||!json.team?.id)throw Error('El servidor todavía no admite compartir equipos nuevos. Actualiza Cloudflare con el Worker v12.3; no se ha perdido ningún dato.');
+  if(syncPromise)await syncPromise;
   state.settings={...state.settings,api,token:json.admin.token,role:'admin',teamId:json.team.id,syncMode:'team'};state.lastSeq=0;state.ops=[...state.ops,...snapshotOps()];save();paintSync(true);await syncNow();paintSync();if(state.ops.length)throw Error('No se pudo terminar la primera subida. Revisa la conexión y vuelve a intentarlo; tus datos siguen guardados.');
 }
 async function createInvite(role){
+  if(creatingInvite)return;
+  creatingInvite=true;
   try{await ensureCloudTeam();const teamPath=state.settings.teamId?`/api/v3/teams/${encodeURIComponent(state.settings.teamId)}/invites`:'/api/invites';const response=await fetch(`${state.settings.api}${teamPath}`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.settings.token}`},body:JSON.stringify({role,label:$('#inviteLabel')?.value||''})}),json=await response.json();if(!response.ok)throw Error(json.error||'No se pudo crear');const q=new URLSearchParams({api:state.settings.api,token:json.token,role,team:state.settings.teamId||'',name:teamLabel(),season:state.team.season||'',gender:state.team.gender||'neutral',color:state.team.color||'blue'});const link=`${location.origin}${location.pathname}#${q.toString()}`;$('#inviteResult').innerHTML=`<label class="field">Enlace<textarea id="inviteLink" rows="3" readonly>${esc(link)}</textarea></label><button class="btn" data-action="copy-invite">Copiar enlace</button>`;}catch(error){toast(error.message);}
+  finally{creatingInvite=false;}
 }
 async function loadInvites(){
   const box=$('#inviteManager');if(!box)return;box.innerHTML='<p class="muted">Cargando…</p>';
@@ -1444,40 +1489,52 @@ async function revokeInvite(id){try{const path=state.settings.teamId?`/api/v3/te
 function scheduleSync(){clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,700);}
 
 function applyRemote(row){
-  const event=row.event||row;if(state.ops.some(item=>item.id===event.id))return false;const payload=event.payload||{};
-  if(event.type==='set-roster')state.roster=payload.replace?(payload.roster||[]):mergeRoster(state.roster,payload.roster||[]);
-  if(event.type==='set-team'&&payload.team)state.team={...state.team,...payload.team};
-  if(event.type==='replace-game'&&payload.game){const incoming=sanitise({...blank(),games:[payload.game]}).games[0],index=state.games.findIndex(game=>game.id===incoming.id);index<0?state.games.push(incoming):state.games[index]=mergeGameVersions(state.games[index],incoming);}
-  if(event.type==='merge-game'&&payload.game){const incoming=sanitise({...blank(),games:[payload.game]}).games[0],index=state.games.findIndex(game=>game.id===(payload.targetId||incoming.id));index<0?state.games.push(incoming):state.games[index]=mergeGameVersions(state.games[index],incoming);state.games=state.games.filter(game=>game.id!==payload.sourceId);}
-  if(event.type==='live-upsert')state.live=mergeLiveVersions(state.live,payload.live);
-  if(event.type==='live-event'&&state.live?.id===payload.liveId&&!state.live.events.some(item=>item.id===payload.event.id))state.live.events.push(payload.event);
+  const event=row.event||row;if(!event||!event.id||ownEventIds.has(event.id)||state.ops.some(item=>item.id===event.id))return false;const payload=event.payload||{};
+  if(event.type==='set-roster'){const list=(Array.isArray(payload.roster)?payload.roster:[]).filter(p=>p&&typeof p==='object'&&p.name).map(p=>({...p,id:safeId(p.id),name:String(p.name),number:String(p.number||'')}));state.roster=payload.replace?list:mergeRoster(state.roster,list);}
+  if(event.type==='set-team'&&payload.team&&typeof payload.team==='object'){const t=payload.team;state.team={...state.team,name:String(t.name||state.team.name||'Mi equipo'),season:String(t.season??state.team.season??''),gender:GENDERS[t.gender]?t.gender:state.team.gender,color:PALETTES[t.color]?t.color:state.team.color};}
+  if(event.type==='replace-game'&&payload.game){const incoming=sanitise({...blank(),games:[payload.game]}).games[0];if(!incoming)return false;const index=state.games.findIndex(game=>game.id===incoming.id);index<0?state.games.push(incoming):state.games[index]=mergeGameVersions(state.games[index],incoming);}
+  if(event.type==='merge-game'&&payload.game){const incoming=sanitise({...blank(),games:[payload.game]}).games[0];if(!incoming)return false;const targetId=safeId(payload.targetId||incoming.id),sourceId=payload.sourceId?safeId(payload.sourceId):'';const index=state.games.findIndex(game=>game.id===targetId);index<0?state.games.push(incoming):state.games[index]=mergeGameVersions(state.games[index],incoming);if(sourceId&&sourceId!==targetId)state.games=state.games.filter(game=>game.id!==sourceId);}
+  if(event.type==='live-upsert')state.live=mergeLiveVersions(state.live,sanitiseLive(payload.live));
+  if(event.type==='live-event'&&state.live?.id===payload.liveId&&payload.event&&typeof payload.event==='object'&&payload.event.id&&!state.live.events.some(item=>item.id===payload.event.id))state.live.events.push({...payload.event,id:safeId(payload.event.id),quarter:Math.min(10,Math.max(1,+payload.event.quarter||1))});
   if(event.type==='live-undo'&&state.live?.id===payload.liveId){const target=state.live.events.find(item=>item.id===payload.eventId);if(target)target.undone=true;}
-  if(event.type==='shot-set'){const game=state.games.find(item=>item.id===payload.gameId);if(game){const incoming={...game,shotsFor:payload.shotsFor||[],shotsAgainst:payload.shotsAgainst||[],mapRevision:Number(payload.mapRevision)||0,mapUpdatedAt:payload.mapUpdatedAt||event.at||''},order=compareVersion(incoming,game,true);if(order>0){game.shotsFor=incoming.shotsFor;game.shotsAgainst=incoming.shotsAgainst;game.mapRevision=incoming.mapRevision;game.mapUpdatedAt=incoming.mapUpdatedAt;}else if(order===0){game.shotsFor=mergeShots(game.shotsFor,incoming.shotsFor);game.shotsAgainst=mergeShots(game.shotsAgainst,incoming.shotsAgainst);}game.availability={...(game.availability||{}),shotMap:!!(game.shotsFor.length||game.shotsAgainst.length)};}}
+  if(event.type==='shot-set'){const game=state.games.find(item=>item.id===payload.gameId);if(game){const incoming={...game,shotsFor:foldShots(Array.isArray(payload.shotsFor)?payload.shotsFor:[]),shotsAgainst:foldShots(Array.isArray(payload.shotsAgainst)?payload.shotsAgainst:[]),mapRevision:Math.max(0,Number(payload.mapRevision)||0),mapUpdatedAt:String(payload.mapUpdatedAt||event.at||'')},order=compareVersion(incoming,game,true);if(order>0){game.shotsFor=incoming.shotsFor;game.shotsAgainst=incoming.shotsAgainst;game.mapRevision=incoming.mapRevision;game.mapUpdatedAt=incoming.mapUpdatedAt;}else if(order===0){game.shotsFor=mergeShots(game.shotsFor,incoming.shotsFor);game.shotsAgainst=mergeShots(game.shotsAgainst,incoming.shotsAgainst);game.mapUpdatedAt=(Date.parse(incoming.mapUpdatedAt||'')||0)>=(Date.parse(game.mapUpdatedAt||'')||0)?(incoming.mapUpdatedAt||game.mapUpdatedAt||''):(game.mapUpdatedAt||'');}game.availability={...(game.availability||{}),shotMap:!!(game.shotsFor.length||game.shotsAgainst.length)};}}
   return true;
 }
 async function syncNow(){
-  if(syncing||!state.settings.api||!state.settings.token)return;
+  if(syncing||!state.settings.api||!state.settings.token)return syncPromise||undefined;
   const workspaceId=workspaceBook.activeId,teamId=state.settings.teamId||'',base=teamId?`/api/v3/teams/${encodeURIComponent(teamId)}/events`:'/api/events';
   syncing=true;paintSync(true);
-  try{
-    if(state.ops.length&&state.settings.role!=='viewer'){
-      const sent=[...state.ops],sentIds=new Set(sent.map(event=>event.id));
-      const response=await fetch(`${state.settings.api}${base}`,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':`Bearer ${state.settings.token}`},body:JSON.stringify({events:sent})});
-      if(!response.ok)throw Error('No se pudo enviar');if(workspaceBook.activeId!==workspaceId)return;
-      state.ops=state.ops.filter(event=>!sentIds.has(event.id));save();
-    }
-    const before=deepSignature({roster:state.roster,games:state.games,live:state.live});
-    for(let page=0;page<20;page++){
-      const response=await fetch(`${state.settings.api}${base}?since=${state.lastSeq}`,{cache:'no-store',headers:{'Accept':'application/json','Authorization':`Bearer ${state.settings.token}`}});
-      if(!response.ok)throw Error(response.status===401?'Enlace no válido o revocado':'No se pudo leer');const contentType=response.headers.get('content-type')||'';if(!contentType.includes('application/json'))throw Error('La sincronización recibió una respuesta no válida');
-      const json=await response.json();if(!Array.isArray(json.events))throw Error('La sincronización recibió datos incompletos');if(workspaceBook.activeId!==workspaceId)return;
-      json.events.forEach(applyRemote);state.lastSeq=json.lastSeq||state.lastSeq;save();
-      if(json.events.length<1000)break;
-    }
-    lastSyncOk=true;lastSyncError='';
-    const changed=before!==deepSignature({roster:state.roster,games:state.games,live:state.live}),editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);if(changed&&!editing)render();else if(changed)renderAfterEdit=true;
-  }catch(error){console.warn(error);lastSyncOk=false;lastSyncError=error.message||'Sin conexión';}
-  finally{syncing=false;paintSync();if(workspaceBook.activeId===workspaceId&&state.ops.length&&state.settings.role!=='viewer')scheduleSync();}
+  syncPromise=(async()=>{
+    try{
+      while(state.ops.length&&state.settings.role!=='viewer'){
+        if(workspaceBook.activeId!==workspaceId)return;
+        const batch=[];let batchBytes=24;
+        for(const op of state.ops){
+          const size=JSON.stringify(op).length+1;
+          if(batch.length&&(batch.length>=200||batchBytes+size>1400000))break;
+          batch.push(op);batchBytes+=size;
+        }
+        const sentIds=new Set(batch.map(event=>event.id));
+        const response=await fetch(`${state.settings.api}${base}`,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':`Bearer ${state.settings.token}`},body:JSON.stringify({events:batch})});
+        if(!response.ok)throw Error(response.status===401?'Enlace no válido o revocado':'No se pudo enviar');
+        if(workspaceBook.activeId!==workspaceId)return;
+        sentIds.forEach(trackOwnEvent);
+        state.ops=state.ops.filter(event=>!sentIds.has(event.id));save();
+      }
+      const before=deepSignature({team:state.team,roster:state.roster,games:state.games,live:state.live});
+      for(let page=0;page<20;page++){
+        const response=await fetch(`${state.settings.api}${base}?since=${state.lastSeq}`,{cache:'no-store',headers:{'Accept':'application/json','Authorization':`Bearer ${state.settings.token}`}});
+        if(!response.ok)throw Error(response.status===401?'Enlace no válido o revocado':'No se pudo leer');const contentType=response.headers.get('content-type')||'';if(!contentType.includes('application/json'))throw Error('La sincronización recibió una respuesta no válida');
+        const json=await response.json();if(!Array.isArray(json.events))throw Error('La sincronización recibió datos incompletos');if(workspaceBook.activeId!==workspaceId)return;
+        json.events.forEach(applyRemote);state.lastSeq=json.lastSeq||state.lastSeq;save();
+        if(json.events.length<1000)break;
+      }
+      lastSyncOk=true;lastSyncError='';
+      const changed=before!==deepSignature({team:state.team,roster:state.roster,games:state.games,live:state.live}),editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);if(changed&&!editing)render();else if(changed)renderAfterEdit=true;
+    }catch(error){console.warn(error);if(workspaceBook.activeId===workspaceId){lastSyncOk=false;lastSyncError=error.message||'Sin conexión';}}
+    finally{syncing=false;syncPromise=null;paintSync();if(workspaceBook.activeId!==workspaceId){if(state.settings.api&&state.settings.token)scheduleSync();}else if(state.ops.length&&state.settings.role!=='viewer')scheduleSync();}
+  })();
+  return syncPromise;
 }
 
 let lastSyncOk=null,lastSyncError='';
@@ -1486,14 +1543,14 @@ function paintSync(busy=false){const s=$('#syncStatus');if(!s)return;const cloud
 async function copyText(text){try{await navigator.clipboard.writeText(text);}catch(error){const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.append(area);area.select();if(!document.execCommand('copy'))throw error;area.remove();}toast('Copiado');}
 async function shareInstallPage(){const url=new URL('./instalar.html',location.href).href;try{if(navigator.share)await navigator.share({title:'Instalar Estadísticas',text:'Instala la app de estadísticas de baloncesto',url});else await copyText(url);}catch(error){if(error?.name!=='AbortError')await copyText(url);}}
 function exportJSON(){const copy=JSON.parse(JSON.stringify(state));copy.settings={...copy.settings,token:'',api:'',role:'admin'};copy.ops=[];copy.lastSeq=0;copy.exportedAt=new Date().toISOString();const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(copy,null,2)],{type:'application/json'}));a.download=`estadisticas-${norm(teamLabel()).toLowerCase().replace(/ /g,'-')}-${today()}.json`;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},4000);toast('Copia exportada sin claves de acceso');}
-async function restoreBackup(file){try{const data=JSON.parse(await file.text());if(!data||typeof data!=='object'||!Array.isArray(data.games))throw Error('El archivo no es una copia de Estadísticas.');const clean=sanitise({...data,settings:{...(data.settings||{}),token:'',api:'',teamId:'',role:'admin',syncMode:'local'},ops:[],lastSeq:0});persistWorkspace();const id=uid(),name=`${clean.team.name||'Equipo'} (copia)`;clean.team.name=name;workspaceBook.workspaces.push({id,name,data:clean,legacy:false});workspaceBook.activeId=id;state=sanitise(clean);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();toast(`Copia restaurada como equipo nuevo: ${clean.games.length} partidos`);}catch(error){toast(error.message||'No se pudo leer la copia');}}
+async function restoreBackup(file){try{const data=JSON.parse(await file.text());if(!data||typeof data!=='object'||!Array.isArray(data.games))throw Error('El archivo no es una copia de Estadísticas.');const clean=sanitise({...data,settings:{...(data.settings||{}),token:'',api:'',teamId:'',role:'admin',syncMode:'local'},ops:[],lastSeq:0});persistWorkspace();clearTimeout(syncTimer);lastSyncOk=null;lastSyncError='';minutesScope='season';const id=uid(),name=`${clean.team.name||'Equipo'} (copia)`;clean.team.name=name;workspaceBook.workspaces.push({id,name,data:clean,legacy:false});workspaceBook.activeId=id;state=sanitise(clean);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));closeModal();view='team';render();paintSync();toast(`Copia restaurada como equipo nuevo: ${clean.games.length} partidos`);}catch(error){toast(error.message||'No se pudo leer la copia');}}
 function install(){if(installPrompt){installPrompt.prompt();installPrompt=null;}else openModal('Instalar','Instalar aplicación','<p>En Chrome abre el menú y pulsa «Instalar aplicación».</p>');}
 function applyTheme(theme){theme=theme==='dark'?'dark':'light';document.documentElement.dataset.theme=theme;const color=theme==='dark'?'#0b0f16':'#f3f5f8',meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=color;document.documentElement.style.backgroundColor=color;document.body.style.backgroundColor=color;applyTeamIdentity();}
 
 function updateDraftFromInput(target){if(target.id==='rival')state.liveDraft.rival=target.value;if(target.id==='liveDate'){state.liveDraft.date=target.value;state.liveDraft.dateManual=true;}if(target.matches('.roster-card input')){const set=new Set(state.liveDraft.selected);target.checked?set.add(target.value):set.delete(target.value);state.liveDraft.selected=[...set];const card=target.closest('.roster-card');card.classList.toggle('selected',target.checked);card.querySelector('.check').textContent=target.checked?'✓':'';$('#selectedCount').textContent=`${set.size} convocad${state.team.gender==='female'?'as':'os'}`;}save();}
 
 document.addEventListener('input',e=>{if(view==='live'&&!state.live&&(e.target.id==='rival'||e.target.id==='liveDate'))updateDraftFromInput(e.target);if(e.target.id==='deleteTeamConfirm'){const button=$('#deleteCloudTeamButton');if(button)button.disabled=e.target.value.trim()!==teamLabel();}});
-document.addEventListener('change',e=>{if(view==='live'&&!state.live&&(e.target.id==='liveDate'||e.target.matches('.roster-card input')))updateDraftFromInput(e.target);if(e.target.matches('#heatOpponent,#heatHome'))renderHeatFiltered();if(e.target.id==='playerMetric'&&modalContext?.type==='player')openPlayerDetail(modalContext.key,e.target.value,modalContext.shareMode||'average');if(e.target.id==='minutesScope'){minutesScope=e.target.value;render();}});
+document.addEventListener('change',e=>{if(view==='live'&&!state.live&&(e.target.id==='liveDate'||e.target.matches('.roster-card input')))updateDraftFromInput(e.target);if(e.target.matches('#heatOpponent,#heatHome'))renderHeatFiltered();if(e.target.id==='playerMetric'&&modalContext?.type==='player')openPlayerDetail(modalContext.key,e.target.value,modalContext.shareMode||'average');if(e.target.id==='minutesScope'){minutesScope=e.target.value;render();}if(e.target.id==='shotGame'&&modalContext?.type==='shot'){const g=validGames().find(x=>x.id===e.target.value);if(!g)return;modalContext.gameId=g.id;modalContext.shotsFor=(g.shotsFor||[]).map(p=>({...p}));modalContext.shotsAgainst=(g.shotsAgainst||[]).map(p=>({...p}));modalContext.selected='';repaintShotCourt();}});
 document.addEventListener('click',async e=>{
   const go=e.target.closest('[data-go]');if(go)return setView(go.dataset.go);
   const d=e.target.closest('[data-detail]');if(d)return detail(d.dataset.detail);
@@ -1511,7 +1568,7 @@ document.addEventListener('click',async e=>{
   if(act==='heat-mode')return openHeatAnalysis(`heat-${a.dataset.mode==='both'?'compare':a.dataset.mode}`);
   if(act==='open-shot')return openShotDetail();if(act==='shot-for-game')return openShotDetail(a.dataset.id);if(act==='copy-shot-prompt')return copyText(shotPrompt());if(act==='shot-kind'){modalContext.kind=a.dataset.kind;$$('.shot-kind button').forEach(b=>b.classList.toggle('active',b===a));return;}if(act==='swap-shot-teams'){[modalContext.shotsFor,modalContext.shotsAgainst]=[modalContext.shotsAgainst,modalContext.shotsFor];modalContext.selected='';repaintShotCourt();return;}if(act==='delete-selected-shot'){if(!modalContext.selected)return toast('Selecciona un punto');const[k,i]=modalContext.selected.split(':'),arr=k==='for'?modalContext.shotsFor:modalContext.shotsAgainst;arr.splice(+i,1);modalContext.selected='';repaintShotCourt();return;}if(act==='clear-shots'){modalContext.shotsFor=[];modalContext.shotsAgainst=[];modalContext.selected='';repaintShotCourt();return;}
   if(act==='apply-shot-json'){try{const raw=$('#shotJson').value.replace(/```(?:json)?|```/g,'').trim(),j=JSON.parse(raw);if(!Array.isArray(j.ownShots)||!Array.isArray(j.opponentShots))throw Error('Faltan ownShots u opponentShots');const all=[...j.ownShots,...j.opponentShots];if(all.some(point=>!Number.isFinite(+point.x)||!Number.isFinite(+point.y)||+point.x<0||+point.x>1||+point.y<0||+point.y>1))throw Error('Hay coordenadas fuera de 0–1');const own=j.ownIdentification||{},opp=j.opponentIdentification||{};if(own.checksAgree===false||opp.checksAgree===false||own.conflict||opp.conflict)throw Error(`La IA detectó un conflicto: ${own.conflict||opp.conflict||'revisa cabecera, color y lista'}`);modalContext.shotsFor=foldShots(j.ownShots,j.court||'half',own.side||'left');modalContext.shotsAgainst=foldShots(j.opponentShots,j.court||'half',opp.side||'right');modalContext.selected='';repaintShotCourt();const assignment=$('#shotAssignment');if(assignment)assignment.textContent=`✓ ${modalContext.shotsFor.length} ataque · ${modalContext.shotsAgainst.length} defensa · revisa la pista antes de guardar`;toast('Puntos colocados');}catch(error){const assignment=$('#shotAssignment');if(assignment)assignment.textContent=error.message||'JSON no válido';toast(error.message||'JSON no válido');}return;}
-  if(act==='save-shots'){const g=state.games.find(x=>x.id===$('#shotGame').value);g.shotsFor=modalContext.shotsFor;g.shotsAgainst=modalContext.shotsAgainst;g.availability={...(g.availability||{}),shotMap:!!(g.shotsFor.length||g.shotsAgainst.length)};touchGame(g,{map:true});save();record('shot-set',{gameId:g.id,shotsFor:g.shotsFor,shotsAgainst:g.shotsAgainst,mapRevision:g.mapRevision,mapUpdatedAt:g.mapUpdatedAt});closeModal();render();}
+  if(act==='save-shots'){const g=state.games.find(x=>x.id===$('#shotGame')?.value);if(!g)return;g.shotsFor=modalContext.shotsFor;g.shotsAgainst=modalContext.shotsAgainst;g.availability={...(g.availability||{}),shotMap:!!(g.shotsFor.length||g.shotsAgainst.length)};touchGame(g,{map:true});save();record('shot-set',{gameId:g.id,shotsFor:g.shotsFor,shotsAgainst:g.shotsAgainst,mapRevision:g.mapRevision,mapUpdatedAt:g.mapUpdatedAt});closeModal();render();}
 });
 
 $('#fileInput').addEventListener('change',e=>{const list=[...e.target.files];if(!list.length)return;if(fileMode==='backup')return restoreBackup(list[0]);handleFiles(list);});
@@ -1521,14 +1578,15 @@ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installProm
 if('serviceWorker' in navigator){const hadController=!!navigator.serviceWorker.controller;let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadController||reloaded||state.live)return;reloaded=true;save();location.reload();});navigator.serviceWorker.register('./sw.js?v=12.3',{updateViaCache:'none'}).then(reg=>reg.update()).catch(console.warn);}
 function importSharedTeamFromQuery(){
   const query=new URLSearchParams(location.search),fragment=new URLSearchParams(location.hash.replace(/^#/,'')),source=query.get('api')?query:fragment,api=source.get('api'),token=source.get('token');if(!api||!token)return;
-  persistWorkspace();const teamId=source.get('team')||'',name=source.get('name')||'Equipo compartido',season=source.get('season')||'',gender=source.get('gender')||'neutral',color=source.get('color')||'blue';
-  let item=teamId?workspaceBook.workspaces.find(row=>row.data?.settings?.teamId===teamId):null;
+  persistWorkspace();const teamId=source.get('team')||'',cleanApi=api.replace(/\/$/,''),name=source.get('name')||'Equipo compartido',season=source.get('season')||'',gender=source.get('gender')||'neutral',color=source.get('color')||'blue';
+  let item=teamId?workspaceBook.workspaces.find(row=>row.data?.settings?.teamId===teamId):workspaceBook.workspaces.find(row=>!row.data?.settings?.teamId&&row.data?.settings?.api===cleanApi);
   if(!item){const current=activeWorkspace(),isBlank=workspaceBook.workspaces.length===1&&!current.data?.games?.length&&!current.data?.roster?.length&&!current.data?.settings?.token;if(isBlank)item=current;else{item={id:uid(),name,data:blank(name,season,gender,color),legacy:!teamId};workspaceBook.workspaces.push(item);}}
-  item.data=sanitise(item.data||blank(name,season));item.data.team.name=name;item.data.team.season=season;item.data.team.gender=GENDERS[gender]?gender:'neutral';item.data.team.color=PALETTES[color]?color:'blue';const rank={viewer:0,editor:1,admin:2},incoming=['viewer','editor','admin'].includes(source.get('role'))?source.get('role'):'viewer',currentRole=item.data.settings?.token?item.data.settings.role:'';if(currentRole&&rank[currentRole]>rank[incoming]){setTimeout(()=>toast(`Ya tenías acceso de ${currentRole==='admin'?'propietario':'editor'} a este equipo; se conserva.`),300);}else item.data.settings={...item.data.settings,api:api.replace(/\/$/,''),token,role:incoming,teamId,syncMode:teamId?'team':'legacy'};workspaceBook.activeId=item.id;state=sanitise(item.data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));history.replaceState({},'',location.pathname);
+  item.data=sanitise(item.data||blank(name,season));item.data.team.name=name;item.name=name;item.data.team.season=season;item.data.team.gender=GENDERS[gender]?gender:'neutral';item.data.team.color=PALETTES[color]?color:'blue';const rank={viewer:0,editor:1,admin:2},incoming=['viewer','editor','admin'].includes(source.get('role'))?source.get('role'):'viewer',currentRole=item.data.settings?.token?item.data.settings.role:'';if(currentRole&&rank[currentRole]>rank[incoming]){setTimeout(()=>toast(`Ya tenías acceso de ${currentRole==='admin'?'propietario':'editor'} a este equipo; se conserva.`),300);}else item.data.settings={...item.data.settings,api:cleanApi,token,role:incoming,teamId,syncMode:teamId?'team':'legacy'};workspaceBook.activeId=item.id;state=sanitise(item.data);localStorage.setItem(MULTI_STORE,JSON.stringify(workspaceBook));history.replaceState({},'',location.pathname);
 }
 async function verifyRole(){
   if(!state.settings.api||!state.settings.token||!state.settings.teamId)return;
-  try{const response=await fetch(`${state.settings.api}/api/v3/teams/${encodeURIComponent(state.settings.teamId)}`,{cache:'no-store',headers:{'Accept':'application/json','Authorization':`Bearer ${state.settings.token}`}});if(!response.ok)return;const json=await response.json();if(['viewer','editor','admin'].includes(json.role)&&json.role!==state.settings.role){state.settings.role=json.role;if(json.role==='viewer')state.ops=[];save();render();}}catch(error){console.warn(error);}
+  const workspaceId=workspaceBook.activeId;
+  try{const response=await fetch(`${state.settings.api}/api/v3/teams/${encodeURIComponent(state.settings.teamId)}`,{cache:'no-store',headers:{'Accept':'application/json','Authorization':`Bearer ${state.settings.token}`}});if(!response.ok)return;const json=await response.json();if(workspaceBook.activeId!==workspaceId)return;if(['viewer','editor','admin'].includes(json.role)&&json.role!==state.settings.role){state.settings.role=json.role;if(json.role==='viewer')state.ops=[];save();render();}}catch(error){console.warn(error);}
 }
 importSharedTeamFromQuery();repairPendingGames();paintSync();render();verifyRole();syncNow();setInterval(()=>{if(!document.hidden)syncNow();},5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow();});window.addEventListener('online',()=>syncNow());
 window.__ESTADISTICAS__={getState:()=>state,getWorkspaceBook:()=>workspaceBook,switchWorkspace,createWorkspace,setState:s=>{state=sanitise(s);repairPendingGames();save();render();},foldShots,splitLegacyShots,parseGame,detectGender,genderTerms,applyTeamIdentity,validateTotals,effectiveTotals,teamStats,playerAgg,teamMetricRows,aggregateMetric,playerMetricRows,playerSeasonReference,liveMetricRows,recordedLiveGames,validGames,hasManualData,currentStreak,syncNow,repairPendingGames,automaticPendingMatch,mergePendingManual,gameScore,mergeGameVersions,mergeLiveVersions,compareVersion,PLAYER_METRICS,TEAM_METRICS,LIVE_METRICS,APP_VERSION,STORE};
