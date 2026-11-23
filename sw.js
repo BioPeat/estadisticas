@@ -1,4 +1,4 @@
-const CACHE='estadisticas-v12.3-20261123a';
+const CACHE='estadisticas-v12.3-20261123b';
 const CORE=['./','./index.html','./styles.css?v=12.3','./app.js?v=12.3','./config.js?v=12.3','./manifest.json?v=12.3','./assets/jszip.min.js'];
 const OPTIONAL=['./configurar.html','./actualizar.html','./instalar.html','./landing/equipo.webp','./landing/directo.webp','./landing/jugadora.webp','./landing/compartir.webp','./assets/icon-192.png','./assets/icon-512.png','./assets/icon-maskable-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(async cache=>{await cache.addAll(CORE);for(const asset of OPTIONAL){try{await cache.add(asset)}catch(error){console.warn('Recurso opcional no cacheado',asset)}}}).then(()=>self.skipWaiting())));

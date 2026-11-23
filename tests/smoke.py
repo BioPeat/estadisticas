@@ -58,19 +58,35 @@ try:
       assert page.locator('.stat-card .dual-trend.compact').count()>=10
       assert page.locator('.score-margin').count()==3
       assert float(page.locator('.score-margin').first.evaluate("e=>getComputedStyle(e).fontSize.replace('px','')"))>=15
+      assert page.evaluate("() => {const m=document.querySelector('.score-chart .score-margin'),g=document.querySelector('.score-chart .game-label'),d=document.querySelector('.score-chart .date-label');if(!m||!g||!d)return true;const mr=m.getBoundingClientRect(),gr=g.getBoundingClientRect(),dr=d.getBoundingClientRect();return mr.bottom<=gr.top+1 && gr.bottom<=dr.top+1}")
       assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth+1')
       if width==390:
         page.select_option('#pointShareScope','average')
         assert '/P' in page.locator('.point-share .share-bars').inner_text()
         page.select_option('#pointShareScope','season')
         page.click('.bottom-nav [data-go="games"]');page.locator('.game-row').first.click()
-        assert page.evaluate("() => {const th=document.querySelector('.boxscore thead th.identity');return th ? th.scrollWidth<=th.clientWidth+2 : true}")
-        page.click('.modal-sheet .icon-button');page.click('.bottom-nav [data-go="team"]')
+        assert page.locator('.manual-table-notice').count()==0
+        assert page.evaluate("() => {const th=document.querySelector('.boxscore thead th.identity'),tot=document.querySelector('.boxscore .totals td.identity span');return (!th || th.scrollWidth<=th.clientWidth+2) && (!tot || (tot.innerText.trim()==='TOTALES' && tot.scrollWidth<=tot.clientWidth+2))}")
+        page.click('.modal-sheet .icon-button');page.click('.bottom-nav [data-go="players"]')
+        head_metrics=page.evaluate("() => {const h=document.querySelector('.player-table-head'),s=h?.querySelector('span:nth-child(2)'),b=h?.querySelector('button');if(!s||!b)return null;const sr=s.getBoundingClientRect(),br=b.getBoundingClientRect();return {diff:Math.abs((sr.top+sr.height/2)-(br.top+br.height/2)),h:h.getBoundingClientRect().height}}")
+        assert head_metrics and head_metrics['diff']<=4 and head_metrics['h']<=40,head_metrics
+        page.click('.bottom-nav [data-go="team"]')
         page.click('[data-action="open-settings"]')
         assert page.locator('.palette-swatch').count()>=5
         page.click('.palette-swatch[data-color="purple"]');page.click('[data-action="save-settings"]')
-        diff_colors=page.evaluate("() => {const pos=document.querySelector('.balance-mini i.positive'),lbl=document.querySelector('.score-label.us');return {pos:pos?getComputedStyle(pos).backgroundColor:'',us:lbl?getComputedStyle(lbl).fill:''}}")
-        assert diff_colors['pos']==diff_colors['us'] and diff_colors['pos']!='rgb(198, 40, 61)'
+        pal_check=page.evaluate("() => {const two=getComputedStyle(document.querySelector('.stacked-chart .two')).backgroundColor,three=getComputedStyle(document.querySelector('.stacked-chart .three')).backgroundColor,free=getComputedStyle(document.querySelector('.stacked-chart .free')).backgroundColor,us=getComputedStyle(document.querySelector('.score-label.us')).fill,bar=getComputedStyle(document.querySelector('.share-bars button i b')).backgroundImage;return {two,three,free,us,bar}}")
+        assert pal_check['two']==pal_check['us'] and pal_check['two']!=pal_check['three'] and pal_check['free'] not in (pal_check['two'],pal_check['three']) and 'linear-gradient' in pal_check['bar']
+        page.click('[data-action="stats-mode"][data-mode="total"]')
+        bar_align=page.evaluate("() => {const tracks=[...document.querySelectorAll('.stat-card .paired-bars i')].slice(0,2).map(e=>e.getBoundingClientRect());return tracks.length===2?Math.abs(tracks[0].left-tracks[1].left)<=1 && Math.abs(tracks[0].width-tracks[1].width)<=1:false}")
+        assert bar_align
+        page.click('[data-action="stats-mode"][data-mode="compare"]')
+        assert ' pp' not in page.locator('.stats-grid').inner_text()
+        assert '%' in page.locator('.stat-ftp .comparison-value strong').inner_text()
+        assert page.locator('.stat-threeShare .comparison-value strong.neutral').count()==1
+        assert page.evaluate("() => window.__ESTADISTICAS__.difference(null, 5) === null && window.__ESTADISTICAS__.ratio(5, null) === null")
+        cmp_colors=page.evaluate("() => ({pos:getComputedStyle(document.querySelector('.comparison-value strong.positive')).color,neg:getComputedStyle(document.querySelector('.comparison-value strong.negative')).color})")
+        assert cmp_colors['pos']!=cmp_colors['neg']
+        page.click('[data-action="stats-mode"][data-mode="average"]')
         page.click('[data-action="open-settings"]');page.click('.palette-swatch[data-color="red"]');page.click('[data-action="save-settings"]')
       page.click('[data-action="toggle-theme"]');assert page.locator('html').get_attribute('data-theme')=='dark'
       assert not errors,errors

@@ -9,18 +9,18 @@ const teamLabel = () => state?.team?.name || 'Mi equipo';
 const GENDERS={female:{singular:'Jugadora',plural:'Jugadoras',number:'N.º jugadora'},male:{singular:'Jugador',plural:'Jugadores',number:'N.º jugador'},neutral:{singular:'Jugador',plural:'Jugadores',number:'N.º jugador'}};
 const genderTerms=()=>GENDERS[state?.team?.gender]||GENDERS.neutral;
 const PALETTES={
-  red:{label:'Rojo',light:['#C6283D','#1E5F9E'],dark:['#FF6B78','#7CC4FF']},
-  blue:{label:'Azul',light:['#1D4E89','#C06034'],dark:['#6CA8F8','#F2A679']},
-  teal:{label:'Verde',light:['#15735B','#3B5B8A'],dark:['#52CFA8','#8CB4EB']},
-  purple:{label:'Morado',light:['#5B3F9E','#0E7478'],dark:['#B29BF5','#5BD0D4']},
-  wine:{label:'Burdeos',light:['#8B2654','#256D7B'],dark:['#EA7EB0','#6CC9DA']}
+  red:{label:'Rojo',light:['#C6283D','#1E5F9E','#A65E0A','#6D4BB8','#0D9488'],dark:['#FF6B78','#7CC4FF','#F2B95C','#B197F5','#4CD4A4']},
+  blue:{label:'Azul',light:['#1D4E89','#B54D22','#0B6E6D','#4B5CC4','#C67A1E'],dark:['#6CA8F8','#F2A07B','#4FD1C5','#8B9BFF','#F6C46D']},
+  teal:{label:'Verde',light:['#13735C','#3A5A8C','#9A5B13','#0E7490','#259678'],dark:['#4FD1A5','#8BB4EC','#F0B75C','#56CFE1','#6EE7B7']},
+  purple:{label:'Morado',light:['#5C3D9E','#0E7478','#A84D24','#933F8C','#2D9A82'],dark:['#B49BF5','#5CD0D4','#F09C78','#E089C8','#6EE7B7']},
+  wine:{label:'Burdeos',light:['#8C2552','#21687A','#8F5B10','#634299','#2A8C82'],dark:['#EB7EB0','#6CC9DA','#EAB95C','#B894F2','#6EE0C5']}
 };
-function applyTeamIdentity(){const key=PALETTES[state?.team?.color]?state.team.color:'blue',theme=document.documentElement.dataset.theme==='dark'?'dark':'light',[own,rival]=PALETTES[key][theme];document.documentElement.style.setProperty('--team',own);document.documentElement.style.setProperty('--rival',rival);document.documentElement.dataset.teamColor=key;}
+function applyTeamIdentity(){const key=PALETTES[state?.team?.color]?state.team.color:'blue',theme=document.documentElement.dataset.theme==='dark'?'dark':'light',[own,rival,accent,ptsStart,minEnd]=PALETTES[key][theme];const root=document.documentElement;root.style.setProperty('--team',own);root.style.setProperty('--rival',rival);root.style.setProperty('--accent',accent);root.style.setProperty('--pts-start',ptsStart);root.style.setProperty('--min-end',minEnd);root.dataset.teamColor=key;}
 function detectGender(rows){const value=norm((rows||[]).flat(Infinity).join(' ')),female=/(^| )FEM( |$)|FEMENIN[OA]/.test(value),male=/(^| )MASC( |$)|MASCULIN[OA]/.test(value);return female&&!male?'female':male&&!female?'male':null;}
 function applyDetectedGender(rows){const detected=detectGender(rows);if(detected&&(!state.team.gender||state.team.gender==='neutral')){state.team.gender=detected;save();return detected}return detected;}
 function genderOptions(value='neutral',allowBlank=false){return `${allowBlank?'<option value="">Elige una opción</option>':''}<option value="female" ${value==='female'?'selected':''}>Femenino</option><option value="male" ${value==='male'?'selected':''}>Masculino</option><option value="neutral" ${value==='neutral'?'selected':''}>Mixto o neutro</option>`;}
 function colorOptions(value='blue'){return Object.entries(PALETTES).map(([key,item])=>`<option value="${key}" ${key===value?'selected':''}>${item.label}</option>`).join('');}
-function palettePickerHTML(selectId,value='blue',disabled=false){const active=PALETTES[value]?value:'blue',theme=document.documentElement.dataset.theme==='dark'?'dark':'light';const swatches=Object.entries(PALETTES).map(([key,item])=>{const [own,rival]=item[theme];return `<button type="button" class="palette-swatch ${key===active?'active':''}" data-action="pick-palette" data-target="${selectId}" data-color="${key}" aria-pressed="${key===active}" ${disabled?'disabled':''}><span class="swatch-pair"><i style="background:${own}"></i><i style="background:${rival}"></i></span><span>${item.label}</span></button>`;}).join('');return `<div class="palette-picker"><select id="${selectId}" data-palette-select="${selectId}">${colorOptions(active)}</select><div class="palette-swatches" data-palette-for="${selectId}">${swatches}</div></div>`;}
+function palettePickerHTML(selectId,value='blue',disabled=false){const active=PALETTES[value]?value:'blue',theme=document.documentElement.dataset.theme==='dark'?'dark':'light';const swatches=Object.entries(PALETTES).map(([key,item])=>{const [own,rival,accent]=item[theme];return `<button type="button" class="palette-swatch ${key===active?'active':''}" data-action="pick-palette" data-target="${selectId}" data-color="${key}" aria-pressed="${key===active}" ${disabled?'disabled':''}><span class="swatch-pair"><i style="background:${own}"></i><i style="background:${rival}"></i><i style="background:${accent}"></i></span><span>${item.label}</span></button>`;}).join('');return `<div class="palette-picker"><select id="${selectId}" data-palette-select="${selectId}">${colorOptions(active)}</select><div class="palette-swatches" data-palette-for="${selectId}">${swatches}</div></div>`;}
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const uid = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -556,8 +556,8 @@ function gameTime(game) { return `${game.date || '9999-12-31'}|${game.importedAt
 function chronological(games) { return [...games].sort((a,b) => gameTime(a).localeCompare(gameTime(b))); }
 function validGames() { return chronological(state.games.filter(g => g.source !== 'live-pending' && hasScore(g.us) && hasScore(g.them))); }
 function hasManualData(game) { return !!(game?.availability?.manual || (game?.events || []).some(event => !event.undone)); }
-function ratio(a,b) { return Number.isFinite(+a) && Number.isFinite(+b) && +b !== 0 ? +a / +b : null; }
-function difference(a,b) { return Number.isFinite(+a) && Number.isFinite(+b) ? +a - +b : null; }
+function ratio(a,b) { return a!==null && a!==undefined && a!=='' && b!==null && b!==undefined && b!=='' && Number.isFinite(+a) && Number.isFinite(+b) && +b !== 0 ? +a / +b : null; }
+function difference(a,b) { return a!==null && a!==undefined && a!=='' && b!==null && b!==undefined && b!=='' && Number.isFinite(+a) && Number.isFinite(+b) ? +a - +b : null; }
 function noData(message='Sin datos registrados todavía') { return `<div class="no-data"><span>○</span><div><b>${esc(message)}</b><small>Los partidos sin registro no cuentan como 0 ni entran en medias o ratios.</small></div></div>`; }
 
 function playerAgg() {
@@ -652,24 +652,24 @@ function scoreChart(games, expanded = false) {
   if (!games.length) return '';
   const ordered = chronological(games);
   const all = ordered.flatMap(game => [+game.us, +game.them]);
-  const max = Math.max(...all, 1), min = Math.min(...all, 0), w = ordered.length > 6 ? Math.max(760, ordered.length * (expanded ? 108 : 92)) : 760, h = expanded ? 300 : 250;
+  const max = Math.max(...all, 1), min = Math.min(...all, 0), w = ordered.length > 6 ? Math.max(760, ordered.length * (expanded ? 108 : 92)) : 760, h = expanded ? 320 : 272;
   const left=54,right=54;
   const x = index => ordered.length === 1 ? w / 2 : left + index * (w-left-right)/(ordered.length-1);
-  const y = value => h-82-(value-min)/(max-min||1)*(h-132);
+  const y = value => h-102-(value-min)/(max-min||1)*(h-152);
   const line = key => ordered.map((game,index)=>`${x(index)},${y(+game[key])}`).join(' ');
   const margins=ordered.map(game=>+game.us-(+game.them)), marginMax=Math.max(1,...margins.map(Math.abs));
-  const marginBase=h-54, marginY=value=>marginBase-(value/marginMax)*16;
+  const marginBase=h-76, marginY=value=>marginBase-(value/marginMax)*12;
   const label=`${ordered.length} partido${ordered.length===1?'':'s'}${ordered.length>6?' · desliza ↔':''}`;
   return `<div class="score-chart-frame ${expanded?'expanded':''}"><div class="chart-window-label">${label}</div><div class="score-chart-scroller" data-detail="score-chart" tabindex="0" role="button" aria-label="Ampliar el gráfico completo"><svg class="score-chart" viewBox="0 0 ${w} ${h}" ${ordered.length>6||expanded?`style="min-width:${w}px!important"`:''} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Marcador y diferencia de ${ordered.length} partidos">
-    <line class="grid-line" x1="26" y1="${marginBase}" x2="${w-26}" y2="${marginBase}"/><text class="axis-label" x="${w-18}" y="14" text-anchor="end">máx ${max}</text><text class="axis-label" x="14" y="${h-82}">mín ${min}</text>
+    <line class="grid-line" x1="26" y1="${marginBase}" x2="${w-26}" y2="${marginBase}"/><text class="axis-label" x="${w-18}" y="14" text-anchor="end">máx ${max}</text><text class="axis-label" x="14" y="${h-100}">mín ${min}</text>
     <polyline class="score-us" points="${line('us')}"/><polyline class="score-them" points="${line('them')}"/>
     <polyline class="score-difference" points="${margins.map((value,index)=>`${x(index)},${marginY(value)}`).join(' ')}"/>
-    ${ordered.map((game,index)=>{const margin=+game.us-(+game.them),yu=y(+game.us),yt=y(+game.them),close=Math.abs(yu-yt)<32,ux=close?(index===0?x(index):index===ordered.length-1?x(index)-18:x(index)-15):x(index),tx=close?(index===0?x(index)+18:index===ordered.length-1?x(index):x(index)+15):x(index);return `<g data-detail="game:${game.id}" tabindex="0" role="button">
+    ${ordered.map((game,index)=>{const margin=+game.us-(+game.them),yu=y(+game.us),yt=y(+game.them),close=Math.abs(yu-yt)<32,ux=close?(index===0?x(index):index===ordered.length-1?x(index)-18:x(index)-15):x(index),tx=close?(index===0?x(index)+18:index===ordered.length-1?x(index):x(index)+15):x(index),usAbove=yu<=yt,usY=usAbove?Math.max(22,yu-15):Math.min(h-104,yu+25),themY=usAbove?Math.min(h-104,yt+25):Math.max(22,yt-15);return `<g data-detail="game:${game.id}" tabindex="0" role="button">
       <circle class="score-us" cx="${x(index)}" cy="${yu}" r="7"/><circle class="score-them" cx="${x(index)}" cy="${yt}" r="7"/>
-      <text class="score-label us" x="${ux}" y="${Math.max(22,yu-15)}" text-anchor="middle">${game.us}</text>
-      <text class="score-label them" x="${tx}" y="${Math.min(h-86,yt+27)}" text-anchor="middle">${game.them}</text>
-      <text class="score-margin ${margin>=0?'positive':'negative'}" x="${x(index)}" y="${h-29}" text-anchor="middle">${margin>0?'+':''}${margin}</text>
-      <text class="game-label" x="${x(index)}" y="${h-18}" text-anchor="middle">P${index+1}</text>
+      <text class="score-label us" x="${ux}" y="${usY}" text-anchor="middle">${game.us}</text>
+      <text class="score-label them" x="${tx}" y="${themY}" text-anchor="middle">${game.them}</text>
+      <text class="score-margin ${margin>=0?'positive':'negative'}" x="${x(index)}" y="${h-42}" text-anchor="middle">${margin>0?'+':''}${margin}</text>
+      <text class="game-label" x="${x(index)}" y="${h-20}" text-anchor="middle">P${index+1}</text>
       <text class="date-label" x="${x(index)}" y="${h-4}" text-anchor="middle">${esc(String(game.date||'').slice(5))}</text>
       <title>${esc(gameSides(game))}: ${gameScore(game)} · diferencia ${margin>0?'+':''}${margin}</title></g>`;}).join('')}
   </svg></div><div class="chart-legend"><span class="us">${esc(teamLabel())}</span><span class="them">Rival</span><span class="margin">Diferencia</span></div></div>`;
@@ -828,20 +828,27 @@ function dualTrendSVG(rows, key, compact = false) {
   </svg>`;
 }
 
-function pairedBarsVisual(key, rows) {
-  const own=aggregateMetric(key,rows,'own'), opp=aggregateMetric(key,rows,'opp'), max=Math.max(+own||0,+opp||0,1);
-  return `<div class="paired-bars"><div><span>${esc(teamLabel())}</span><i><b class="own" style="width:${(+own||0)/max*100}%"></b></i></div><div><span>Rival</span><i><b class="opp" style="width:${(+opp||0)/max*100}%"></b></i></div></div>`;
+function pairedBarsVisual(key, rows, mode = statsMode, ownLbl = teamLabel(), oppLbl = 'Rival') {
+  const own=aggregateMetric(key,rows,'own',mode), opp=aggregateMetric(key,rows,'opp',mode), max=Math.max(+own||0,+opp||0,1);
+  return `<div class="paired-bars"><div><span>${esc(ownLbl)}</span><i><b class="own" style="width:${(+own||0)/max*100}%"></b></i></div><div><span>${esc(oppLbl)}</span><i><b class="opp" style="width:${(+opp||0)/max*100}%"></b></i></div></div>`;
+}
+
+function comparisonTone(delta, metric = {}) {
+  if (metric?.higherBetter === null) return 'neutral';
+  if (delta === null || delta === undefined || delta === '' || !Number.isFinite(+delta) || Math.abs(+delta) < 0.05) return 'neutral';
+  const good = metric.lowerBetter ? +delta < 0 : +delta > 0;
+  return good ? 'positive' : 'negative';
 }
 
 function balanceVisual(key, rows) {
-  const shown=rows.length>10?rows.slice(-10):rows,delta=row=>key==='margin'?(+row.own||0):(difference(row.own,row.opp)||0),max=Math.max(1,...shown.map(row=>Math.abs(delta(row)))),metric=TEAM_METRICS[key]||{};
-  return `<div class="balance-mini diverging" aria-label="Diferencia entre mi equipo y el rival: arriba ventaja, abajo desventaja">${shown.map(row=>{const d=delta(row),good=metric.lowerBetter?d<=0:d>=0,h=Math.max(3,Math.abs(d)/max*50);return `<span class="div-col" title="${esc(row.game?.opponent||'')} ${d>0?'+':''}${num(d,key==='margin'||key==='possession'?0:1)}"><i class="${good?'positive':'negative'} ${d>=0?'up':'down'}" style="height:${h}%"></i></span>`}).join('')}</div>`;
+  const shown=rows.length>10?rows.slice(-10):rows,delta=row=>['margin','possession'].includes(key)?(row.own===null?null:+row.own):difference(row.own,row.opp),max=Math.max(1,...shown.map(row=>Math.abs(delta(row)||0))),metric=TEAM_METRICS[key]||{};
+  return `<div class="balance-mini diverging" aria-label="Diferencia entre mi equipo y el rival: arriba ventaja, abajo desventaja">${shown.map(row=>{const d=delta(row);if(d===null)return `<span class="div-col empty"></span>`;const tone=comparisonTone(d,metric),h=Math.max(3,Math.abs(d)/max*50);return `<span class="div-col" title="${esc(row.game?.opponent||'')} ${d>0?'+':''}${num(d,key==='margin'||key==='possession'?0:1)}"><i class="${tone} ${d>=0?'up':'down'}" style="height:${h}%"></i></span>`}).join('')}</div>`;
 }
 
 function metricMiniVisual(key, rows, mode=statsMode) {
   let visual;
   if (key==='margin') visual=balanceVisual(key,rows);
-  else if (rows.length===1 || mode==='total') visual=pairedBarsVisual(key,rows);
+  else if (rows.length===1 || mode==='total') visual=pairedBarsVisual(key,rows,mode);
   else if (mode==='compare') visual=balanceVisual(key,rows);
   else visual=dualTrendSVG(rows,key,true);
   const kind=key==='margin'||mode==='compare'?'balance':(rows.length===1||mode==='total')?'barras':'evolución';
@@ -856,8 +863,8 @@ function teamMetricCard(key) {
   const ownShown = mode === 'total' ? ownTotal : ownAverage, oppShown = mode === 'total' ? oppTotal : oppAverage;
   const modeLabel = ['ftp','threeShare','freeShare'].includes(key) ? 'temporada' : mode === 'total' ? 'total' : mode==='compare'?'diferencia media':'por partido';
   const detail = key === 'ftp' ? `TL ${sum(rows,row=>effectiveTotals(row.game,'own').ftm)}/${sum(rows,row=>effectiveTotals(row.game,'own').fta)}` : '';
-  if (key==='margin') return `<button class="stat-card stat-margin single-value-card" data-detail="metric:margin"><header><span>Diferencia</span><small>${esc(teamLabel())} − Rival</small></header><div class="comparison-value"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><span>${modeLabel}</span></div>${metricMiniVisual(key,rows,statsMode)}<footer><b>Ver detalle →</b></footer></button>`;
-  if (statsMode==='compare' && metric.compare) {const delta=difference(ownAverage,oppAverage),shown=metric.percent?`${signed(delta)} pp`:signed(delta);return `<button class="stat-card stat-${key} comparison-card" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${esc(teamLabel())} − Rival</small></header><div class="comparison-value"><strong>${shown}</strong><span>por partido</span></div>${metricMiniVisual(key,rows,statsMode)}<footer><b>Ver detalle →</b></footer></button>`;}
+  if (key==='margin') return `<button class="stat-card stat-margin single-value-card" data-detail="metric:margin"><header><span>Diferencia</span><small>${esc(teamLabel())} − Rival</small></header><div class="comparison-value"><strong class="${comparisonTone(ownShown,metric)}">${metricValue(key,ownShown,mode==='total'?0:1)}</strong><span>${modeLabel}</span></div>${metricMiniVisual(key,rows,statsMode)}<footer><b>Ver detalle →</b></footer></button>`;
+  if (statsMode==='compare' && metric.compare) {const delta=difference(ownShown,oppShown),shown=metric.percent?`${signed(delta)}%`:signed(delta),cmpSub=['ftp','threeShare','freeShare'].includes(key)?'temporada':'por partido';return `<button class="stat-card stat-${key} comparison-card" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${esc(teamLabel())} − Rival</small></header><div class="comparison-value"><strong class="${comparisonTone(delta,metric)}">${shown}</strong><span>${cmpSub}</span></div>${metricMiniVisual(key,rows,statsMode)}<footer><b>Ver detalle →</b></footer></button>`;}
   if (!metric.compare) return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${esc(teamLabel())}</small></header><div class="stat-values own-only"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><span>${modeLabel}</span></div>${metricMiniVisual(key,rows,statsMode)}<footer>${detail?`<span>${detail}</span>`:''}<b>Ver detalle →</b></footer></button>`;
   const hint=metric.lowerBetter?`${esc(teamLabel())} / Rival · menos`:`${esc(teamLabel())} / Rival`;
   return `<button class="stat-card stat-${key}" data-detail="metric:${key}"><header><span>${metric.label}</span><small>${hint}</small></header><div class="stat-values"><strong>${metricValue(key,ownShown,mode==='total'?0:1)}</strong><strong>${metricValue(key,oppShown,mode==='total'?0:1)}</strong></div><div class="value-caption"><span>${esc(teamLabel())}</span><span>Rival</span></div>${metricMiniVisual(key,rows,statsMode)}<footer>${detail?`<span>${detail}</span>`:''}<b>Ver detalle →</b></footer></button>`;
@@ -909,12 +916,13 @@ function liveMetricCard(key) {
   const metric=LIVE_METRICS[key],rows=liveMetricRows(key),ownTotal=sum(rows,row=>row.own),oppTotal=sum(rows,row=>row.opp),ownAvg=mean(rows,row=>row.own),oppAvg=mean(rows,row=>row.opp);
   if(!rows.length)return '';
   const compareMode=statsMode==='compare',totalMode=statsMode==='total',own=totalMode?ownTotal:ownAvg,opp=totalMode?oppTotal:oppAvg;
-  if(key==='possession'){const shown=totalMode?ownTotal:ownAvg,label=totalMode?'total':'por partido',visual=balanceVisual('possession',rows);return `<button class="stat-card live-stat-card possession-card single-value-card" data-detail="live:possession"><header><span>${metric.label}</span><small>Directo</small></header><div class="comparison-value"><strong>${metricValue('possession',shown,totalMode?0:1)}</strong><span>${label}</span></div><div class="metric-evolution visual-balance">${visual}</div><footer><b>Ver detalle →</b></footer></button>`;}
+  if(key==='possession'){const shown=totalMode?ownTotal:ownAvg,label=totalMode?'total':'por partido',visual=balanceVisual('possession',rows);return `<button class="stat-card live-stat-card possession-card single-value-card" data-detail="live:possession"><header><span>${metric.label}</span><small>Directo</small></header><div class="comparison-value"><strong class="${comparisonTone(shown)}">${metricValue('possession',shown,totalMode?0:1)}</strong><span>${label}</span></div><div class="metric-evolution visual-balance">${visual}</div><footer><b>Ver detalle →</b></footer></button>`;}
   const share=(ownTotal+oppTotal)?ownTotal/(ownTotal+oppTotal)*100:null, relation=ratio(ownTotal,oppTotal),balance=ownTotal-oppTotal;
   const insight=key==='ball'?`Ratio ${relation===null?'—':num(relation,2)}`:`Cuota ${share===null?'—':pct(share)}`;
   const shortOwn=key==='ball'?'Robos':'Propio',shortOpp=key==='ball'?'Pérdidas':'Rival';
-  const values=compareMode?`<div class="comparison-value"><strong>${signed(balance).replace(',0','')}</strong><span>${key==='ball'?'Robos − pérdidas':'Propio − rival'}</span></div>`:`<div class="stat-values"><strong>${num(own,totalMode?0:1)}</strong><strong>${num(opp,totalMode?0:1)}</strong></div><div class="value-caption"><span>${shortOwn}</span><span>${shortOpp}</span></div>`;
-  const mini=rows.length===1||totalMode?pairedBarsVisual(key,rows):compareMode?balanceVisual(key,rows):dualTrendSVG(rows,key,true);
+  const cmpDelta=difference(ownAvg,oppAvg);
+  const values=compareMode?`<div class="comparison-value"><strong class="${comparisonTone(cmpDelta)}">${signed(cmpDelta)}</strong><span>por partido</span></div>`:`<div class="stat-values"><strong>${num(own,totalMode?0:1)}</strong><strong>${num(opp,totalMode?0:1)}</strong></div><div class="value-caption"><span>${shortOwn}</span><span>${shortOpp}</span></div>`;
+  const mini=rows.length===1||totalMode?pairedBarsVisual(key,rows,totalMode?'total':'average',shortOwn,shortOpp):compareMode?balanceVisual(key,rows):dualTrendSVG(rows,key,true);
   const visual=`<div class="metric-evolution">${mini}</div>`;
   return `<button class="stat-card live-stat-card ${compareMode?'comparison-card':''}" data-detail="live:${key}"><header><span>${metric.label}</span><small>Directo</small></header>${values}${visual}<footer><span>${insight}</span><b>Ver detalle →</b></footer></button>`;
 }
@@ -992,7 +1000,7 @@ function quarterCardsHTML(qStats) {
   const offFooter = bestOff ? `Mejor ${bestOff.label} (${num(val(bestOff, 'us'), digits)})` : '';
   const defFooter = bestDef ? `Mejor ${bestDef.label} (${num(val(bestDef, 'them'), digits)})` : '';
   const maxAbsDiff = Math.max(1, ...regs.map(p => Math.abs(val(p, 'diff') || 0)));
-  const divBars = `<div class="quarter-div-wrap"><div class="balance-mini diverging">${regs.map(p => {const d = val(p, 'diff') || 0, h = Math.max(4, Math.abs(d) / maxAbsDiff * 50); return `<span class="div-col" title="${p.label}: ${signed(d).replace(',0', '')}"><i class="${d >= 0 ? 'positive up' : 'negative down'}" style="height:${h}%"></i></span>`;}).join('')}</div><div class="quarter-div-labels">${regs.map(p => {const d = val(p, 'diff') || 0; return `<span><b>${p.label}</b><small class="${d > 0 ? 'positive' : d < 0 ? 'negative' : ''}">${signed(d).replace(',0', '')}</small></span>`;}).join('')}</div></div>`;
+  const divBars = `<div class="quarter-div-wrap"><div class="balance-mini diverging">${regs.map(p => {const d = val(p, 'diff') || 0, h = Math.max(4, Math.abs(d) / maxAbsDiff * 50), tone = comparisonTone(d); return `<span class="div-col" title="${p.label}: ${signed(d).replace(',0', '')}"><i class="${tone} ${d >= 0 ? 'up' : 'down'}" style="height:${h}%"></i></span>`;}).join('')}</div><div class="quarter-div-labels">${regs.map(p => {const d = val(p, 'diff') || 0; return `<span><b>${p.label}</b><small class="${d > 0 ? 'positive' : d < 0 ? 'negative' : ''}">${signed(d).replace(',0', '')}</small></span>`;}).join('')}</div></div>`;
   const h1 = qStats.firstHalf.gamesCount ? (totalMode ? qStats.firstHalf.diffTotal : qStats.firstHalf.diffAvg) : null;
   const h2 = qStats.secondHalf.gamesCount ? (totalMode ? qStats.secondHalf.diffTotal : qStats.secondHalf.diffAvg) : null;
   const marginFooter = (h1 !== null && h2 !== null) ? `1ª ${signed(h1).replace(',0', '')} · 2ª ${signed(h2).replace(',0', '')}` : '';
@@ -1004,7 +1012,7 @@ function quarterCardsHTML(qStats) {
   return `
     <button class="stat-card quarter-stat-card" data-detail="quarters:offense"><header><span>Puntos por cuarto</span><small>${esc(teamLabel())}</small></header><div class="stat-values own-only"><strong>${offHeaderVal}</strong></div><div class="value-caption single"><span>${subCap}</span></div><div class="metric-evolution">${miniBars('us', 'own', bestOff)}</div><footer>${offFooter?`<span>${offFooter}</span>`:''}<b>Ver detalle →</b></footer></button>
     <button class="stat-card quarter-stat-card" data-detail="quarters:defense"><header><span>Permitidos por cuarto</span><small>Rival</small></header><div class="stat-values own-only opp-value"><strong>${defHeaderVal}</strong></div><div class="value-caption single"><span>${subCap}</span></div><div class="metric-evolution">${miniBars('them', 'opp', bestDef)}</div><footer>${defFooter?`<span>${defFooter}</span>`:''}<b>Ver detalle →</b></footer></button>
-    <button class="stat-card quarter-stat-card single-value-card" data-detail="quarters:margin"><header><span>Parcial por cuarto</span><small>${esc(teamLabel())} − Rival</small></header><div class="comparison-value"><strong>${diffMain}</strong></div><div class="value-caption single"><span>${diffCap}</span></div><div class="metric-evolution visual-balance">${divBars}</div><footer>${marginFooter?`<span>${marginFooter}</span>`:''}<b>Ver detalle →</b></footer></button>`;
+    <button class="stat-card quarter-stat-card single-value-card" data-detail="quarters:margin"><header><span>Parcial por cuarto</span><small>${esc(teamLabel())} − Rival</small></header><div class="comparison-value"><strong class="${comparisonTone(totalMode ? diffSum : diffPerQ)}">${diffMain}</strong></div><div class="value-caption single"><span>${diffCap}</span></div><div class="metric-evolution visual-balance">${divBars}</div><footer>${marginFooter?`<span>${marginFooter}</span>`:''}<b>Ver detalle →</b></footer></button>`;
 }
 
 function renderTeam() {
@@ -1053,7 +1061,7 @@ function renderPlayers() {
   const sortHead=(key,label)=>`<button data-action="sort-players" data-key="${key}" aria-sort="${playerSort===key?(playerSortDir===-1?'descending':'ascending'):'none'}">${label}${playerSort===key?(playerSortDir===-1?' ↓':' ↑'):''}</button>`;
   return head('players-page', genderTerms().plural, `<button class="btn" data-action="manage-roster">Gestionar plantilla</button><button class="btn" data-action="import-roster">Actualizar plantilla</button>`, `${players.length} ${genderTerms().plural.toLowerCase()}`) + reimportBanner() + `<div class="player-table-head"><span></span><span>${genderTerms().singular}</span><span></span>${sortHead('pts','PTS/P')}${sortHead('min','MIN/P')}${sortHead('val','VAL/P')}<span></span></div><div class="player-ranking">${players.map(p => {
     const points = p.games.map(x => x.p.pts), ppg = p.gp ? p.pts / p.gp : null;
-    return `<button class="player-rank" data-detail="player:${encodeURIComponent(norm(p.name))}"><span class="player-number">${esc(p.number || '—')}</span><span class="player-id"><b>${esc(namePretty(p.name))}</b><small>${p.gp ? `${p.gp} partidos` : 'Sin acta'}</small></span><span class="player-spark">${sparkline(points, 'player', 100, 30)}</span><span class="rank-metric" title="Puntos por partido"><b>${p.gp ? num(ppg) : '—'}</b><small>PTS/P</small></span><span class="rank-metric" title="Minutos por partido"><b>${p.gp ? num(p.min / p.gp) : '—'}</b><small>MIN/P</small></span><span class="rank-metric" title="Valoración por partido"><b>${p.gp ? num(p.val / p.gp) : '—'}</b><small>VAL/P</small></span><span class="rank-arrow">›</span></button>`;
+    return `<button class="player-rank" data-detail="player:${encodeURIComponent(norm(p.name))}"><span class="player-number">${esc(p.number || '—')}</span><span class="player-id"><b>${esc(namePretty(p.name))}</b><small>${p.gp ? `${p.gp} partido${p.gp===1?'':'s'}` : 'Sin acta'}</small></span><span class="player-spark">${sparkline(points, 'player', 100, 30)}</span><span class="rank-metric" title="Puntos por partido"><b>${p.gp ? num(ppg) : '—'}</b><small>PTS/P</small></span><span class="rank-metric" title="Minutos por partido"><b>${p.gp ? num(p.min / p.gp) : '—'}</b><small>MIN/P</small></span><span class="rank-metric" title="Valoración por partido"><b>${p.gp ? num(p.val / p.gp) : '—'}</b><small>VAL/P</small></span><span class="rank-arrow">›</span></button>`;
   }).join('')}</div></section>`;
 }
 
@@ -1192,11 +1200,11 @@ function openPlayerDetail(key,metricKey='pts',shareMode='average') {
 
 /* ── Match report and shot maps ─────────────────────────────────── */
 const BOX_GROUPS = [
-  {label:'', cols:[['min','MIN'],['pts','PTS']]},
+  {label:'GENERAL', cols:[['min','MIN'],['pts','PTS']]},
   {label:'TIRO', cols:[['p2ai','2P'],['p3ai','3P'],['ftai','TL']]},
   {label:'REBOTE', optional:true, cols:[['rebDef','DEF'],['rebOff','OF'],['rebTot','TOT']]},
   {label:'JUEGO', optional:true, cols:[['ast','AST'],['rec','REC'],['per','PER'],['tapTc','TAP'],['tapTr','TAP R']]},
-  {label:'', cols:[['fouls','FAL'],['foulsDrawn','FR'],['val','VAL'],['pm','+/-']]},
+  {label:'FALTAS · VAL', cols:[['fouls','FAL'],['foulsDrawn','FR'],['val','VAL'],['pm','+/-']]},
   {label:'DIRECTO', live:true, cols:[['liveSteals','ROB'],['liveTurnovers','PER'],['liveOrb','REB O'],['liveRivalOrb','REB R']]}
 ];
 
@@ -1263,7 +1271,6 @@ function renderGameDetail() {
   }
   const warning = g.needsReimport || (!own && !players.length) ? `<div class="reimport-inline"><b>Faltan datos del rival</b><span>Vuelve a importar el acta. La actualización conserva Directo y mapas.</span><button class="btn" data-action="import-games">Reimportar</button></div>` : '';
   const directWarning=directWarnings.length?`<div class="data-warning"><b>Revisar Directo</b><span>Las filas individuales y el total no cuadran (${directWarnings.map(k=>({liveSteals:'ROB',liveTurnovers:'PER',liveOrb:'REB O'}[k])).join(', ')}). Puede faltar alguna ${genderTerms().singular.toLowerCase()} en el acta.</span></div>`:'';
-  const manualNotice=own&&!manualAvailable?`<div class="manual-table-notice"><b>ROB · PER · REB O · REB R</b><span>Sin datos registrados todavía. Las columnas se muestran para distinguir ausencia de un cero real.</span></div>`:'';
   const quartersStrip = hasQuarterData(g) ? (() => {
     const qs = sanitiseQuarters(g.quarters);
     const q1 = qs.find(x => x.quarter === 1), q2 = qs.find(x => x.quarter === 2), q3 = qs.find(x => x.quarter === 3), q4 = qs.find(x => x.quarter === 4);
@@ -1274,7 +1281,7 @@ function renderGameDetail() {
     })() : '';
     return `<section class="game-quarters-strip" aria-label="Parciales por cuarto"><div class="game-quarters-head"><b>Parciales (${esc(teamLabel())}–Rival)</b></div><div class="game-quarters-pills">${qs.map(item => {const d = item.us - item.them; return `<div class="game-quarter-pill ${d > 0 ? 'win' : d < 0 ? 'loss' : ''}"><span>${quarterShort(item.quarter)}</span><strong>${item.us}–${item.them}</strong><em>${d > 0 ? '+' : ''}${d}</em></div>`;}).join('')}</div>${halves}</section>`;
   })() : '';
-  $('#gameDetail').innerHTML = `<div class="score-hero"><div><span>${esc(gameSides(g))} · ${fmtDate(g.date)} · local–visitante</span><strong>${gameScore(g)}</strong></div><div class="result-pill ${g.us > g.them ? 'win' : 'loss'}">${g.us > g.them ? 'Victoria' : 'Derrota'}</div></div>${quartersStrip}${warning}${directWarning}${manualNotice}<div class="team-tabs"><button class="${own ? 'active' : ''}" data-action="game-team" data-side="own">${esc(teamLabel())} · ${g.us}</button><button class="${!own ? 'active' : ''}" data-action="game-team" data-side="opp">${esc(g.opponent)} · ${g.them}</button></div><div class="box-hint">Desliza la tabla</div><div class="box-wrap"><table class="boxscore"><thead><tr><th class="identity" rowspan="2" data-action="sort-box" data-key="number"><span class="box-id-head">${genderTerms().number}</span><span class="box-id-sub">Nombre</span></th>${groups.map(group => `<th colspan="${group.cols.length}">${group.label}</th>`).join('')}</tr><tr>${groups.map(group => group.cols.map(([k,label]) => `<th data-action="sort-box" data-key="${k}">${label}${modalContext.sort === k ? (modalContext.dir === 1 ? ' ↑' : ' ↓') : ''}</th>`).join('')).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="${r._teamUnassigned?'team-unassigned':''}"><td class="identity" title="${esc(namePretty(r.name))}"><b>${esc(r.number || '—')}</b><span>${esc(r._teamUnassigned?'Equipo / sin asignar':firstName(r.name))}</span></td>${columns.map(([k]) => `<td>${formatBox(r,k)}</td>`).join('')}</tr>`).join('')}<tr class="totals"><td class="identity"><b></b><span>TOTALES</span></td>${columns.map(([k]) => `<td>${formatBox(total,k)}</td>`).join('')}</tr></tbody></table></div><div class="game-map-block"><div class="map-switch"><button class="${modalContext.map === 'attack' ? 'active' : ''}" data-action="game-map" data-mode="attack">Ataque</button><button class="${modalContext.map === 'defense' ? 'active' : ''}" data-action="game-map" data-mode="defense">Defensa</button><button class="${modalContext.map === 'both' ? 'active' : ''}" data-action="game-map" data-mode="both">Juntos</button></div>${courtHTML(modalContext.map === 'defense' ? [] : g.shotsFor || [], modalContext.map === 'attack' ? [] : g.shotsAgainst || [], false)}<button class="btn" data-action="shot-for-game" data-id="${g.id}">Editar mapa</button></div>`;
+  $('#gameDetail').innerHTML = `<div class="score-hero"><div><span>${esc(gameSides(g))} · ${fmtDate(g.date)} · local–visitante</span><strong>${gameScore(g)}</strong></div><div class="result-pill ${g.us > g.them ? 'win' : 'loss'}">${g.us > g.them ? 'Victoria' : 'Derrota'}</div></div>${quartersStrip}${warning}${directWarning}<div class="team-tabs"><button class="${own ? 'active' : ''}" data-action="game-team" data-side="own">${esc(teamLabel())} · ${g.us}</button><button class="${!own ? 'active' : ''}" data-action="game-team" data-side="opp">${esc(g.opponent)} · ${g.them}</button></div><div class="box-hint">Desliza la tabla</div><div class="box-wrap" data-side="${own ? 'own' : 'opp'}"><table class="boxscore"><thead><tr><th class="identity" rowspan="2" data-action="sort-box" data-key="number"><span class="box-id-head">${genderTerms().number}</span><span class="box-id-sub">Nombre</span></th>${groups.map(group => `<th colspan="${group.cols.length}">${group.label}</th>`).join('')}</tr><tr>${groups.map(group => group.cols.map(([k,label]) => `<th data-action="sort-box" data-key="${k}">${label}${modalContext.sort === k ? (modalContext.dir === 1 ? ' ↑' : ' ↓') : ''}</th>`).join('')).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="${r._teamUnassigned?'team-unassigned':''}"><td class="identity" title="${esc(namePretty(r.name))}"><b>${esc(r.number || '—')}</b><span>${esc(r._teamUnassigned?'Equipo / sin asignar':firstName(r.name))}</span></td>${columns.map(([k]) => `<td>${formatBox(r,k)}</td>`).join('')}</tr>`).join('')}<tr class="totals"><td class="identity"><b></b><span>TOTALES</span></td>${columns.map(([k]) => `<td>${formatBox(total,k)}</td>`).join('')}</tr></tbody></table></div><div class="game-map-block"><div class="map-switch"><button class="${modalContext.map === 'attack' ? 'active' : ''}" data-action="game-map" data-mode="attack">Ataque</button><button class="${modalContext.map === 'defense' ? 'active' : ''}" data-action="game-map" data-mode="defense">Defensa</button><button class="${modalContext.map === 'both' ? 'active' : ''}" data-action="game-map" data-mode="both">Juntos</button></div>${courtHTML(modalContext.map === 'defense' ? [] : g.shotsFor || [], modalContext.map === 'attack' ? [] : g.shotsAgainst || [], false)}<button class="btn" data-action="shot-for-game" data-id="${g.id}">Editar mapa</button></div>`;
 }
 
 function openScoringMixDetail() {
@@ -1894,4 +1901,4 @@ async function verifyRole(){
   }catch(error){console.warn(error);}
 }
 importSharedTeamFromQuery();repairPendingGames();paintSync();render();verifyRole();syncNow();setInterval(()=>{if(!document.hidden)syncNow();},5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow();});window.addEventListener('online',()=>syncNow());
-window.__ESTADISTICAS__={getState:()=>state,getWorkspaceBook:()=>workspaceBook,switchWorkspace,createWorkspace,setState:s=>{state=sanitise(s);repairPendingGames();save();render();},foldShots,splitLegacyShots,sanitiseQuarters,hasQuarterData,quarterGames,quarterStats,shotPrompt,parseGame,detectGender,genderTerms,applyTeamIdentity,validateTotals,effectiveTotals,teamStats,playerAgg,teamMetricRows,aggregateMetric,playerMetricRows,playerSeasonReference,liveMetricRows,recordedLiveGames,validGames,hasManualData,currentStreak,syncNow,repairPendingGames,automaticPendingMatch,mergePendingManual,gameScore,mergeGameVersions,mergeLiveVersions,compareVersion,PLAYER_METRICS,TEAM_METRICS,LIVE_METRICS,APP_VERSION,STORE};
+window.__ESTADISTICAS__={getState:()=>state,getWorkspaceBook:()=>workspaceBook,switchWorkspace,createWorkspace,setState:s=>{state=sanitise(s);repairPendingGames();save();render();},foldShots,splitLegacyShots,sanitiseQuarters,hasQuarterData,quarterGames,quarterStats,shotPrompt,parseGame,detectGender,genderTerms,applyTeamIdentity,validateTotals,effectiveTotals,teamStats,playerAgg,teamMetricRows,aggregateMetric,playerMetricRows,playerSeasonReference,liveMetricRows,recordedLiveGames,validGames,hasManualData,currentStreak,difference,ratio,syncNow,repairPendingGames,automaticPendingMatch,mergePendingManual,gameScore,mergeGameVersions,mergeLiveVersions,compareVersion,PLAYER_METRICS,TEAM_METRICS,LIVE_METRICS,APP_VERSION,STORE};
