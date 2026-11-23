@@ -16,6 +16,8 @@ class Statement{
     if(s.startsWith("INSERT INTO schema_meta")){d.schema=Number(a[0]);return {success:true};}
     if(s.startsWith('UPDATE access_tokens SET last_used_at')){const row=d.access.find(x=>x.id===a[1]);if(row)row.last_used_at=a[0];return {success:true};}
     if(s.startsWith('UPDATE team_access_tokens SET last_used_at')){const row=d.teamAccess.find(x=>x.id===a[1]);if(row)row.last_used_at=a[0];return {success:true};}
+    if(s.startsWith('INSERT INTO team_access_tokens')){d.teamAccess.push({id:a[0],team_id:a[1],token_hash:a[2],role:a[3],label:a[4],created_at:a[5],expires_at:a[6],revoked_at:null,last_used_at:null,bound_client_id:null,bound_at:null});return {success:true};}
+    if(s.startsWith('UPDATE team_access_tokens SET bound_client_id=')){const row=d.teamAccess.find(x=>x.id===a[2]&&!x.bound_client_id);if(row){row.bound_client_id=a[0];row.bound_at=a[1];}return {success:true};}
     if(s.startsWith('INSERT OR IGNORE INTO events')){if(!d.events.some(x=>x.id===a[0]))d.events.push({seq:d.events.length+1,id:a[0],at:a[1],type:a[2],payload:a[3],actor:a[4]});return {success:true};}
     if(s.startsWith('INSERT OR IGNORE INTO team_events')){if(!d.teamEvents.some(x=>x.team_id===a[0]&&x.id===a[1]))d.teamEvents.push({seq:d.teamEvents.length+1,team_id:a[0],id:a[1],at:a[2],type:a[3],payload:a[4],actor:a[5]});return {success:true};}
     if(s.startsWith('DELETE FROM team_events')){d.teamEvents=d.teamEvents.filter(x=>x.team_id!==a[0]);return {success:true};}
@@ -31,6 +33,7 @@ class Statement{
     if(s.startsWith('INSERT INTO rate_limits')){const [key,bucket,amount,updated_at]=a,row=d.rates.get(key);const next=!row||row.bucket!==bucket?{bucket,count:amount,updated_at}:{bucket,count:row.count+amount,updated_at};d.rates.set(key,next);return {...next};}
     if(s.includes('FROM access_tokens WHERE token_hash=')){const [digest,stamp]=a;return d.access.find(x=>x.token_hash===digest&&!x.revoked_at&&(!x.expires_at||x.expires_at>stamp))||null;}
     if(s.includes('FROM team_access_tokens WHERE team_id=')){const [team,digest,stamp]=a;return d.teamAccess.find(x=>x.team_id===team&&x.token_hash===digest&&!x.revoked_at&&(!x.expires_at||x.expires_at>stamp))||null;}
+    if(s.startsWith('SELECT bound_client_id,bound_at FROM team_access_tokens WHERE id='))return d.teamAccess.find(x=>x.id===a[0])||null;
     if(s.startsWith('SELECT id,name,season,created_at,updated_at FROM teams'))return d.teams.find(x=>x.id===a[0])||null;
     if(s.startsWith('SELECT COUNT(*) n FROM access_tokens'))return {n:d.access.length};
     throw Error(`first no simulado: ${s}`);
@@ -44,7 +47,7 @@ class Statement{
   }
 }
 class FakeD1{
-  constructor(data){this.data={schema:3,access:[],events:[],teams:[],teamAccess:[],teamEvents:[],rates:new Map(),...data};}
+  constructor(data){this.data={schema:4,access:[],events:[],teams:[],teamAccess:[],teamEvents:[],rates:new Map(),...data};}
   prepare(sql){return new Statement(this,sql)}
   async batch(statements){for(const statement of statements)await statement.run();return statements.map(()=>({success:true}));}
 }
@@ -53,12 +56,12 @@ const DB=new FakeD1({
   access:[{id:'legacy-admin',token_hash:await sha(legacyToken),role:'admin',label:'w2',expires_at:null,revoked_at:null}],
   events:[{seq:1,id:'old-event',at:'2026-11-17T10:00:00Z',type:'set-team',payload:'{"team":{"name":"Buen Consejo"}}',actor:'legacy-admin'}],
   teams:[{id:'team-1',name:'Equipo Uno',season:'26/27',created_at:'2026-01-01T00:00:00Z',updated_at:null},{id:'team-expired',name:'Caducado',season:'',created_at:'2026-01-01T00:00:00Z',updated_at:null}],
-  teamAccess:[{id:'admin-1',team_id:'team-1',token_hash:await sha(adminToken),role:'admin',label:'Propietario',expires_at:null,revoked_at:null},{id:'expired-1',team_id:'team-expired',token_hash:await sha(expiredToken),role:'admin',label:'Viejo',expires_at:'2026-01-01T00:00:00Z',revoked_at:null}],
+  teamAccess:[{id:'admin-1',team_id:'team-1',token_hash:await sha(adminToken),role:'admin',label:'Propietario',expires_at:null,revoked_at:null,bound_client_id:null,bound_at:null},{id:'expired-1',team_id:'team-expired',token_hash:await sha(expiredToken),role:'admin',label:'Viejo',expires_at:'2026-01-01T00:00:00Z',revoked_at:null,bound_client_id:null,bound_at:null}],
   teamEvents:[{seq:1,team_id:'team-1',id:'t-old',at:'2026-11-17T10:00:00Z',type:'set-team',payload:'{}',actor:'admin-1'}]
 });
 const env={DB,EVENT_REQUESTS_PER_MINUTE:'1',EVENTS_PER_HOUR:'3'};
 const call=(path,{method='GET',origin='https://biopeat.github.io',token='',body,headers={}}={})=>worker.fetch(new Request(`https://worker.test${path}`,{method,headers:{...(origin?{Origin:origin}:{}),...(token?{Authorization:`Bearer ${token}`}:{ }),...(body!==undefined?{'Content-Type':'application/json'}:{}),...headers},body}),env);
-let response=await call('/health');assert.equal(response.status,200);assert.equal((await response.json()).version,'w5-v12.3');assert.equal(response.headers.get('access-control-allow-origin'),'https://biopeat.github.io');
+let response=await call('/health');assert.equal(response.status,200);const health=await response.json();assert.equal(health.version,'w5-v12.3');assert.equal(health.schemaVersion,4);assert.equal(health.editorBinding,true);assert.equal(response.headers.get('access-control-allow-origin'),'https://biopeat.github.io');assert.ok((response.headers.get('access-control-allow-headers')||'').includes('X-Client-Id'));
 response=await call('/health',{origin:'https://evil.example'});assert.equal(response.status,403);assert.equal(response.headers.get('access-control-allow-origin'),null);
 response=await call('/api/events?since=0',{token:legacyToken});assert.equal(response.status,200);assert.equal((await response.json()).events[0].event.payload.team.name,'Buen Consejo');
 response=await call('/api/events',{method:'POST',token:legacyToken,body:JSON.stringify({events:[{id:'new-1',type:'set-team',payload:{team:{name:'BC'}}}]})});assert.equal(response.status,200);
@@ -69,5 +72,17 @@ response=await call('/api/events?since=abc',{token:legacyToken});assert.equal(re
 response=await call('/api/v3/teams/%E0%A4%A',{token:adminToken});assert.equal(response.status,400,'URI malformada devuelve 400');
 response=await call('/api/v3/teams/team-1/typo',{method:'DELETE',token:adminToken});assert.notEqual(response.status,200,'ruta inválida no borra equipo');assert.equal(DB.data.teams.some(x=>x.id==='team-1'),true);
 response=await call('/api/v3/teams/team-1/events/extra',{method:'GET',token:adminToken});assert.equal(response.status,404,'ruta events con item devuelve 404');
+const viewerInvite=await (await call('/api/v3/teams/team-1/invites',{method:'POST',token:adminToken,body:JSON.stringify({role:'viewer',label:'Plantilla'})})).json();
+const editorInvite=await (await call('/api/v3/teams/team-1/invites',{method:'POST',token:adminToken,body:JSON.stringify({role:'editor',label:'Segundo entrenador'})})).json();
+response=await call('/api/v3/teams/team-1',{token:viewerInvite.token,headers:{'X-Client-Id':'client-alpha-1'}});assert.equal(response.status,200,'lector dispositivo 1');
+response=await call('/api/v3/teams/team-1',{token:viewerInvite.token,headers:{'X-Client-Id':'client-beta-2'}});assert.equal(response.status,200,'lector dispositivo 2 compartido');
+response=await call('/api/v3/teams/team-1/events',{method:'POST',token:viewerInvite.token,headers:{'X-Client-Id':'client-beta-2'},body:JSON.stringify({events:[]})});assert.equal(response.status,403,'lector no puede escribir');
+response=await call('/api/v3/teams/team-1',{token:editorInvite.token,headers:{'X-Client-Id':'client-ed-1'}});assert.equal(response.status,200,'editor primer dispositivo');
+response=await call('/api/v3/teams/team-1/events?since=0',{token:editorInvite.token,headers:{'X-Client-Id':'client-ed-1'}});assert.equal(response.status,200,'editor mismo dispositivo');
+response=await call('/api/v3/teams/team-1',{token:editorInvite.token,headers:{'X-Client-Id':'client-ed-2'}});assert.equal(response.status,403,'editor rechazado en segundo dispositivo');
+response=await call('/api/v3/teams/team-1',{token:editorInvite.token});assert.equal(response.status,403,'editor ya vinculado rechazado sin X-Client-Id');
+const invitesList=await (await call('/api/v3/teams/team-1/invites',{token:adminToken})).json();
+assert.ok(invitesList.invites.find(x=>x.id===editorInvite.id)?.bound_at,'bound_at presente en editor vinculado');
+assert.equal(invitesList.invites.find(x=>x.id===viewerInvite.id)?.bound_at,null,'bound_at nulo en lector');
 response=await call('/api/v3/teams/team-1',{method:'DELETE',token:adminToken});assert.equal(response.status,200);assert.equal(DB.data.teams.some(x=>x.id==='team-1'),false);assert.equal(DB.data.teamAccess.some(x=>x.team_id==='team-1'),false);assert.equal(DB.data.teamEvents.some(x=>x.team_id==='team-1'),false);
-console.log('OK · Worker v12.3: w2, CORS, stream, rate limit, caducidad y borrado');
+console.log('OK · Worker v12.3: w2, CORS, stream, rate limit, caducidad, enlaces y borrado');

@@ -840,3 +840,51 @@ button{min-height:40px;touch-action:manipulation}
 .quarter-matrix td b,.quarter-matrix td small{display:block}
 .quarter-matrix td small{font-size:9px;color:var(--muted)}
 @media(max-width:600px){.quarter-detail-row{grid-template-columns:1fr}.quarter-detail-meta{text-align:left;grid-template-columns:auto 1fr;align-items:baseline;gap:8px}.quarter-splits{grid-template-columns:1fr}.quarter-outcome-row{grid-template-columns:minmax(0,1.4fr) minmax(42px,.65fr) auto 34px;gap:7px}.shot-quarters-cols,.shot-quarter-row{grid-template-columns:34px minmax(0,1fr) minmax(0,1fr) 44px;gap:6px}}
+
+/* v12.3 · pulido visual, paletas armónicas, gráficas amplias y acta sin solape */
+.boxscore thead th.identity{white-space:normal;overflow:hidden;line-height:1.18;vertical-align:middle;padding:7px 8px;text-align:left}
+.boxscore thead .box-id-head{display:block;font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.88;white-space:normal}
+.boxscore thead .box-id-sub{display:block;font-size:11px;font-weight:900;margin-top:2px}
+
+.point-share .card-title{align-items:center}
+.point-share select{max-width:170px;min-height:36px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);padding:6px 9px;font-size:11px;font-weight:800}
+@media(max-width:560px){.point-share select{max-width:136px}}
+
+.stat-card{min-height:234px}
+.stat-card>.metric-evolution{min-height:94px}
+.dual-trend.compact{height:94px}
+.dual-trend.compact polyline{stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.dual-trend.compact polyline.opp{stroke-dasharray:6 4}
+.dual-trend.compact circle{stroke-width:1.6}
+@media(max-width:560px){.stat-card{min-height:224px}.stat-card>.metric-evolution{min-height:86px}.dual-trend.compact{height:86px}}
+@media(max-width:380px){.stat-card{min-height:212px}.stat-card>.metric-evolution{min-height:80px}.dual-trend.compact{height:80px}}
+
+.shot-json-actions{margin-top:4px}
+.share-result-note{margin:8px 0 0;font-size:11px}
+
+/* Eliminar rojo/azul fijos en tarjetas de equipo y acta para respetar siempre la paleta elegida */
+.balance-mini i.positive{background:var(--team)}
+.balance-mini i.negative{background:var(--rival)}
+.comparison-card .comparison-value strong,.stat-values.own-only strong{color:var(--team)}
+.share-bars button i b,.breakdown-bars button i b{background:linear-gradient(90deg,color-mix(in srgb,var(--team) 72%,var(--paper)),var(--team))}
+.minute-bars button i b{background:linear-gradient(90deg,color-mix(in srgb,var(--rival) 72%,var(--paper)),var(--rival))}
+.stacked-chart .two,.dot.two{background:var(--team)}
+.stacked-chart .three,.dot.three{background:var(--rival)}
+.stacked-chart .free,.dot.free{background:color-mix(in srgb,var(--ink) 48%,var(--paper))}
+.team-tabs button.active,.boxscore thead th,.boxscore thead .identity{background:var(--team);border-color:var(--team);color:#fff}
+html[data-theme=dark] .team-tabs button.active,html[data-theme=dark] .boxscore thead th,html[data-theme=dark] .boxscore thead .identity,html[data-theme=dark] .share-icon{color:#0b0f16}
+.boxscore td.identity b{background:color-mix(in srgb,var(--team) 14%,var(--paper));color:var(--team)}
+.boxscore tbody tr:hover td.identity{background:color-mix(in srgb,var(--team) 10%,var(--paper))}
+.score-hero{background:linear-gradient(135deg,color-mix(in srgb,var(--team) 14%,var(--paper)),var(--paper-2))}
+.text-link{color:var(--team)}
+.shot-kind button.active[data-kind=for]{border-color:var(--team);background:color-mix(in srgb,var(--team) 14%,var(--paper));color:var(--team)}
+.shot-kind button.active[data-kind=against]{border-color:var(--rival);background:color-mix(in srgb,var(--rival) 14%,var(--paper));color:var(--rival)}
+
+/* Selector visual de paletas */
+.palette-picker{display:grid;gap:8px}
+.palette-swatches{display:flex;flex-wrap:wrap;gap:6px}
+.palette-swatch{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2);color:var(--ink);font-size:11px;font-weight:800}
+.palette-swatch.active{border-color:var(--team);background:color-mix(in srgb,var(--team) 12%,var(--paper));box-shadow:0 0 0 1px var(--team)}
+.palette-swatch .swatch-pair{display:inline-flex;align-items:center;gap:2px}
+.palette-swatch .swatch-pair i{display:inline-block;width:11px;height:11px;border-radius:50%;border:1px solid color-mix(in srgb,var(--ink) 18%,transparent)}
+.palette-swatch:disabled{opacity:.65;cursor:not-allowed}

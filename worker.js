@@ -1,9 +1,10 @@
 /* Estadísticas v12.3 · Cloudflare Worker + D1. Rutas y tablas w2 intactas. Binding: DB. */
-const SCHEMA_VERSION=3;
+const SCHEMA_VERSION=4;
 const MAX_BODY_BYTES=2_000_000;
 const ALLOWED_EVENTS=new Set(['set-team','set-roster','replace-game','merge-game','live-upsert','live-event','live-undo','shot-set']);
 const schemaPromises=new WeakMap();
 const token=()=>[...crypto.getRandomValues(new Uint8Array(24))].map(x=>x.toString(16).padStart(2,'0')).join('');
+const cleanClientId=req=>{const raw=String(req.headers.get('X-Client-Id')||'').trim();return /^[A-Za-z0-9_-]{8,80}$/.test(raw)?raw:'';};
 const hash=async value=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(x=>x.toString(16).padStart(2,'0')).join('');
 const now=()=>new Date().toISOString();
 const integer=(value,fallback,min=1,max=100000)=>{const n=Number(value);return Number.isFinite(n)?Math.max(min,Math.min(max,Math.trunc(n))):fallback};
@@ -16,7 +17,7 @@ function allowedOrigin(origin,env){
 }
 function responseHeaders(req,env,requestId){
   const origin=req.headers.get('Origin')||'';
-  const headers={'Access-Control-Allow-Headers':'Authorization,Content-Type','Access-Control-Allow-Methods':'GET,POST,DELETE,OPTIONS','Content-Type':'application/json;charset=UTF-8','Cache-Control':'no-store','Vary':'Origin','X-Request-Id':requestId};
+  const headers={'Access-Control-Allow-Headers':'Authorization,Content-Type,X-Client-Id','Access-Control-Allow-Methods':'GET,POST,DELETE,OPTIONS','Content-Type':'application/json;charset=UTF-8','Cache-Control':'no-store','Vary':'Origin','X-Request-Id':requestId};
   if(origin&&allowedOrigin(origin,env))headers['Access-Control-Allow-Origin']=origin;
   return headers;
 }
@@ -49,6 +50,8 @@ async function runSchema(db){
   await addColumn(db,'ALTER TABLE access_tokens ADD COLUMN expires_at TEXT');
   await addColumn(db,'ALTER TABLE team_access_tokens ADD COLUMN last_used_at TEXT');
   await addColumn(db,'ALTER TABLE team_access_tokens ADD COLUMN expires_at TEXT');
+  await addColumn(db,'ALTER TABLE team_access_tokens ADD COLUMN bound_client_id TEXT');
+  await addColumn(db,'ALTER TABLE team_access_tokens ADD COLUMN bound_at TEXT');
   await addColumn(db,'ALTER TABLE teams ADD COLUMN updated_at TEXT');
   await addColumn(db,'ALTER TABLE rate_limits ADD COLUMN updated_at TEXT');
   await db.batch([
@@ -76,9 +79,22 @@ async function auth(req,env){
 async function teamAuth(req,env,teamId){
   const raw=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!raw)return null;
   const digest=await hash(raw),stamp=now();
-  const user=await env.DB.prepare('SELECT id,team_id,role,label,expires_at FROM team_access_tokens WHERE team_id=? AND token_hash=? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>?)').bind(teamId,digest,stamp).first();
-  if(user)await env.DB.prepare('UPDATE team_access_tokens SET last_used_at=? WHERE id=?').bind(stamp,user.id).run();
-  return user||null;
+  const user=await env.DB.prepare('SELECT id,team_id,role,label,expires_at,bound_client_id,bound_at FROM team_access_tokens WHERE team_id=? AND token_hash=? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>?)').bind(teamId,digest,stamp).first();
+  if(!user)return null;
+  if(user.role==='editor'){
+    const cid=cleanClientId(req);
+    if(user.bound_client_id){
+      if(!cid||user.bound_client_id!==cid)throw Object.assign(Error('Este enlace de edición es individual y ya está en uso en otro dispositivo. Pide un enlace nuevo al propietario.'),{status:403});
+    }else if(cid){
+      await env.DB.prepare('UPDATE team_access_tokens SET bound_client_id=?, bound_at=? WHERE id=? AND bound_client_id IS NULL').bind(cid,stamp,user.id).run();
+      const check=await env.DB.prepare('SELECT bound_client_id,bound_at FROM team_access_tokens WHERE id=?').bind(user.id).first();
+      if(check?.bound_client_id&&check.bound_client_id!==cid)throw Object.assign(Error('Este enlace de edición es individual y ya está en uso en otro dispositivo. Pide un enlace nuevo al propietario.'),{status:403});
+      user.bound_client_id=cid;
+      user.bound_at=check?.bound_at||stamp;
+    }
+  }
+  await env.DB.prepare('UPDATE team_access_tokens SET last_used_at=? WHERE id=?').bind(stamp,user.id).run();
+  return user;
 }
 async function makeAccess(env,role,label=''){const raw=token(),id=crypto.randomUUID(),createdAt=now();await env.DB.prepare('INSERT INTO access_tokens(id,token_hash,role,label,created_at,expires_at) VALUES(?,?,?,?,?,?)').bind(id,await hash(raw),role,label.slice(0,100),createdAt,expiry(env)).run();return {id,role,label:label.slice(0,100),token:raw};}
 async function makeTeamAccess(env,teamId,role,label=''){const raw=token(),id=crypto.randomUUID(),createdAt=now();await env.DB.prepare('INSERT INTO team_access_tokens(id,team_id,token_hash,role,label,created_at,expires_at) VALUES(?,?,?,?,?,?,?)').bind(id,teamId,await hash(raw),role,label.slice(0,100),createdAt,expiry(env)).run();return {id,role,label:label.slice(0,100),token:raw};}
@@ -106,7 +122,7 @@ async function handle(ctx){
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:responseHeaders(req,env,ctx.requestId)});
   if(!env.DB)return json({error:'Falta el binding D1 llamado DB'},500,ctx);
   await ensureSchema(env.DB);
-  if(path==='/health')return json({ok:true,version:'w5-v12.3',legacy:'w2-compatible',multiteam:true,setupRequired:false,schemaVersion:SCHEMA_VERSION},200,ctx);
+  if(path==='/health')return json({ok:true,version:'w5-v12.3',legacy:'w2-compatible',multiteam:true,setupRequired:false,schemaVersion:SCHEMA_VERSION,editorBinding:true},200,ctx);
   if(path==='/api/v3/teams'&&req.method==='POST'){
     if(String(env.PUBLIC_TEAM_CREATION||'true').toLowerCase()==='false')return json({error:'La creación pública de equipos está desactivada'},403,ctx);
     const ip=req.headers.get('CF-Connecting-IP')||'unknown';if(!await atomicLimit(env,`create-team:${ip}`,integer(env.TEAMS_PER_HOUR,20),3600))return json({error:'Demasiados equipos creados desde esta conexión. Inténtalo más tarde.'},429,ctx);
@@ -125,7 +141,7 @@ async function handle(ctx){
     }
     if(scoped.part==='events'&&!scoped.item&&req.method==='GET'){const since=integer(url.searchParams.get('since'),0,0,Number.MAX_SAFE_INTEGER);const {results}=await env.DB.prepare('SELECT seq,id,at,type,payload,actor FROM team_events WHERE team_id=? AND seq>? ORDER BY seq ASC LIMIT 1000').bind(scoped.teamId,since).all();const events=results.map(row=>({seq:row.seq,event:{id:row.id,at:row.at,type:row.type,payload:JSON.parse(row.payload)},actor:row.actor}));return json({events,lastSeq:events.at(-1)?.seq||since},200,ctx);}
     if(scoped.part==='events'&&!scoped.item&&req.method==='POST')return postEvents(ctx,user,`team:${scoped.teamId}`,'team_events',scoped.teamId);
-    if(scoped.part==='invites'&&!scoped.item&&req.method==='GET'){if(user.role!=='admin')return json({error:'Solo administrador'},403,ctx);const {results}=await env.DB.prepare('SELECT id,role,label,created_at,last_used_at,expires_at,revoked_at FROM team_access_tokens WHERE team_id=? ORDER BY created_at DESC').bind(scoped.teamId).all();return json({invites:results},200,ctx);}
+    if(scoped.part==='invites'&&!scoped.item&&req.method==='GET'){if(user.role!=='admin')return json({error:'Solo administrador'},403,ctx);const {results}=await env.DB.prepare('SELECT id,role,label,created_at,last_used_at,expires_at,revoked_at,bound_at FROM team_access_tokens WHERE team_id=? ORDER BY created_at DESC').bind(scoped.teamId).all();return json({invites:results},200,ctx);}
     if(scoped.part==='invites'&&!scoped.item&&req.method==='POST'){if(user.role!=='admin')return json({error:'Solo administrador'},403,ctx);if(!await atomicLimit(env,`invite:${scoped.teamId}:${user.id}`,integer(env.INVITES_PER_HOUR,100),3600))return json({error:'Demasiados enlaces. Inténtalo más tarde.'},429,ctx);const body=await readJson(req),role=['editor','viewer'].includes(body.role)?body.role:'viewer';return json(await makeTeamAccess(env,scoped.teamId,role,String(body.label||'')),201,ctx);}
     if(scoped.part==='invites'&&scoped.item&&req.method==='DELETE'){if(user.role!=='admin')return json({error:'Solo administrador'},403,ctx);await env.DB.prepare('UPDATE team_access_tokens SET revoked_at=? WHERE team_id=? AND id=? AND id<>?').bind(now(),scoped.teamId,scoped.item,user.id).run();return json({ok:true},200,ctx);}
     return json({error:'Ruta de equipo no encontrada'},404,ctx);

@@ -59,6 +59,19 @@ try:
       assert page.locator('.score-margin').count()==3
       assert float(page.locator('.score-margin').first.evaluate("e=>getComputedStyle(e).fontSize.replace('px','')"))>=15
       assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth+1')
+      if width==390:
+        page.select_option('#pointShareScope','average')
+        assert '/P' in page.locator('.point-share .share-bars').inner_text()
+        page.select_option('#pointShareScope','season')
+        page.click('.bottom-nav [data-go="games"]');page.locator('.game-row').first.click()
+        assert page.evaluate("() => {const th=document.querySelector('.boxscore thead th.identity');return th ? th.scrollWidth<=th.clientWidth+2 : true}")
+        page.click('.modal-sheet .icon-button');page.click('.bottom-nav [data-go="team"]')
+        page.click('[data-action="open-settings"]')
+        assert page.locator('.palette-swatch').count()>=5
+        page.click('.palette-swatch[data-color="purple"]');page.click('[data-action="save-settings"]')
+        diff_colors=page.evaluate("() => {const pos=document.querySelector('.balance-mini i.positive'),lbl=document.querySelector('.score-label.us');return {pos:pos?getComputedStyle(pos).backgroundColor:'',us:lbl?getComputedStyle(lbl).fill:''}}")
+        assert diff_colors['pos']==diff_colors['us'] and diff_colors['pos']!='rgb(198, 40, 61)'
+        page.click('[data-action="open-settings"]');page.click('.palette-swatch[data-color="red"]');page.click('[data-action="save-settings"]')
       page.click('[data-action="toggle-theme"]');assert page.locator('html').get_attribute('data-theme')=='dark'
       assert not errors,errors
       page.close()
@@ -252,6 +265,7 @@ try:
       page.evaluate('(s)=>window.__ESTADISTICAS__.setState(s)',qstate)
       if width==390:
         page.click('.bottom-nav [data-go="games"]');page.click('[data-action="open-shot"]')
+        assert page.locator('[data-action="paste-shot-json"]').is_visible()
         page.select_option('#shotGame',qstate['games'][0]['id'])
         prompt_text=page.evaluate('window.__ESTADISTICAS__.shotPrompt()')
         assert '"quarters"' in prompt_text and 'IZQUIERDA' in prompt_text and 'DERECHA' in prompt_text
