@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#f6f5f1">
-<meta name="description" content="Instala gratis Estadísticas para baloncesto: importa actas FBM, apunta el Directo y entiende el rendimiento del equipo con datos privados.">
+<meta name="theme-color" content="#f7f6f2">
+<meta name="description" content="Instala gratis Estadísticas para baloncesto: importa actas FBM, apunta el Directo y entiende el rendimiento del equipo.">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="https://biopeat.github.io/estadisticas/instalar.html">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="es_ES">
 <meta property="og:site_name" content="Estadísticas">
-<meta property="og:title" content="Estadísticas · Tus actas y el Directo, en una sola app">
-<meta property="og:description" content="Importa el acta FBM, apunta el Directo en pista y consulta el rendimiento del equipo. Gratis, privada y sin conexión.">
+<meta property="og:title" content="Estadísticas · Tus actas y el Directo, en una app">
+<meta property="og:description" content="Importa actas FBM, apunta el Directo en pista y analiza tu equipo al instante. Gratis y privada.">
 <meta property="og:url" content="https://biopeat.github.io/estadisticas/instalar.html">
 <meta property="og:image" content="https://biopeat.github.io/estadisticas/landing/equipo.webp">
 <meta property="og:image:width" content="780">
@@ -26,43 +26,61 @@
 try {
   const t = localStorage.getItem('estadisticas_landing_theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
   document.documentElement.dataset.theme = t;
-  document.querySelector('meta[name="theme-color"]').content = t === 'dark' ? '#09090b' : '#f6f5f1';
+  document.querySelector('meta[name="theme-color"]').content = t === 'dark' ? '#090b10' : '#f7f6f2';
 } catch (_) {}
 </script>
 <style>
 *, *::before, *::after { box-sizing: border-box; }
 
 :root {
-  --bg: #f6f5f1;
+  --bg: #f7f6f2;
   --surface: #ffffff;
-  --surface-alt: #efede6;
-  --ink: #111114;
-  --muted: #52525b;
-  --subtle: #666670;
-  --line: #e2dfd7;
-  --line-strong: #cfcac0;
-  --cta-bg: #111114;
+  --surface-alt: #efeee8;
+  --ink: #101623;
+  --muted: #4b5565;
+  --subtle: #667085;
+  --line: #e3e1d9;
+  --line-strong: #cfc9bc;
+  --cta-bg: #10233f;
   --cta-ink: #ffffff;
-  --ok: #0f766e;
-  --ok-soft: #e6f4f1;
-  --phone-frame: #18181b;
+  --blue: #155eef;
+  --blue-soft: #eaf1ff;
+  --coral: #e12d4b;
+  --coral-soft: #fdecef;
+  --teal: #0e8a70;
+  --teal-soft: #e6f6f2;
+  --violet: #6d4aff;
+  --violet-soft: #f1edff;
+  --amber: #c26d0a;
+  --amber-soft: #fef4e6;
+  --stage-bg: linear-gradient(160deg, #eaf1ff 0%, #f3f7f6 52%, #fdecef 100%);
+  --phone-frame: #111827;
   color-scheme: light;
 }
 
 html[data-theme="dark"] {
-  --bg: #09090b;
-  --surface: #111114;
-  --surface-alt: #18181c;
-  --ink: #f4f4f5;
-  --muted: #a1a1aa;
-  --subtle: #8c8c96;
-  --line: #27272a;
-  --line-strong: #3f3f46;
-  --cta-bg: #f4f4f5;
-  --cta-ink: #09090b;
-  --ok: #2dd4bf;
-  --ok-soft: #112a27;
-  --phone-frame: #27272a;
+  --bg: #090b10;
+  --surface: #11151e;
+  --surface-alt: #181d29;
+  --ink: #f4f6fa;
+  --muted: #a0aab8;
+  --subtle: #7f8a9a;
+  --line: #232a38;
+  --line-strong: #353f52;
+  --cta-bg: #f4f6fa;
+  --cta-ink: #090b10;
+  --blue: #60a5fa;
+  --blue-soft: rgba(96, 165, 250, 0.14);
+  --coral: #fb7185;
+  --coral-soft: rgba(251, 113, 133, 0.14);
+  --teal: #2dd4bf;
+  --teal-soft: rgba(45, 212, 191, 0.14);
+  --violet: #a78bfa;
+  --violet-soft: rgba(167, 139, 250, 0.14);
+  --amber: #fbbf24;
+  --amber-soft: rgba(251, 191, 36, 0.14);
+  --stage-bg: linear-gradient(160deg, rgba(21, 94, 239, 0.16) 0%, rgba(14, 138, 112, 0.12) 55%, rgba(225, 45, 75, 0.14) 100%);
+  --phone-frame: #273042;
   color-scheme: dark;
 }
 
@@ -76,17 +94,18 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 img { display: block; max-width: 100%; }
 a { color: inherit; }
-button { font: inherit; color: inherit; }
+button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
 
 .wrap {
-  width: min(1120px, calc(100% - 32px));
+  width: min(1060px, calc(100% - 28px));
   margin-inline: auto;
 }
 
@@ -104,76 +123,85 @@ button { font: inherit; color: inherit; }
 }
 .skip:focus { top: 12px; }
 
+/* Scroll progress hairline */
+.scroll-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2.5px;
+  width: 0%;
+  z-index: 60;
+  background: linear-gradient(90deg, var(--blue), var(--teal), var(--coral));
+  transition: width 0.08s linear;
+}
+
 /* Header */
 .top {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
 }
 
 .nav {
-  min-height: 60px;
+  min-height: 54px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   text-decoration: none;
 }
 
 .logo {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   flex-shrink: 0;
 }
 
 .brand-text b {
   display: block;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  line-height: 1.15;
+  line-height: 1.1;
 }
 
 .brand-text small {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
 }
 
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .nav-link {
   display: none;
   text-decoration: none;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--muted);
-  padding: 8px 12px;
+  padding: 7px 11px;
   border-radius: 8px;
   transition: color 0.15s ease, background-color 0.15s ease;
 }
-.nav-link:hover {
-  color: var(--ink);
-  background: var(--surface-alt);
-}
+.nav-link:hover { color: var(--ink); background: var(--surface-alt); }
 
 .icon-btn {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   border: 1px solid var(--line);
@@ -181,178 +209,166 @@ button { font: inherit; color: inherit; }
   background: var(--surface);
   color: var(--ink);
   cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
 .icon-btn:hover { border-color: var(--line-strong); background: var(--surface-alt); }
-.icon-btn svg { width: 18px; height: 18px; }
+.icon-btn:active { transform: scale(0.93); }
+.icon-btn svg { width: 17px; height: 17px; }
 
 html[data-theme="light"] .theme-sun { display: none; }
 html[data-theme="dark"] .theme-moon { display: none; }
 
-/* Buttons */
+/* Buttons with tactile micro-interaction */
 .btn {
-  min-height: 48px;
-  padding: 12px 20px;
+  position: relative;
+  overflow: hidden;
+  min-height: 46px;
+  padding: 11px 18px;
   border: 1px solid var(--line-strong);
-  border-radius: 10px;
+  border-radius: 11px;
   background: var(--surface);
   color: var(--ink);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  font-size: 15px;
-  font-weight: 600;
+  gap: 9px;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.15s ease, border-color 0.15s ease;
 }
-.btn:hover { background: var(--surface-alt); }
+.btn:hover { background: var(--surface-alt); transform: translateY(-1px); }
+.btn:active { transform: scale(0.97); }
 .btn.primary {
   background: var(--cta-bg);
   border-color: var(--cta-bg);
   color: var(--cta-ink);
 }
-.btn.primary:hover { opacity: 0.9; background: var(--cta-bg); }
-.btn i {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-style: normal;
-}
-.btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+.btn.primary:hover { opacity: 0.94; background: var(--cta-bg); }
+.btn i { display: inline-flex; align-items: center; justify-content: center; font-style: normal; }
+.btn svg { width: 17px; height: 17px; flex-shrink: 0; }
 
 /* Hero */
 .hero {
-  padding: 36px 0 48px;
+  padding: 24px 0 32px;
   display: grid;
-  gap: 32px;
+  gap: 24px;
   align-items: center;
 }
 
 .status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  margin-bottom: 16px;
+  gap: 7px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--teal-soft);
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
 }
 .status-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: var(--ok);
-  flex-shrink: 0;
+  background: var(--teal);
+  animation: pulseDot 2.4s ease-in-out infinite;
+}
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.45); opacity: 0.55; }
 }
 
 .hero h1 {
-  margin: 0 0 16px;
-  font-size: clamp(34px, 7.5vw, 56px);
+  margin: 0 0 10px;
+  font-size: clamp(30px, 7.5vw, 50px);
   font-weight: 800;
-  line-height: 1.04;
+  line-height: 1.05;
   letter-spacing: -0.04em;
   max-width: 14ch;
+}
+.hero h1 em {
+  font-style: normal;
+  color: var(--blue);
 }
 
 .lead {
   margin: 0;
-  font-size: clamp(16px, 2.2vw, 19px);
+  font-size: clamp(15px, 2vw, 17px);
   color: var(--muted);
-  max-width: 48ch;
-  line-height: 1.55;
+  max-width: 42ch;
 }
 
 .cta-row {
   display: grid;
-  gap: 10px;
-  margin-top: 24px;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 18px;
 }
 
 .trust-line {
-  margin: 14px 0 0;
-  font-size: 13px;
+  margin: 10px 0 0;
+  font-size: 12px;
   color: var(--subtle);
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: 6px 10px;
 }
 
 .install-help {
   display: none;
-  margin-top: 16px;
-  padding: 16px;
-  border: 1px solid var(--line-strong);
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--blue);
   border-radius: 12px;
   background: var(--surface);
 }
-.install-help.show { display: block; }
-.install-help strong {
-  display: block;
-  font-size: 15px;
-  margin-bottom: 8px;
+.install-help.show { display: block; animation: popIn 0.22s ease; }
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-.install-help > span {
-  display: block;
-  font-size: 13px;
-  color: var(--muted);
-  margin-top: 8px;
-}
+.install-help strong { display: block; font-size: 14px; margin-bottom: 8px; }
+.install-help > span { display: block; font-size: 12px; color: var(--muted); margin-top: 8px; }
 .visual-steps {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   flex-wrap: wrap;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 .step-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 5px;
+  padding: 5px 9px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-alt);
-  font-size: 13px;
+  font-size: 12px;
 }
-.step-chip svg { width: 15px; height: 15px; stroke: var(--ink); }
+.step-chip svg { width: 14px; height: 14px; stroke: var(--ink); }
 
-/* Hero preview phone */
-.hero-preview {
+/* Interactive App Simulator — compact so tabs + full phone fit in one mobile viewport */
+.sim-card {
+  padding: 14px 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--stage-bg);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-}
-
-.device-frame {
-  width: min(290px, 78vw);
-  padding: 8px;
-  border-radius: 30px;
-  background: var(--phone-frame);
-  border: 1px solid var(--line-strong);
-}
-
-.device-screen {
-  border-radius: 22px;
-  overflow: hidden;
-  background: #ffffff;
-  aspect-ratio: 390 / 844;
-}
-
-.device-screen img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: top;
+  gap: 10px;
 }
 
 .preview-tabs {
-  display: inline-flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  width: 100%;
+  max-width: 340px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   padding: 4px;
   border: 1px solid var(--line);
@@ -361,117 +377,174 @@ html[data-theme="dark"] .theme-moon { display: none; }
 }
 
 .preview-tab {
-  min-height: 36px;
-  padding: 6px 12px;
+  min-height: 34px;
+  padding: 5px 4px;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: transform 0.14s ease, background-color 0.16s ease, color 0.16s ease;
 }
-.preview-tab:hover { color: var(--ink); }
+.preview-tab:active { transform: scale(0.95); }
+.preview-tab .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.preview-tab[data-accent="blue"] .dot { background: var(--blue); }
+.preview-tab[data-accent="coral"] .dot { background: var(--coral); }
+.preview-tab[data-accent="violet"] .dot { background: var(--violet); }
+.preview-tab[data-accent="teal"] .dot { background: var(--teal); }
 .preview-tab[aria-selected="true"] {
   background: var(--cta-bg);
   color: var(--cta-ink);
 }
 
-/* Editorial sections */
+.sim-caption {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  min-height: 18px;
+}
+
+.device-frame {
+  width: min(215px, 56vw);
+  padding: 6px;
+  border-radius: 24px;
+  background: var(--phone-frame);
+  border: 1px solid var(--line-strong);
+  touch-action: pan-y;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.device-frame:active { transform: scale(0.985); }
+
+.device-screen {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #ffffff;
+  aspect-ratio: 390 / 844;
+  max-height: 52svh;
+}
+
+.device-screen img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.device-screen img.switching {
+  opacity: 0.25;
+  transform: scale(0.975);
+}
+
+.sim-hint {
+  font-size: 11px;
+  color: var(--subtle);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Compact Sections */
 .section {
-  padding: 56px 0;
+  padding: 32px 0;
   border-top: 1px solid var(--line);
 }
 
 .section-head {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 32px;
-  max-width: 640px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-bottom: 18px;
 }
 
 .kicker {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ok);
+  color: var(--blue);
 }
 
 .section h2 {
   margin: 0;
-  font-size: clamp(26px, 5vw, 38px);
+  font-size: clamp(22px, 4.5vw, 30px);
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1.12;
   letter-spacing: -0.03em;
 }
 
-.section-head p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 16px;
-}
-
-/* 3 Steps — hairline grid */
+/* 3 Steps — compact horizontal/stacked visual strip */
 .three-steps {
   display: grid;
+  gap: 8px;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  transition: transform 0.16s ease, border-color 0.16s ease;
+}
+.step:hover { transform: translateY(-2px); border-color: var(--line-strong); }
+
+.step-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.step:nth-child(1) .step-badge { background: var(--blue-soft); color: var(--blue); }
+.step:nth-child(2) .step-badge { background: var(--coral-soft); color: var(--coral); }
+.step:nth-child(3) .step-badge { background: var(--teal-soft); color: var(--teal); }
+
+.step h3 { margin: 0 0 2px; font-size: 15px; font-weight: 700; letter-spacing: -0.015em; }
+.step p { margin: 0; font-size: 13px; color: var(--muted); }
+
+/* 4 Visual Shots — compact 2x2 grid on mobile, 4-col on desktop */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.shot {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface);
   overflow: hidden;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.18s ease;
 }
-
-.step {
-  padding: 24px;
-  border-bottom: 1px solid var(--line);
-}
-.step:last-child { border-bottom: 0; }
-
-.step-num {
-  display: inline-block;
-  font-size: 13px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--ok);
-  margin-bottom: 10px;
-}
-
-.step h3 {
-  margin: 0 0 6px;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.step p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--muted);
-  line-height: 1.5;
-}
-
-/* Gallery — 4 real screens */
-.gallery {
-  display: grid;
-  gap: 20px;
-}
-
-.shot {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface);
-  overflow: hidden;
-  transition: border-color 0.15s ease;
-}
-.shot:hover { border-color: var(--line-strong); }
+.shot:hover { transform: translateY(-3px); border-color: var(--line-strong); }
+.shot:active { transform: scale(0.98); }
 
 .shot-trigger {
   display: block;
   width: 100%;
-  padding: 16px 16px 0;
+  padding: 10px 10px 0;
   border: 0;
   background: var(--surface-alt);
   cursor: pointer;
@@ -480,14 +553,12 @@ html[data-theme="dark"] .theme-moon { display: none; }
 
 .shot-frame {
   width: 100%;
-  max-width: 240px;
-  margin-inline: auto;
-  border-radius: 16px 16px 0 0;
+  border-radius: 10px 10px 0 0;
   overflow: hidden;
   border: 1px solid var(--line);
   border-bottom: 0;
   background: #ffffff;
-  aspect-ratio: 390 / 560;
+  aspect-ratio: 390 / 430;
 }
 
 .shot-frame img {
@@ -498,68 +569,60 @@ html[data-theme="dark"] .theme-moon { display: none; }
 }
 
 .shot-body {
-  padding: 16px 18px 18px;
-}
-
-.shot-tag {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--subtle);
-  margin-bottom: 4px;
+  padding: 10px 12px 12px;
 }
 
 .shot h3 {
-  margin: 0 0 4px;
-  font-size: 16px;
+  margin: 0 0 2px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: -0.015em;
 }
 
 .shot p {
   margin: 0;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--muted);
 }
 
-/* 6 Benefits — clean hairline grid without nested cards */
+/* 6 Benefits — compact 2-col visual tiles on mobile, 3-col on desktop */
 .benefits {
   display: grid;
-  border-top: 1px solid var(--line);
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
 }
 
 .benefit {
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
   display: grid;
-  grid-template-columns: 28px 1fr;
-  gap: 14px;
-  align-items: start;
-  padding: 20px 0;
-  border-bottom: 1px solid var(--line);
+  gap: 8px;
+  align-content: start;
+  transition: transform 0.16s ease, border-color 0.16s ease;
 }
+.benefit:hover { transform: translateY(-2px); border-color: var(--line-strong); }
 
-.benefit-icon {
-  width: 24px;
-  height: 24px;
-  color: var(--ink);
-  margin-top: 2px;
+.benefit-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
 }
+.benefit-badge svg { width: 17px; height: 17px; }
+.benefit:nth-child(1) .benefit-badge { background: var(--blue-soft); color: var(--blue); }
+.benefit:nth-child(2) .benefit-badge { background: var(--coral-soft); color: var(--coral); }
+.benefit:nth-child(3) .benefit-badge { background: var(--violet-soft); color: var(--violet); }
+.benefit:nth-child(4) .benefit-badge { background: var(--teal-soft); color: var(--teal); }
+.benefit:nth-child(5) .benefit-badge { background: var(--amber-soft); color: var(--amber); }
+.benefit:nth-child(6) .benefit-badge { background: var(--blue-soft); color: var(--blue); }
 
-.benefit h3 {
-  margin: 0 0 4px;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.015em;
-}
+.benefit h3 { margin: 0 0 2px; font-size: 13.5px; font-weight: 700; line-height: 1.25; }
+.benefit p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.35; }
 
-.benefit p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--muted);
-}
-
-/* FAQ */
+/* Compact FAQ */
 .faq {
   border-top: 1px solid var(--line);
 }
@@ -569,13 +632,13 @@ html[data-theme="dark"] .theme-moon { display: none; }
 }
 
 .faq summary {
-  min-height: 56px;
-  padding: 14px 0;
+  min-height: 48px;
+  padding: 10px 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  font-size: 16px;
+  gap: 12px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   list-style: none;
@@ -583,60 +646,34 @@ html[data-theme="dark"] .theme-moon { display: none; }
 .faq summary::-webkit-details-marker { display: none; }
 .faq summary::after {
   content: "+";
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 400;
-  color: var(--muted);
+  color: var(--blue);
   flex-shrink: 0;
 }
 .faq details[open] summary::after { content: "−"; }
-
-.faq p {
-  margin: 0 0 18px;
-  color: var(--muted);
-  font-size: 15px;
-  max-width: 68ch;
-}
+.faq p { margin: 0 0 14px; color: var(--muted); font-size: 13.5px; max-width: 64ch; }
 
 /* Final CTA */
 .final {
-  padding: 56px 0 64px;
+  padding: 32px 0 36px;
   border-top: 1px solid var(--line);
   display: grid;
-  gap: 20px;
+  gap: 14px;
   align-items: center;
 }
-
-.final h2 {
-  margin: 0 0 8px;
-  font-size: clamp(28px, 5vw, 40px);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.08;
-}
-
-.final p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 16px;
-  max-width: 52ch;
-}
-
+.final h2 { margin: 0 0 4px; font-size: clamp(22px, 4.5vw, 32px); font-weight: 800; letter-spacing: -0.03em; }
+.final p { margin: 0; color: var(--muted); font-size: 14px; }
 .final .cta-row { margin-top: 0; }
 
 /* Footer */
 .footer {
   border-top: 1px solid var(--line);
-  padding: 20px 0 calc(92px + env(safe-area-inset-bottom));
-  font-size: 13px;
+  padding: 16px 0 calc(84px + env(safe-area-inset-bottom));
+  font-size: 12px;
   color: var(--subtle);
 }
-
-.footer .wrap {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px 16px;
-  flex-wrap: wrap;
-}
+.footer .wrap { display: flex; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
 
 /* Mobile bottom bar (solo tras pasar el hero) */
 .mobile-bar {
@@ -645,20 +682,16 @@ html[data-theme="dark"] .theme-moon { display: none; }
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  padding: 8px 14px calc(8px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
-  background: color-mix(in srgb, var(--bg) 96%, transparent);
+  background: color-mix(in srgb, var(--bg) 95%, transparent);
   backdrop-filter: blur(12px);
   transform: translateY(110%);
   opacity: 0;
   pointer-events: none;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
 }
-.mobile-bar.visible {
-  transform: translateY(0);
-  opacity: 1;
-  pointer-events: auto;
-}
+.mobile-bar.visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
 .mobile-bar .btn { width: 100%; }
 
 /* Lightbox */
@@ -669,26 +702,27 @@ html[data-theme="dark"] .theme-moon { display: none; }
   display: none;
   place-items: center;
   padding: 20px;
-  background: rgba(9, 9, 11, 0.86);
+  background: rgba(9, 11, 16, 0.86);
 }
-.lightbox.open { display: grid; }
+.lightbox.open { display: grid; animation: fadeIn 0.18s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .lightbox-card {
   position: relative;
-  width: min(360px, 100%);
+  width: min(350px, 100%);
   display: grid;
-  gap: 12px;
+  gap: 10px;
   justify-items: center;
 }
 .lightbox-close {
   position: absolute;
   top: -12px;
   right: -12px;
-  width: 44px;
-  height: 44px;
-  border: 1px solid #3f3f46;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #353f52;
   border-radius: 50%;
-  background: #18181c;
-  color: #f4f4f5;
+  background: #11151e;
+  color: #f4f6fa;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -698,68 +732,48 @@ html[data-theme="dark"] .theme-moon { display: none; }
   max-height: 78vh;
   object-fit: contain;
   border-radius: 20px;
-  border: 1px solid #3f3f46;
+  border: 1px solid #353f52;
   background: #ffffff;
 }
-.lightbox-caption {
-  color: #f4f4f5;
-  font-size: 14px;
-  font-weight: 600;
-  text-align: center;
+.lightbox-caption { color: #f4f6fa; font-size: 13px; font-weight: 600; text-align: center; }
+
+/* Scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1), transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--d, 0ms);
 }
+.reveal.in { opacity: 1; transform: translateY(0); }
 
 /* Responsive */
 @media (min-width: 720px) {
-  .footer { padding: 20px 0 28px; }
   .nav-link { display: inline-flex; }
   .hero {
-    grid-template-columns: 1.15fr 0.85fr;
-    gap: 48px;
-    padding: 56px 0 64px;
+    grid-template-columns: 1.08fr 0.92fr;
+    gap: 36px;
+    padding: 40px 0 44px;
   }
-  .cta-row {
-    grid-template-columns: auto auto;
-    justify-content: start;
-  }
-  .three-steps {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  .step {
-    border-bottom: 0;
-    border-right: 1px solid var(--line);
-  }
-  .step:last-child { border-right: 0; }
-  .gallery {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .benefits {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0 32px;
-  }
-  .final {
-    grid-template-columns: 1fr auto;
-  }
+  .cta-row { grid-template-columns: auto auto; justify-content: start; }
+  .device-frame { width: 248px; }
+  .device-screen { max-height: none; }
+  .three-steps { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .gallery { grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .benefits { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .final { grid-template-columns: 1fr auto; }
+  .footer { padding: 18px 0 26px; }
   .mobile-bar { display: none; }
-}
-
-@media (min-width: 1040px) {
-  .gallery {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-  }
-  .benefits {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0 36px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  .reveal { opacity: 1; transform: none; }
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 </style>
 </head>
 <body>
+<div class="scroll-bar" id="scrollBar" aria-hidden="true"></div>
 <a class="skip" href="#contenido">Saltar al contenido</a>
 
 <header class="top">
@@ -777,9 +791,9 @@ html[data-theme="dark"] .theme-moon { display: none; }
       </span>
     </a>
     <nav class="nav-actions" aria-label="Navegación">
-      <a class="nav-link" href="#como-funciona">Cómo funciona</a>
-      <a class="nav-link" href="#funciones">Capturas</a>
-      <a class="nav-link" href="#preguntas">Preguntas</a>
+      <a class="nav-link" href="#como-funciona">Cómo va</a>
+      <a class="nav-link" href="#funciones">Pantallas</a>
+      <a class="nav-link" href="#preguntas">Dudas</a>
       <button class="icon-btn" id="theme" type="button" aria-label="Cambiar tema">
         <svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -798,10 +812,10 @@ html[data-theme="dark"] .theme-moon { display: none; }
     <div class="hero-copy">
       <div class="status-pill">
         <span class="status-dot" aria-hidden="true"></span>
-        <span>Gratis · Sin cuentas · Sin conexión</span>
+        <span>Gratis · Privada · Sin conexión</span>
       </div>
-      <h1>Tus actas y el Directo, en una sola app.</h1>
-      <p class="lead">Importa el acta FBM en segundos, apunta robos, pérdidas y rebotes en pista y entiende el rendimiento del equipo de un vistazo.</p>
+      <h1>Actas y Directo, <em>en un toque.</em></h1>
+      <p class="lead">Sube el acta FBM, apunta en pista y mira la evolución de tu equipo al instante.</p>
       <div class="cta-row">
         <button class="btn primary install-button" id="install" type="button">
           <i aria-hidden="true">
@@ -816,50 +830,59 @@ html[data-theme="dark"] .theme-moon { display: none; }
       <div class="trust-line">
         <span>Android, iPhone y PC</span>
         <span>·</span>
-        <span>Instalación en 1 toque</span>
+        <span>Sin registro</span>
         <span>·</span>
-        <span>Datos guardados en tu móvil</span>
+        <span>Datos en tu móvil</span>
       </div>
       <div class="install-help" id="installHelp" role="status" aria-live="polite"></div>
     </div>
 
-    <div class="hero-preview" aria-label="Vista previa interactiva de la aplicación">
-      <div class="device-frame">
+    <div class="sim-card" aria-label="Simulador interactivo de la aplicación">
+      <div class="preview-tabs" role="tablist" aria-label="Cambiar pantalla de vista previa">
+        <button class="preview-tab" type="button" role="tab" aria-selected="true" data-accent="blue" data-preview="landing/equipo.webp" data-caption="Balance, medias y evolución del marcador" data-alt="Panel de equipo con balance y evolución del marcador"><span class="dot" aria-hidden="true"></span>Equipo</button>
+        <button class="preview-tab" type="button" role="tab" aria-selected="false" data-accent="coral" data-preview="landing/directo.webp" data-caption="Botones grandes en pista: robos, pérdidas y rebotes" data-alt="Registro en directo de robos, pérdidas y rebotes"><span class="dot" aria-hidden="true"></span>Directo</button>
+        <button class="preview-tab" type="button" role="tab" aria-selected="false" data-accent="violet" data-preview="landing/jugadora.webp" data-caption="Cuotas de puntos, minutos y gráfica por partido" data-alt="Ficha individual con cuotas y evolución partido a partido"><span class="dot" aria-hidden="true"></span>Ficha</button>
+        <button class="preview-tab" type="button" role="tab" aria-selected="false" data-accent="teal" data-preview="landing/compartir.webp" data-caption="Enlaces privados de Editor o Lector revocables" data-alt="Opciones privadas para compartir como Editor o Lector"><span class="dot" aria-hidden="true"></span>Compartir</button>
+      </div>
+      <div class="sim-caption" id="simCaption">Balance, medias y evolución del marcador</div>
+      <div class="device-frame" id="simFrame" title="Desliza o pulsa para cambiar de pantalla">
         <div class="device-screen">
-          <img id="heroPreviewImg" src="landing/equipo.webp" width="780" height="1688" alt="Panel de equipo de Estadísticas con marcador y evolución">
+          <img id="heroPreviewImg" src="landing/equipo.webp" width="780" height="1688" alt="Panel de equipo con balance y evolución del marcador">
         </div>
       </div>
-      <div class="preview-tabs" role="tablist" aria-label="Cambiar pantalla de vista previa">
-        <button class="preview-tab" type="button" role="tab" aria-selected="true" data-preview="landing/equipo.webp" data-alt="Panel de equipo con balance y evolución del marcador">Equipo</button>
-        <button class="preview-tab" type="button" role="tab" aria-selected="false" data-preview="landing/directo.webp" data-alt="Registro en directo de robos, pérdidas y rebotes">Directo</button>
-        <button class="preview-tab" type="button" role="tab" aria-selected="false" data-preview="landing/jugadora.webp" data-alt="Ficha individual con cuotas y evolución partido a partido">Jugadoras</button>
-        <button class="preview-tab" type="button" role="tab" aria-selected="false" data-preview="landing/compartir.webp" data-alt="Opciones privadas para compartir como Editor o Lector">Compartir</button>
-      </div>
+      <span class="sim-hint">Toca una pestaña o desliza la pantalla</span>
     </div>
   </section>
 
   <section class="section" id="como-funciona">
     <div class="wrap">
-      <div class="section-head">
-        <span class="kicker">Así de simple</span>
-        <h2>Tres pasos. Todo el partido.</h2>
-        <p>Del Excel oficial de la federación a datos claros para preparar el siguiente entrenamiento.</p>
+      <div class="section-head reveal">
+        <div>
+          <span class="kicker">En 3 pasos</span>
+          <h2>Simple desde el primer partido.</h2>
+        </div>
       </div>
       <div class="three-steps">
-        <article class="step">
-          <span class="step-num">01</span>
-          <h3>Importa el acta FBM</h3>
-          <p>Elige el Excel del partido y guarda minutos, puntos, tiros y valoración al instante.</p>
+        <article class="step reveal" style="--d:0ms">
+          <span class="step-badge">01</span>
+          <div>
+            <h3>Sube el acta FBM</h3>
+            <p>Carga el Excel oficial en 2 segundos.</p>
+          </div>
         </article>
-        <article class="step">
-          <span class="step-num">02</span>
-          <h3>Apunta el Directo</h3>
-          <p>Botones grandes en pista para registrar robos, pérdidas y rebotes ofensivos por cuarto.</p>
+        <article class="step reveal" style="--d:70ms">
+          <span class="step-badge">02</span>
+          <div>
+            <h3>Apunta el Directo</h3>
+            <p>Robos, pérdidas y rebotes con un dedo.</p>
+          </div>
         </article>
-        <article class="step">
-          <span class="step-num">03</span>
-          <h3>Analiza y comparte</h3>
-          <p>Consulta la evolución, las cuotas de cada jugadora y comparte el equipo con enlace privado.</p>
+        <article class="step reveal" style="--d:140ms">
+          <span class="step-badge">03</span>
+          <div>
+            <h3>Entiende y comparte</h3>
+            <p>Gráficas listas y enlace privado al equipo.</p>
+          </div>
         </article>
       </div>
     </div>
@@ -867,58 +890,55 @@ html[data-theme="dark"] .theme-moon { display: none; }
 
   <section class="section" id="funciones">
     <div class="wrap">
-      <div class="section-head">
-        <span class="kicker">La app real</span>
-        <h2>Todo claro antes de descargar.</h2>
-        <p>Pantallas reales con datos de ejemplo. Pulsa cualquiera para ampliarla.</p>
+      <div class="section-head reveal">
+        <div>
+          <span class="kicker">La app por dentro</span>
+          <h2>Pulsa para ver en grande.</h2>
+        </div>
       </div>
       <div class="gallery">
-        <article class="shot">
+        <article class="shot reveal" style="--d:0ms">
           <button class="shot-trigger" type="button" data-zoom="landing/equipo.webp" data-caption="Equipo · Balance, medias y evolución del marcador">
             <div class="shot-frame">
               <img loading="lazy" src="landing/equipo.webp" width="780" height="1688" alt="Resumen de equipo con balance y evolución de marcador">
             </div>
           </button>
           <div class="shot-body">
-            <span class="shot-tag">Temporada</span>
-            <h3>Equipo al completo</h3>
-            <p>Balance, medias, rachas y evolución del marcador.</p>
+            <h3>Equipo</h3>
+            <p>Balance y marcador.</p>
           </div>
         </article>
-        <article class="shot">
-          <button class="shot-trigger" type="button" data-zoom="landing/directo.webp" data-caption="Directo · Botones táctiles en pista por cuarto">
+        <article class="shot reveal" style="--d:60ms">
+          <button class="shot-trigger" type="button" data-zoom="landing/directo.webp" data-caption="Directo · Botones táctiles por cuarto en pista">
             <div class="shot-frame">
               <img loading="lazy" src="landing/directo.webp" width="780" height="1688" alt="Pantalla táctil de Directo para pista">
             </div>
           </button>
           <div class="shot-body">
-            <span class="shot-tag">En pista</span>
-            <h3>Directo con un toque</h3>
-            <p>Robos, pérdidas y rebotes sin apartar la vista del juego.</p>
+            <h3>Directo</h3>
+            <p>Contadores táctiles.</p>
           </div>
         </article>
-        <article class="shot">
-          <button class="shot-trigger" type="button" data-zoom="landing/jugadora.webp" data-caption="Detalle individual · Cuotas y evolución por partido">
+        <article class="shot reveal" style="--d:120ms">
+          <button class="shot-trigger" type="button" data-zoom="landing/jugadora.webp" data-caption="Ficha individual · Cuotas y evolución partido a partido">
             <div class="shot-frame">
               <img loading="lazy" src="landing/jugadora.webp" width="780" height="1688" alt="Ficha individual con cuotas y gráfica de evolución">
             </div>
           </button>
           <div class="shot-body">
-            <span class="shot-tag">Rendimiento</span>
-            <h3>Ficha individual</h3>
-            <p>Cuotas de puntos y minutos, ratios y evolución partido a partido.</p>
+            <h3>Jugadoras</h3>
+            <p>Cuotas y evolución.</p>
           </div>
         </article>
-        <article class="shot">
+        <article class="shot reveal" style="--d:180ms">
           <button class="shot-trigger" type="button" data-zoom="landing/compartir.webp" data-caption="Compartir · Enlaces privados de Editor o Lector">
             <div class="shot-frame">
               <img loading="lazy" src="landing/compartir.webp" width="780" height="1688" alt="Opciones para compartir equipo como Editor o Lector">
             </div>
           </button>
           <div class="shot-body">
-            <span class="shot-tag">Privacidad</span>
-            <h3>Comparte con control</h3>
-            <p>Enlaces revocables de Editor o Lector sin abrir cuentas.</p>
+            <h3>Compartir</h3>
+            <p>Editor o Lector.</p>
           </div>
         </article>
       </div>
@@ -927,63 +947,65 @@ html[data-theme="dark"] .theme-moon { display: none; }
 
   <section class="section">
     <div class="wrap">
-      <div class="section-head">
-        <span class="kicker">Por qué usarla</span>
-        <h2>Pensada para el banquillo, no para pelear con hojas.</h2>
+      <div class="section-head reveal">
+        <div>
+          <span class="kicker">Incluido gratis</span>
+          <h2>Todo lo que necesitas en pista.</h2>
+        </div>
       </div>
       <div class="benefits">
-        <article class="benefit">
-          <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/>
-          </svg>
+        <article class="benefit reveal" style="--d:0ms">
+          <span class="benefit-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
+          </span>
           <div>
-            <h3>Acta + Directo integrados</h3>
-            <p>Une los datos oficiales FBM con tus registros de pista sin confundir huecos con ceros.</p>
+            <h3>Acta + Directo</h3>
+            <p>Todo unido sin pisar datos.</p>
           </div>
         </article>
-        <article class="benefit">
-          <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>
-          </svg>
+        <article class="benefit reveal" style="--d:50ms">
+          <span class="benefit-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+          </span>
           <div>
-            <h3>Mapas de tiro táctiles</h3>
-            <p>Anota zonas de ataque y defensa en el móvil o importa los mapas por partido.</p>
+            <h3>Mapas de tiro</h3>
+            <p>Ataque y defensa táctil.</p>
           </div>
         </article>
-        <article class="benefit">
-          <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
-          </svg>
+        <article class="benefit reveal" style="--d:100ms">
+          <span class="benefit-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+          </span>
           <div>
-            <h3>Varios equipos aislados</h3>
-            <p>Cambia de equipo o categoría en un toque manteniendo plantillas y datos separados.</p>
+            <h3>Multiequipo</h3>
+            <p>Equipos aislados en 1 toque.</p>
           </div>
         </article>
-        <article class="benefit">
-          <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
-          </svg>
+        <article class="benefit reveal" style="--d:150ms">
+          <span class="benefit-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          </span>
           <div>
-            <h3>Privada por defecto</h3>
-            <p>Empieza en tu dispositivo. Solo sincroniza si decides generar un enlace privado.</p>
+            <h3>Privada</h3>
+            <p>Primero en tu dispositivo.</p>
           </div>
         </article>
-        <article class="benefit">
-          <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M2 8.82a15 15 0 0 1 20 0M5 12.86a10 10 0 0 1 14 0M8.5 16.43a5 5 0 0 1 7 0M12 20h.01"/>
-          </svg>
+        <article class="benefit reveal" style="--d:200ms">
+          <span class="benefit-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.82a15 15 0 0 1 20 0M5 12.86a10 10 0 0 1 14 0M8.5 16.43a5 5 0 0 1 7 0M12 20h.01"/></svg>
+          </span>
           <div>
-            <h3>Funciona sin cobertura</h3>
-            <p>Úsala en cualquier pabellón; al recuperar red sincroniza los cambios pendientes.</p>
+            <h3>Sin cobertura</h3>
+            <p>Funciona en cualquier pabellón.</p>
           </div>
         </article>
-        <article class="benefit">
-          <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-          </svg>
+        <article class="benefit reveal" style="--d:250ms">
+          <span class="benefit-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
           <div>
-            <h3>Roles Editor y Lector</h3>
-            <p>Da permiso de edición al cuerpo técnico y enlace de solo lectura para consultar.</p>
+            <h3>Editor y Lector</h3>
+            <p>Enlaces revocables al instante.</p>
           </div>
         </article>
       </div>
@@ -992,35 +1014,33 @@ html[data-theme="dark"] .theme-moon { display: none; }
 
   <section class="section" id="preguntas">
     <div class="wrap">
-      <div class="section-head">
-        <span class="kicker">Dudas rápidas</span>
-        <h2>Antes de instalar.</h2>
+      <div class="section-head reveal">
+        <div>
+          <span class="kicker">Dudas rápidas</span>
+          <h2>Respuestas en 10 segundos.</h2>
+        </div>
       </div>
-      <div class="faq">
+      <div class="faq reveal">
         <details>
-          <summary>¿Es gratis y sin registro?</summary>
-          <p>Sí. No necesitas crear cuenta ni introducir tarjeta; el botón instala la aplicación web directamente en tu pantalla de inicio.</p>
+          <summary>¿Cómo la instalo en iPhone?</summary>
+          <p>Abre esta web en Safari, pulsa Compartir y elige «Añadir a pantalla de inicio».</p>
         </details>
         <details>
-          <summary>¿Cómo se instala en iPhone o iPad?</summary>
-          <p>Abre esta página en Safari, pulsa Compartir y elige «Añadir a pantalla de inicio». Apple requiere confirmar ese paso manualmente.</p>
+          <summary>¿Y si abrí el enlace desde WhatsApp o Instagram?</summary>
+          <p>Pulsa el menú superior → «Abrir en Chrome» o «Abrir en Safari» y luego toca Instalar gratis.</p>
         </details>
         <details>
-          <summary>¿Qué hago si abrí el enlace desde WhatsApp o Instagram?</summary>
-          <p>Sus navegadores internos bloquean la instalación. Pulsa el menú y selecciona «Abrir en Chrome» o «Abrir en Safari» y después pulsa Instalar gratis.</p>
-        </details>
-        <details>
-          <summary>¿Funciona sin conexión y mantiene mis datos privados?</summary>
-          <p>Sí. Tras la primera carga funciona sin internet en el pabellón. Todo vive primero en tu dispositivo y la nube privada solo se activa si compartes un enlace.</p>
+          <summary>¿Es gratis y privada?</summary>
+          <p>Sí, 100 % gratis, sin registro ni anuncios. Tus datos viven en tu dispositivo y solo se sincronizan si creas un enlace privado.</p>
         </details>
       </div>
     </div>
   </section>
 
-  <section class="wrap final">
+  <section class="wrap final reveal">
     <div>
       <h2>Lista para el próximo partido.</h2>
-      <p>Instálala en tu pantalla de inicio en segundos o pruébala directamente en el navegador.</p>
+      <p>Instálala en 1 toque o pruébala ahora mismo.</p>
     </div>
     <div class="cta-row">
       <button class="btn primary install-button" id="installBottom" type="button">
@@ -1039,7 +1059,7 @@ html[data-theme="dark"] .theme-moon { display: none; }
 <footer class="footer">
   <div class="wrap">
     <span>Estadísticas v12.3 · Baloncesto</span>
-    <span>Gratis · Sin rastreadores ni anuncios</span>
+    <span>Gratis · Sin rastreadores</span>
   </div>
 </footer>
 
@@ -1098,22 +1118,22 @@ function showHelp(kind) {
       '<span class="step-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg> Compartir</span>' +
       '<span>→</span>' +
       '<span class="step-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg> Añadir a inicio</span>' +
-      '</div><span>Apple exige confirmar este paso desde el menú de Safari.</span>';
+      '</div><span>Apple exige confirmar este paso desde Safari.</span>';
   } else if (kind === 'inapp') {
     html = '<strong>Abre esta página en Chrome o Safari</strong>' +
       '<div class="visual-steps">' +
       '<span class="step-chip">Menú ⋮</span><span>→</span>' +
       '<span class="step-chip">Abrir en navegador</span>' +
-      '</div><span>El navegador interno de la app bloquea la instalación directa.</span>';
+      '</div><span>El navegador interno bloquea la instalación directa.</span>';
   } else if (kind === 'firefox') {
     html = '<strong>Abre el menú de tu navegador</strong>' +
-      '<span>Busca «Instalar» o «Añadir a pantalla de inicio». Si no aparece, abre la página en Chrome o Edge.</span>';
+      '<span>Busca «Instalar» o «Añadir a pantalla de inicio». Si no aparece, ábrela en Chrome o Edge.</span>';
   } else {
     html = '<strong>Menú del navegador → Instalar aplicación</strong>' +
       '<div class="visual-steps">' +
       '<span class="step-chip">Menú ⋮</span><span>→</span>' +
       '<span class="step-chip">Instalar app</span>' +
-      '</div><span>Confirma la instalación desde el menú superior del navegador.</span>';
+      '</div><span>Confirma la instalación desde el menú del navegador.</span>';
   }
   help.innerHTML = html;
   help.classList.add('show');
@@ -1162,19 +1182,38 @@ document.getElementById('theme').addEventListener('click', () => {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
   localStorage.setItem('estadisticas_landing_theme', next);
-  document.querySelector('meta[name="theme-color"]').content = next === 'dark' ? '#09090b' : '#f6f5f1';
+  document.querySelector('meta[name="theme-color"]').content = next === 'dark' ? '#090b10' : '#f7f6f2';
 });
 
-// Hero preview tabs
+// Interactive Hero Simulator (tabs + tap + touch swipe)
 const previewImg = document.getElementById('heroPreviewImg');
+const simCaption = document.getElementById('simCaption');
+const simFrame = document.getElementById('simFrame');
 const previewTabs = [...document.querySelectorAll('.preview-tab')];
-previewTabs.forEach(tab => {
-  tab.addEventListener('click', () => {
-    previewTabs.forEach(t => t.setAttribute('aria-selected', t === tab ? 'true' : 'false'));
+let currentTab = 0;
+
+function selectTab(index) {
+  currentTab = (index + previewTabs.length) % previewTabs.length;
+  const tab = previewTabs[currentTab];
+  previewTabs.forEach((t, i) => t.setAttribute('aria-selected', i === currentTab ? 'true' : 'false'));
+  simCaption.textContent = tab.dataset.caption || '';
+  previewImg.classList.add('switching');
+  setTimeout(() => {
     previewImg.src = tab.dataset.preview;
     previewImg.alt = tab.dataset.alt || '';
-  });
-});
+    previewImg.classList.remove('switching');
+  }, 110);
+}
+
+previewTabs.forEach((tab, idx) => tab.addEventListener('click', () => selectTab(idx)));
+
+let touchStartX = 0;
+simFrame.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].clientX; }, { passive: true });
+simFrame.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) > 36) selectTab(currentTab + (dx < 0 ? 1 : -1));
+}, { passive: true });
+simFrame.addEventListener('click', () => selectTab(currentTab + 1));
 
 // Lightbox
 const lightbox = document.getElementById('lightbox');
@@ -1203,14 +1242,34 @@ lightboxClose.addEventListener('click', closeLightbox);
 lightbox.addEventListener('click', event => { if (event.target === lightbox) closeLightbox(); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox(); });
 
-// Mobile sticky CTA: solo visible cuando el botón #install del hero sale de pantalla
-const heroInstallBtn = document.getElementById('install');
-const mobileBar = document.querySelector('.mobile-bar');
-if ('IntersectionObserver' in window && heroInstallBtn && mobileBar) {
-  new IntersectionObserver(entries => {
-    const out = !entries[0].isIntersecting && entries[0].boundingClientRect.top < 0;
-    mobileBar.classList.toggle('visible', out);
-  }, { threshold: 0 }).observe(heroInstallBtn);
+// Scroll reveal + progress bar + smart mobile sticky bar
+const scrollBar = document.getElementById('scrollBar');
+window.addEventListener('scroll', () => {
+  const h = document.documentElement.scrollHeight - window.innerHeight;
+  if (h > 0 && scrollBar) scrollBar.style.width = Math.min(100, (window.scrollY / h) * 100) + '%';
+}, { passive: true });
+
+if ('IntersectionObserver' in window) {
+  const revObs = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in');
+        revObs.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => revObs.observe(el));
+
+  const heroInstallBtn = document.getElementById('install');
+  const mobileBar = document.querySelector('.mobile-bar');
+  if (heroInstallBtn && mobileBar) {
+    new IntersectionObserver(entries => {
+      const out = !entries[0].isIntersecting && entries[0].boundingClientRect.top < 0;
+      mobileBar.classList.toggle('visible', out);
+    }, { threshold: 0 }).observe(heroInstallBtn);
+  }
+} else {
+  document.querySelectorAll('.reveal').forEach(el => el.classList.add('in'));
 }
 
 if ('serviceWorker' in navigator) {
