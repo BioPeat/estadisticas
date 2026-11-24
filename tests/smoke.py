@@ -64,6 +64,20 @@ try:
         page.select_option('#pointShareScope','average')
         assert '/P' in page.locator('.point-share .share-bars').inner_text()
         page.select_option('#pointShareScope','season')
+        roster_n=page.evaluate('window.__ESTADISTICAS__.playerAgg().length');games_n=page.evaluate('window.__ESTADISTICAS__.validGames().length')
+        page.locator('.point-share [data-detail="point-share"]').click()
+        assert page.locator('#modalTitle',has_text='Reparto completo').is_visible()
+        assert page.locator('.points-summary > div').count()==3
+        assert page.locator('.points-heatmap .heat-row').count()==roster_n and page.locator('.points-evolution button').count()==roster_n
+        assert page.locator('.points-heatmap .heat-head b').count()==2+games_n
+        page.click('[data-action="point-share-mode"][data-mode="average"]')
+        assert page.locator('.points-heatmap .heat-row').count()==roster_n and page.locator('.breakdown-bars.full-roster button').count()==roster_n
+        assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth+1')
+        page.click('.modal-sheet .icon-button')
+        page.locator('.minutes-card [data-detail="minutes"]').click()
+        assert page.locator('#modalTitle',has_text='Carga y evolución').is_visible() and page.locator('.points-heatmap').count()==0
+        assert page.locator('.minutes-heatmap .heat-row').count()==roster_n and page.locator('.minutes-evolution button').count()==roster_n
+        page.click('.modal-sheet .icon-button')
         page.click('.bottom-nav [data-go="games"]');page.locator('.game-row').first.click()
         assert page.locator('.manual-table-notice').count()==0
         assert page.evaluate("() => {const th=document.querySelector('.boxscore thead th.identity'),tot=document.querySelector('.boxscore .totals td.identity span');return (!th || th.scrollWidth<=th.clientWidth+2) && (!tot || (tot.innerText.trim()==='TOTALES' && tot.scrollWidth<=tot.clientWidth+2))}")

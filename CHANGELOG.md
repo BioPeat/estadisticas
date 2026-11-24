@@ -1,3 +1,8 @@
+### v12.3 · 2026-11-24 · Reparto de puntos ampliado
+- Equipo › Reparto de puntos › ventana «Reparto completo»: añade los mismos bloques que Minutos (resumen de partidos, puntos de equipo y media por jugadora-acta; Mapa de puntos por partido con media y cuota; Evolución individual con mini gráfico, media /P y cuota de temporada). La ventana de Minutos no cambia.
+- Ausencias: quien no jugó un partido aparece como «—», nunca como 0; quien no tiene actas muestra «—» en media y cuota.
+- CACHE del service worker renovado para forzar la actualización en los móviles.
+
 ### v12.3 · 2026-11-18 · Worker seguro, conflictos y landing
 - Worker w5-v12.3: límite real del stream, CORS restringido, esquema versionado, rate limit atómico y limpieza, cuota por token/equipo, último uso y caducidad opcional, id de petición y borrado completo del equipo.
 - Compatibilidad: rutas/tablas w2 intactas, migraciones D1 solo aditivas y tolerantes; la app sigue operativa si el Worker nuevo aún no está publicado.
