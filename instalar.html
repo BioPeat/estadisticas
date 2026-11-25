@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#f7f6f2">
+<meta name="theme-color" content="#0a1628">
 <meta name="description" content="Instala gratis Estadísticas para baloncesto: importa actas FBM, apunta el Directo y entiende el rendimiento del equipo.">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="https://biopeat.github.io/estadisticas/instalar.html">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="es_ES">
 <meta property="og:site_name" content="Estadísticas">
-<meta property="og:title" content="Estadísticas · Tus actas y el Directo, en una app">
+<meta property="og:title" content="Estadísticas · Actas FBM y Directo en una sola app">
 <meta property="og:description" content="Importa actas FBM, apunta el Directo en pista y analiza tu equipo al instante. Gratis y privada.">
 <meta property="og:url" content="https://biopeat.github.io/estadisticas/instalar.html">
 <meta property="og:image" content="https://biopeat.github.io/estadisticas/landing/equipo.webp">
@@ -22,65 +22,55 @@
 <link rel="manifest" href="manifest.json?v=12.3">
 <link rel="icon" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
 <script>
 try {
   const t = localStorage.getItem('estadisticas_landing_theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
   document.documentElement.dataset.theme = t;
-  document.querySelector('meta[name="theme-color"]').content = t === 'dark' ? '#090b10' : '#f7f6f2';
+  document.querySelector('meta[name="theme-color"]').content = t === 'dark' ? '#07101e' : '#0a1628';
 } catch (_) {}
 </script>
 <style>
 *, *::before, *::after { box-sizing: border-box; }
 
 :root {
-  --bg: #f7f6f2;
+  --bg: #f8fafc;
   --surface: #ffffff;
-  --surface-alt: #efeee8;
-  --ink: #101623;
-  --muted: #4b5565;
-  --subtle: #667085;
-  --line: #e3e1d9;
-  --line-strong: #cfc9bc;
+  --surface-alt: #eef2f6;
+  --ink: #0b1628;
+  --muted: #475569;
+  --line: #d8e0ea;
   --cta-bg: #10233f;
   --cta-ink: #ffffff;
-  --blue: #155eef;
-  --blue-soft: #eaf1ff;
-  --coral: #e12d4b;
-  --coral-soft: #fdecef;
-  --teal: #0e8a70;
-  --teal-soft: #e6f6f2;
-  --violet: #6d4aff;
-  --violet-soft: #f1edff;
-  --amber: #c26d0a;
-  --amber-soft: #fef4e6;
-  --stage-bg: linear-gradient(160deg, #eaf1ff 0%, #f3f7f6 52%, #fdecef 100%);
-  --phone-frame: #111827;
+  --accent: #d92644;
+  --court-bg: #0a1628;
+  --court-ink: #f8fafc;
+  --court-muted: #b7c4d8;
+  --court-line: rgba(248, 250, 252, 0.16);
+
+  --f-display: "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-body: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --t-h2: clamp(1.75rem, 3vw, 2.5rem);
+  --t-body: 1rem;
+  --t-sm: 0.875rem;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: light;
 }
 
 html[data-theme="dark"] {
-  --bg: #090b10;
-  --surface: #11151e;
-  --surface-alt: #181d29;
-  --ink: #f4f6fa;
-  --muted: #a0aab8;
-  --subtle: #7f8a9a;
-  --line: #232a38;
-  --line-strong: #353f52;
-  --cta-bg: #f4f6fa;
-  --cta-ink: #090b10;
-  --blue: #60a5fa;
-  --blue-soft: rgba(96, 165, 250, 0.14);
-  --coral: #fb7185;
-  --coral-soft: rgba(251, 113, 133, 0.14);
-  --teal: #2dd4bf;
-  --teal-soft: rgba(45, 212, 191, 0.14);
-  --violet: #a78bfa;
-  --violet-soft: rgba(167, 139, 250, 0.14);
-  --amber: #fbbf24;
-  --amber-soft: rgba(251, 191, 36, 0.14);
-  --stage-bg: linear-gradient(160deg, rgba(21, 94, 239, 0.16) 0%, rgba(14, 138, 112, 0.12) 55%, rgba(225, 45, 75, 0.14) 100%);
-  --phone-frame: #273042;
+  --bg: #07101e;
+  --surface: #0e1a2e;
+  --surface-alt: #13223b;
+  --ink: #f4f7fb;
+  --muted: #9fb0c7;
+  --line: #1e304c;
+  --cta-bg: #f4f7fb;
+  --cta-ink: #07101e;
+  --accent: #fb5672;
   color-scheme: dark;
 }
 
@@ -93,606 +83,662 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
-  font-size: 15px;
-  line-height: 1.45;
+  font-family: var(--f-body);
+  font-size: var(--t-body);
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 
-img { display: block; max-width: 100%; }
+img { display: block; max-width: 100%; height: auto; }
 a { color: inherit; }
 button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
 
 .wrap {
-  width: min(1060px, calc(100% - 28px));
+  width: min(1140px, calc(100% - 32px));
   margin-inline: auto;
 }
 
 .skip {
   position: fixed;
-  left: 12px;
+  left: 16px;
   top: -80px;
   z-index: 100;
   background: var(--cta-bg);
   color: var(--cta-ink);
-  padding: 10px 14px;
-  border-radius: 8px;
+  padding: 10px 16px;
+  border-radius: 6px;
   font-weight: 600;
+  font-size: var(--t-sm);
   text-decoration: none;
 }
-.skip:focus { top: 12px; }
+.skip:focus { top: 16px; }
 
-/* Scroll progress hairline */
-.scroll-bar {
+/* Header: single line, transparent over hero, clean surface once scrolled */
+.top {
   position: fixed;
   top: 0;
   left: 0;
-  height: 2.5px;
-  width: 0%;
-  z-index: 60;
-  background: linear-gradient(90deg, var(--blue), var(--teal), var(--coral));
-  transition: width 0.08s linear;
+  right: 0;
+  z-index: 40;
+  color: var(--court-ink);
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background-color 200ms var(--ease), border-color 200ms var(--ease), color 200ms var(--ease);
 }
 
-/* Header */
-.top {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  background: color-mix(in srgb, var(--bg) 90%, transparent);
-  backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--line);
+.top.hero-scrolled {
+  color: var(--court-ink);
+  background: rgba(10, 22, 40, 0.88);
+  backdrop-filter: blur(12px);
+  border-bottom-color: rgba(248, 250, 252, 0.12);
+}
+
+.top.scrolled {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom-color: var(--line);
 }
 
 .nav {
-  min-height: 54px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 24px;
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 12px;
   text-decoration: none;
+  flex-shrink: 0;
 }
 
 .logo {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 7px;
   flex-shrink: 0;
 }
 
-.brand-text b {
-  display: block;
-  font-size: 14px;
+.brand-wordmark {
+  font-family: var(--f-display);
+  font-size: 1.1875rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-
-.brand-text small {
-  display: block;
-  font-size: 11px;
-  color: var(--muted);
+  letter-spacing: -0.025em;
+  line-height: 1;
 }
 
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 24px;
 }
 
 .nav-link {
-  display: none;
+  font-size: var(--t-sm);
+  font-weight: 500;
   text-decoration: none;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  padding: 7px 11px;
-  border-radius: 8px;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  opacity: 0.86;
+  transition: opacity 160ms var(--ease);
+  white-space: nowrap;
 }
-.nav-link:hover { color: var(--ink); background: var(--surface-alt); }
+
+.nav-link:hover { opacity: 1; }
 
 .icon-btn {
   width: 40px;
   height: 40px;
-  display: grid;
+  display: inline-grid;
   place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink);
+  border-radius: 999px;
+  border: 1px solid rgba(248, 250, 252, 0.24);
+  background: transparent;
   cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+  transition: border-color 160ms var(--ease), background-color 160ms var(--ease);
 }
-.icon-btn:hover { border-color: var(--line-strong); background: var(--surface-alt); }
-.icon-btn:active { transform: scale(0.93); }
-.icon-btn svg { width: 17px; height: 17px; }
 
-html[data-theme="light"] .theme-sun { display: none; }
+.top.scrolled .icon-btn {
+  border-color: var(--line);
+}
+
+.icon-btn:hover {
+  background: rgba(248, 250, 252, 0.1);
+}
+
+.top.scrolled .icon-btn:hover {
+  background: var(--surface-alt);
+}
+
+.icon-btn svg { width: 18px; height: 18px; }
+.theme-sun { display: none; }
 html[data-theme="dark"] .theme-moon { display: none; }
+html[data-theme="dark"] .theme-sun { display: block; }
 
-/* Buttons with tactile micro-interaction */
-.btn {
+/* Hero: full-bleed basketball court stage from y = 0 */
+.hero {
   position: relative;
   overflow: hidden;
-  min-height: 46px;
-  padding: 11px 18px;
-  border: 1px solid var(--line-strong);
-  border-radius: 11px;
-  background: var(--surface);
-  color: var(--ink);
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.15s ease, border-color 0.15s ease;
-}
-.btn:hover { background: var(--surface-alt); transform: translateY(-1px); }
-.btn:active { transform: scale(0.97); }
-.btn.primary {
-  background: var(--cta-bg);
-  border-color: var(--cta-bg);
-  color: var(--cta-ink);
-}
-.btn.primary:hover { opacity: 0.94; background: var(--cta-bg); }
-.btn i { display: inline-flex; align-items: center; justify-content: center; font-style: normal; }
-.btn svg { width: 17px; height: 17px; flex-shrink: 0; }
-
-/* Hero */
-.hero {
-  padding: 24px 0 32px;
-  display: grid;
-  gap: 24px;
-  align-items: center;
+  background:
+    radial-gradient(90% 60% at 50% 0%, rgba(28, 63, 118, 0.42) 0%, rgba(10, 22, 40, 0) 70%),
+    var(--court-bg);
+  color: var(--court-ink);
+  padding: 112px 0 80px;
 }
 
-.status-pill {
-  display: inline-flex;
+.court-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.hero-inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 7px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--teal-soft);
-  color: var(--teal);
-  font-size: 12px;
-  font-weight: 700;
-  margin-bottom: 12px;
-}
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--teal);
-  animation: pulseDot 2.4s ease-in-out infinite;
-}
-@keyframes pulseDot {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.45); opacity: 0.55; }
+  text-align: center;
 }
 
 .hero h1 {
-  margin: 0 0 10px;
-  font-size: clamp(30px, 7.5vw, 50px);
-  font-weight: 800;
-  line-height: 1.05;
+  margin: 0;
+  max-width: 15ch;
+  font-family: var(--f-display);
+  font-size: clamp(2.5rem, 6.2vw, 5.125rem);
+  font-weight: 700;
+  line-height: 0.96;
   letter-spacing: -0.04em;
-  max-width: 14ch;
-}
-.hero h1 em {
-  font-style: normal;
-  color: var(--blue);
+  color: var(--court-ink);
 }
 
-.lead {
-  margin: 0;
-  font-size: clamp(15px, 2vw, 17px);
-  color: var(--muted);
-  max-width: 42ch;
+.hero-lead {
+  margin: 22px 0 0;
+  max-width: 54ch;
+  font-size: var(--t-body);
+  color: var(--court-muted);
 }
 
 .cta-row {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-  margin-top: 18px;
-}
-
-.trust-line {
-  margin: 10px 0 0;
-  font-size: 12px;
-  color: var(--subtle);
+  margin-top: 28px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0a1628;
+  font-size: var(--t-body);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 180ms var(--ease), background-color 180ms var(--ease);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  background: #eef2f6;
+}
+
+.btn-primary i {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.btn-primary b { font-weight: 600; }
+
+.link-open {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 4px;
+  font-size: var(--t-body);
+  font-weight: 500;
+  color: var(--court-ink);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(248, 250, 252, 0.4);
+  transition: border-color 160ms var(--ease), opacity 160ms var(--ease);
+}
+
+.link-open:hover {
+  border-bottom-color: var(--court-ink);
 }
 
 .install-help {
   display: none;
-  margin-top: 12px;
-  padding: 14px;
-  border: 1px solid var(--blue);
-  border-radius: 12px;
-  background: var(--surface);
+  margin-top: 20px;
+  max-width: 520px;
+  width: 100%;
+  padding: 16px 20px;
+  border-radius: 10px;
+  border: 1px solid rgba(248, 250, 252, 0.2);
+  background: rgba(7, 16, 30, 0.72);
+  color: var(--court-ink);
+  text-align: left;
+  font-size: var(--t-sm);
 }
-.install-help.show { display: block; animation: popIn 0.22s ease; }
-@keyframes popIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.install-help strong { display: block; font-size: 14px; margin-bottom: 8px; }
-.install-help > span { display: block; font-size: 12px; color: var(--muted); margin-top: 8px; }
-.visual-steps {
+
+.install-help.show { display: block; }
+.install-help strong { display: block; font-size: var(--t-body); margin-bottom: 6px; }
+.install-help-steps {
   display: flex;
-  align-items: center;
-  gap: 7px;
   flex-wrap: wrap;
-  font-size: 13px;
-  font-weight: 600;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  color: var(--court-ink);
 }
-.step-chip {
+.install-help-step {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 9px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-alt);
-  font-size: 12px;
+  gap: 6px;
+  font-weight: 600;
 }
-.step-chip svg { width: 14px; height: 14px; stroke: var(--ink); }
+.install-help-step svg { width: 16px; height: 16px; }
+.install-help-note { display: block; color: var(--court-muted); }
 
-/* Interactive App Simulator — compact so tabs + full phone fit in one mobile viewport */
-.sim-card {
-  padding: 14px 12px 16px;
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  background: var(--stage-bg);
+/* Wide interactive stage */
+.stage {
+  margin-top: 48px;
+  width: min(880px, 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 20px;
 }
 
-.preview-tabs {
-  width: 100%;
-  max-width: 340px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
+.segmented {
+  display: inline-flex;
   padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(248, 250, 252, 0.14);
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .preview-tab {
-  min-height: 34px;
-  padding: 5px 4px;
+  min-height: 38px;
+  padding: 0 18px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
+  color: var(--court-muted);
+  font-size: var(--t-sm);
+  font-weight: 500;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  transition: transform 0.14s ease, background-color 0.16s ease, color 0.16s ease;
-}
-.preview-tab:active { transform: scale(0.95); }
-.preview-tab .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.preview-tab[data-accent="blue"] .dot { background: var(--blue); }
-.preview-tab[data-accent="coral"] .dot { background: var(--coral); }
-.preview-tab[data-accent="violet"] .dot { background: var(--violet); }
-.preview-tab[data-accent="teal"] .dot { background: var(--teal); }
-.preview-tab[aria-selected="true"] {
-  background: var(--cta-bg);
-  color: var(--cta-ink);
+  white-space: nowrap;
+  transition: background-color 180ms var(--ease), color 180ms var(--ease);
 }
 
-.sim-caption {
-  font-size: 12px;
+.preview-tab[aria-selected="true"] {
+  background: #ffffff;
+  color: #0a1628;
   font-weight: 600;
-  color: var(--muted);
-  text-align: center;
-  min-height: 18px;
+}
+
+.stage-surface {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 290px) minmax(0, 1fr);
+  align-items: center;
+  gap: 32px;
+  padding: 28px 32px;
+  border-radius: 16px;
+  background: rgba(10, 22, 40, 0.78);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(248, 250, 252, 0.16);
+  text-align: left;
 }
 
 .device-frame {
-  width: min(215px, 56vw);
-  padding: 6px;
-  border-radius: 24px;
-  background: var(--phone-frame);
-  border: 1px solid var(--line-strong);
-  touch-action: pan-y;
+  width: 100%;
+  max-width: 280px;
+  margin-inline: auto;
+  padding: 8px;
+  border-radius: 26px;
+  background: #050b14;
+  border: 1px solid rgba(248, 250, 252, 0.2);
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.device-frame:active { transform: scale(0.985); }
 
 .device-screen {
-  position: relative;
-  border-radius: 18px;
   overflow: hidden;
-  background: #ffffff;
-  aspect-ratio: 390 / 844;
-  max-height: 52svh;
+  border-radius: 20px;
+  aspect-ratio: 780 / 1688;
+  background: #0a1628;
 }
 
 .device-screen img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top;
-  transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.device-screen img.switching {
-  opacity: 0.25;
-  transform: scale(0.975);
+  object-position: top center;
+  transition: opacity 160ms var(--ease);
 }
 
-.sim-hint {
-  font-size: 11px;
-  color: var(--subtle);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.device-screen img.switching { opacity: 0.25; }
+
+.stage-meta h3 {
+  margin: 0 0 8px;
+  font-family: var(--f-display);
+  font-size: var(--t-h2);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: var(--court-ink);
 }
 
-/* Compact Sections */
+.stage-meta p {
+  margin: 0;
+  max-width: 40ch;
+  font-size: var(--t-body);
+  color: var(--court-muted);
+}
+
+.stage-hint {
+  margin-top: 16px;
+  font-size: var(--t-sm);
+  color: rgba(183, 196, 216, 0.78);
+}
+
+/* Sections */
 .section {
-  padding: 32px 0;
+  padding: 88px 0;
   border-top: 1px solid var(--line);
 }
 
-.section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  margin-bottom: 18px;
-}
-
-.kicker {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--blue);
+.section-alt {
+  background: var(--surface-alt);
 }
 
 .section h2 {
-  margin: 0;
-  font-size: clamp(22px, 4.5vw, 30px);
-  font-weight: 800;
-  line-height: 1.12;
+  margin: 0 0 40px;
+  max-width: 22ch;
+  font-family: var(--f-display);
+  font-size: var(--t-h2);
+  font-weight: 700;
+  line-height: 1.08;
   letter-spacing: -0.03em;
 }
 
-/* 3 Steps — compact horizontal/stacked visual strip */
+/* 3 Steps: hairline ruled columns, real sequence numbers */
 .three-steps {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
 }
 
 .step {
-  display: grid;
-  grid-template-columns: 36px 1fr;
+  padding: 28px 28px 0 0;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items: center;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface);
-  transition: transform 0.16s ease, border-color 0.16s ease;
 }
-.step:hover { transform: translateY(-2px); border-color: var(--line-strong); }
 
-.step-badge {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  font-size: 13px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
+.step + .step {
+  padding-left: 28px;
+  border-left: 1px solid var(--line);
 }
-.step:nth-child(1) .step-badge { background: var(--blue-soft); color: var(--blue); }
-.step:nth-child(2) .step-badge { background: var(--coral-soft); color: var(--coral); }
-.step:nth-child(3) .step-badge { background: var(--teal-soft); color: var(--teal); }
 
-.step h3 { margin: 0 0 2px; font-size: 15px; font-weight: 700; letter-spacing: -0.015em; }
-.step p { margin: 0; font-size: 13px; color: var(--muted); }
+.step-num {
+  font-family: var(--f-display);
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--accent);
+}
 
-/* 4 Visual Shots — compact 2x2 grid on mobile, 4-col on desktop */
+.step h3 {
+  margin: 0;
+  font-family: var(--f-display);
+  font-size: var(--t-body);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.step p {
+  margin: 0;
+  max-width: 34ch;
+  color: var(--muted);
+}
+
+/* Gallery: 4 real screenshots */
 .gallery {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
 }
 
 .shot {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface);
-  overflow: hidden;
-  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.18s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
-.shot:hover { transform: translateY(-3px); border-color: var(--line-strong); }
-.shot:active { transform: scale(0.98); }
 
 .shot-trigger {
   display: block;
   width: 100%;
-  padding: 10px 10px 0;
-  border: 0;
-  background: var(--surface-alt);
+  padding: 14px 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
   cursor: pointer;
-  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+  text-align: left;
+  transition: transform 200ms var(--ease), border-color 200ms var(--ease);
+}
+
+.shot-trigger:hover {
+  transform: translateY(-2px);
+  border-color: var(--ink);
 }
 
 .shot-frame {
-  width: 100%;
-  border-radius: 10px 10px 0 0;
   overflow: hidden;
+  border-radius: 10px 10px 0 0;
   border: 1px solid var(--line);
   border-bottom: 0;
-  background: #ffffff;
-  aspect-ratio: 390 / 430;
+  aspect-ratio: 780 / 1280;
+  background: var(--surface-alt);
 }
 
 .shot-frame img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top;
+  object-position: top center;
 }
 
-.shot-body {
-  padding: 10px 12px 12px;
-}
-
-.shot h3 {
-  margin: 0 0 2px;
-  font-size: 14px;
+.shot-body h3 {
+  margin: 0 0 4px;
+  font-family: var(--f-display);
+  font-size: var(--t-body);
   font-weight: 700;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.01em;
 }
 
-.shot p {
+.shot-body p {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--t-sm);
   color: var(--muted);
 }
 
-/* 6 Benefits — compact 2-col visual tiles on mobile, 3-col on desktop */
+/* Capabilities: 6 items in hairline architectural grid */
 .benefits {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
 }
 
 .benefit {
-  padding: 13px 14px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: var(--surface);
-  display: grid;
-  gap: 8px;
-  align-content: start;
-  transition: transform 0.16s ease, border-color 0.16s ease;
+  padding: 28px 24px 28px 0;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
 }
-.benefit:hover { transform: translateY(-2px); border-color: var(--line-strong); }
 
-.benefit-badge {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
+.benefit-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--accent);
 }
-.benefit-badge svg { width: 17px; height: 17px; }
-.benefit:nth-child(1) .benefit-badge { background: var(--blue-soft); color: var(--blue); }
-.benefit:nth-child(2) .benefit-badge { background: var(--coral-soft); color: var(--coral); }
-.benefit:nth-child(3) .benefit-badge { background: var(--violet-soft); color: var(--violet); }
-.benefit:nth-child(4) .benefit-badge { background: var(--teal-soft); color: var(--teal); }
-.benefit:nth-child(5) .benefit-badge { background: var(--amber-soft); color: var(--amber); }
-.benefit:nth-child(6) .benefit-badge { background: var(--blue-soft); color: var(--blue); }
 
-.benefit h3 { margin: 0 0 2px; font-size: 13.5px; font-weight: 700; line-height: 1.25; }
-.benefit p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.35; }
+.benefit h3 {
+  margin: 0 0 4px;
+  font-family: var(--f-display);
+  font-size: var(--t-body);
+  font-weight: 700;
+}
 
-/* Compact FAQ */
-.faq {
+.benefit p {
+  margin: 0;
+  max-width: 34ch;
+  color: var(--muted);
+}
+
+/* FAQ: editorial 2-column split */
+.faq-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 48px;
+  align-items: start;
+}
+
+.faq-layout h2 { margin: 0; }
+
+.faq-list {
   border-top: 1px solid var(--line);
 }
 
-.faq details {
+.faq-list details {
   border-bottom: 1px solid var(--line);
 }
 
-.faq summary {
-  min-height: 48px;
-  padding: 10px 0;
+.faq-list summary {
+  list-style: none;
+  padding: 20px 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  font-size: 14px;
-  font-weight: 600;
+  gap: 16px;
   cursor: pointer;
-  list-style: none;
+  font-family: var(--f-display);
+  font-size: var(--t-body);
+  font-weight: 700;
 }
-.faq summary::-webkit-details-marker { display: none; }
-.faq summary::after {
-  content: "+";
-  font-size: 18px;
-  font-weight: 400;
-  color: var(--blue);
-  flex-shrink: 0;
-}
-.faq details[open] summary::after { content: "−"; }
-.faq p { margin: 0 0 14px; color: var(--muted); font-size: 13.5px; max-width: 64ch; }
 
-/* Final CTA */
-.final {
-  padding: 32px 0 36px;
-  border-top: 1px solid var(--line);
-  display: grid;
-  gap: 14px;
-  align-items: center;
+.faq-list summary::-webkit-details-marker { display: none; }
+
+.faq-list summary::after {
+  content: "+";
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: var(--muted);
+  transition: transform 180ms var(--ease);
 }
-.final h2 { margin: 0 0 4px; font-size: clamp(22px, 4.5vw, 32px); font-weight: 800; letter-spacing: -0.03em; }
-.final p { margin: 0; color: var(--muted); font-size: 14px; }
-.final .cta-row { margin-top: 0; }
+
+.faq-list details[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.faq-list details p {
+  margin: 0 0 20px;
+  max-width: 58ch;
+  color: var(--muted);
+}
+
+/* Final full-bleed band */
+.final {
+  background: var(--court-bg);
+  color: var(--court-ink);
+  padding: 80px 0;
+}
+
+.final-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.final h2 {
+  margin: 0 0 8px;
+  font-family: var(--f-display);
+  font-size: var(--t-h2);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.final p {
+  margin: 0;
+  color: var(--court-muted);
+}
 
 /* Footer */
 .footer {
-  border-top: 1px solid var(--line);
-  padding: 16px 0 calc(84px + env(safe-area-inset-bottom));
-  font-size: 12px;
-  color: var(--subtle);
+  background: var(--court-bg);
+  color: var(--court-muted);
+  border-top: 1px solid rgba(248, 250, 252, 0.12);
+  padding: 24px 0;
+  font-size: var(--t-sm);
 }
-.footer .wrap { display: flex; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
 
-/* Mobile bottom bar (solo tras pasar el hero) */
+.footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Mobile sticky CTA */
 .mobile-bar {
   position: fixed;
-  z-index: 40;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 8px 14px calc(8px + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--line);
-  background: color-mix(in srgb, var(--bg) 95%, transparent);
+  z-index: 35;
+  display: none;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
   backdrop-filter: blur(12px);
-  transform: translateY(110%);
-  opacity: 0;
-  pointer-events: none;
-  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+  border-top: 1px solid var(--line);
+  transform: translateY(100%);
+  transition: transform 220ms var(--ease);
 }
-.mobile-bar.visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
-.mobile-bar .btn { width: 100%; }
+
+.mobile-bar.visible { transform: translateY(0); }
+
+.mobile-bar .btn-primary {
+  width: 100%;
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+}
 
 /* Lightbox */
 .lightbox {
@@ -701,82 +747,91 @@ html[data-theme="dark"] .theme-moon { display: none; }
   z-index: 80;
   display: none;
   place-items: center;
-  padding: 20px;
-  background: rgba(9, 11, 16, 0.86);
+  padding: 24px;
+  background: rgba(7, 16, 30, 0.86);
 }
-.lightbox.open { display: grid; animation: fadeIn 0.18s ease; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.lightbox.open { display: grid; }
+
 .lightbox-card {
   position: relative;
-  width: min(350px, 100%);
-  display: grid;
-  gap: 10px;
-  justify-items: center;
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
+
+.lightbox-card img {
+  max-height: 78dvh;
+  width: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(248, 250, 252, 0.2);
+}
+
+.lightbox-caption {
+  font-size: var(--t-sm);
+  color: var(--court-ink);
+  text-align: center;
+}
+
 .lightbox-close {
   position: absolute;
-  top: -12px;
-  right: -12px;
-  width: 42px;
-  height: 42px;
-  border: 1px solid #353f52;
-  border-radius: 50%;
-  background: #11151e;
-  color: #f4f6fa;
+  top: -14px;
+  right: -10px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(248, 250, 252, 0.24);
+  background: #0a1628;
+  color: #ffffff;
   cursor: pointer;
 }
-.lightbox-card img {
-  width: 100%;
-  max-height: 78vh;
-  object-fit: contain;
-  border-radius: 20px;
-  border: 1px solid #353f52;
-  background: #ffffff;
-}
-.lightbox-caption { color: #f4f6fa; font-size: 13px; font-weight: 600; text-align: center; }
 
-/* Scroll reveal */
-.reveal {
-  opacity: 0;
-  transform: translateY(16px);
-  transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1), transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-  transition-delay: var(--d, 0ms);
+@media (max-width: 960px) {
+  .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .benefits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .faq-layout { grid-template-columns: 1fr; gap: 28px; }
 }
-.reveal.in { opacity: 1; transform: translateY(0); }
 
-/* Responsive */
-@media (min-width: 720px) {
-  .nav-link { display: inline-flex; }
-  .hero {
-    grid-template-columns: 1.08fr 0.92fr;
-    gap: 36px;
-    padding: 40px 0 44px;
+@media (max-width: 760px) {
+  .stage-surface {
+    grid-template-columns: 1fr;
+    padding: 22px 20px;
+    gap: 20px;
+    text-align: center;
   }
-  .cta-row { grid-template-columns: auto auto; justify-content: start; }
-  .device-frame { width: 248px; }
-  .device-screen { max-height: none; }
-  .three-steps { grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .gallery { grid-template-columns: repeat(4, 1fr); gap: 14px; }
-  .benefits { grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .final { grid-template-columns: 1fr auto; }
-  .footer { padding: 18px 0 26px; }
-  .mobile-bar { display: none; }
+  .stage-meta p { margin-inline: auto; }
+  .three-steps { grid-template-columns: 1fr; }
+  .step { padding: 24px 0; border-bottom: 1px solid var(--line); }
+  .step + .step { padding-left: 0; border-left: 0; }
+}
+
+@media (max-width: 680px) {
+  .nav-link { display: none; }
+  .hero { padding: 96px 0 56px; }
+  .section { padding: 64px 0; }
+  .benefits { grid-template-columns: 1fr; }
+  .benefit { padding-right: 0; }
+  .mobile-bar { display: block; }
+  body { padding-bottom: 74px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .reveal { opacity: 1; transform: none; }
-  *, *::before, *::after { transition: none !important; animation: none !important; }
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
 </style>
 </head>
 <body>
-<div class="scroll-bar" id="scrollBar" aria-hidden="true"></div>
 <a class="skip" href="#contenido">Saltar al contenido</a>
 
-<header class="top">
+<header class="top" id="siteHeader">
   <div class="wrap nav">
     <a class="brand" href="./" aria-label="Abrir Estadísticas">
       <svg class="logo" viewBox="0 0 512 512" role="img" aria-label="Logo de Estadísticas">
@@ -785,15 +840,12 @@ html[data-theme="dark"] .theme-moon { display: none; }
         <path d="M166 326 L226 274 L286 294 L349 194" fill="none" stroke="#ed304c" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
         <circle cx="349" cy="194" r="22" fill="#18a985" stroke="#10233f" stroke-width="10"/>
       </svg>
-      <span class="brand-text">
-        <b>Estadísticas</b>
-        <small>Baloncesto · Gratis</small>
-      </span>
+      <span class="brand-wordmark">Estadísticas</span>
     </a>
     <nav class="nav-actions" aria-label="Navegación">
-      <a class="nav-link" href="#como-funciona">Cómo va</a>
+      <a class="nav-link" href="#como-funciona">Cómo funciona</a>
       <a class="nav-link" href="#funciones">Pantallas</a>
-      <a class="nav-link" href="#preguntas">Dudas</a>
+      <a class="nav-link" href="#preguntas">Preguntas</a>
       <button class="icon-btn" id="theme" type="button" aria-label="Cambiar tema">
         <svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -808,16 +860,25 @@ html[data-theme="dark"] .theme-moon { display: none; }
 </header>
 
 <main id="contenido">
-  <section class="wrap hero">
-    <div class="hero-copy">
-      <div class="status-pill">
-        <span class="status-dot" aria-hidden="true"></span>
-        <span>Gratis · Privada · Sin conexión</span>
-      </div>
-      <h1>Actas y Directo, <em>en un toque.</em></h1>
-      <p class="lead">Sube el acta FBM, apunta en pista y mira la evolución de tu equipo al instante.</p>
+  <section class="hero" id="hero">
+    <svg class="court-art" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <rect x="72" y="48" width="1296" height="804" fill="none" stroke="rgba(248,250,252,0.08)" stroke-width="1.5"/>
+      <line x1="720" y1="48" x2="720" y2="852" stroke="rgba(248,250,252,0.09)" stroke-width="1.5"/>
+      <circle cx="720" cy="450" r="118" fill="none" stroke="rgba(248,250,252,0.08)" stroke-width="1.5"/>
+      <path d="M72 150 H290 A260 260 0 0 1 290 750 H72" fill="none" stroke="rgba(248,250,252,0.11)" stroke-width="1.5"/>
+      <rect x="72" y="310" width="230" height="280" fill="none" stroke="rgba(248,250,252,0.1)" stroke-width="1.5"/>
+      <path d="M1368 150 H1150 A260 260 0 0 0 1150 750 H1368" fill="none" stroke="rgba(248,250,252,0.11)" stroke-width="1.5"/>
+      <rect x="1138" y="310" width="230" height="280" fill="none" stroke="rgba(248,250,252,0.1)" stroke-width="1.5"/>
+      <path d="M160 760 L440 690 L690 715 L960 610" fill="none" stroke="rgba(217,38,68,0.28)" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="960" cy="610" r="5" fill="#18a985" opacity="0.7"/>
+    </svg>
+
+    <div class="wrap hero-inner">
+      <h1>Actas FBM y Directo en una sola app.</h1>
+      <p class="hero-lead">Importa el Excel oficial, registra robos, pérdidas y rebotes desde la banda y sigue la evolución del equipo sin conexión.</p>
+
       <div class="cta-row">
-        <button class="btn primary install-button" id="install" type="button">
+        <button class="btn-primary install-button" id="install" type="button">
           <i aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 4v12M7 11l5 5 5-5M5 20h14"/>
@@ -825,120 +886,104 @@ html[data-theme="dark"] .theme-moon { display: none; }
           </i>
           <b>Instalar gratis</b>
         </button>
-        <a class="btn" id="openApp" href="./?from=landing">Abrir en el navegador</a>
+        <a class="link-open" id="openApp" href="./?from=landing">Abrir en el navegador</a>
       </div>
-      <div class="trust-line">
-        <span>Android, iPhone y PC</span>
-        <span>·</span>
-        <span>Sin registro</span>
-        <span>·</span>
-        <span>Datos en tu móvil</span>
-      </div>
-      <div class="install-help" id="installHelp" role="status" aria-live="polite"></div>
-    </div>
 
-    <div class="sim-card" aria-label="Simulador interactivo de la aplicación">
-      <div class="preview-tabs" role="tablist" aria-label="Cambiar pantalla de vista previa">
-        <button class="preview-tab" type="button" role="tab" aria-selected="true" data-accent="blue" data-preview="landing/equipo.webp" data-caption="Balance, medias y evolución del marcador" data-alt="Panel de equipo con balance y evolución del marcador"><span class="dot" aria-hidden="true"></span>Equipo</button>
-        <button class="preview-tab" type="button" role="tab" aria-selected="false" data-accent="coral" data-preview="landing/directo.webp" data-caption="Botones grandes en pista: robos, pérdidas y rebotes" data-alt="Registro en directo de robos, pérdidas y rebotes"><span class="dot" aria-hidden="true"></span>Directo</button>
-        <button class="preview-tab" type="button" role="tab" aria-selected="false" data-accent="violet" data-preview="landing/jugadora.webp" data-caption="Cuotas de puntos, minutos y gráfica por partido" data-alt="Ficha individual con cuotas y evolución partido a partido"><span class="dot" aria-hidden="true"></span>Ficha</button>
-        <button class="preview-tab" type="button" role="tab" aria-selected="false" data-accent="teal" data-preview="landing/compartir.webp" data-caption="Enlaces privados de Editor o Lector revocables" data-alt="Opciones privadas para compartir como Editor o Lector"><span class="dot" aria-hidden="true"></span>Compartir</button>
-      </div>
-      <div class="sim-caption" id="simCaption">Balance, medias y evolución del marcador</div>
-      <div class="device-frame" id="simFrame" title="Desliza o pulsa para cambiar de pantalla">
-        <div class="device-screen">
-          <img id="heroPreviewImg" src="landing/equipo.webp" width="780" height="1688" alt="Panel de equipo con balance y evolución del marcador">
+      <div class="install-help" id="installHelp" role="status" aria-live="polite"></div>
+
+      <div class="stage" aria-label="Vista previa interactiva de la aplicación">
+        <div class="segmented" role="tablist" aria-label="Cambiar pantalla de vista previa">
+          <button class="preview-tab" type="button" role="tab" aria-selected="true" data-title="Resumen del equipo" data-preview="landing/equipo.webp" data-caption="Balance de victorias, medias de anotación y evolución del marcador partido a partido." data-alt="Panel de equipo con balance y evolución del marcador">Equipo</button>
+          <button class="preview-tab" type="button" role="tab" aria-selected="false" data-title="Directo en pista" data-preview="landing/directo.webp" data-caption="Botones amplios por cuarto para anotar robos, pérdidas, rebotes y mapas de tiro con un dedo." data-alt="Registro en directo de robos, pérdidas y rebotes">Directo</button>
+          <button class="preview-tab" type="button" role="tab" aria-selected="false" data-title="Ficha individual" data-preview="landing/jugadora.webp" data-caption="Cuotas de puntos, minutos jugados y gráfica individual de progresión en toda la temporada." data-alt="Ficha individual con cuotas y evolución partido a partido">Ficha</button>
+          <button class="preview-tab" type="button" role="tab" aria-selected="false" data-title="Enlaces privados" data-preview="landing/compartir.webp" data-caption="Comparte el equipo como Editor o Lector con enlaces revocables al instante y sin registro." data-alt="Opciones privadas para compartir como Editor o Lector">Compartir</button>
+        </div>
+
+        <div class="stage-surface">
+          <div class="device-frame" id="simFrame" title="Pulsa o desliza para cambiar de pantalla">
+            <div class="device-screen">
+              <img id="heroPreviewImg" src="landing/equipo.webp" width="780" height="1688" alt="Panel de equipo con balance y evolución del marcador">
+            </div>
+          </div>
+          <div class="stage-meta">
+            <h3 id="simTitle">Resumen del equipo</h3>
+            <p id="simCaption">Balance de victorias, medias de anotación y evolución del marcador partido a partido.</p>
+            <p class="stage-hint">Pulsa en la pantalla o usa las pestañas para recorrer las cuatro vistas.</p>
+          </div>
         </div>
       </div>
-      <span class="sim-hint">Toca una pestaña o desliza la pantalla</span>
     </div>
   </section>
 
   <section class="section" id="como-funciona">
     <div class="wrap">
-      <div class="section-head reveal">
-        <div>
-          <span class="kicker">En 3 pasos</span>
-          <h2>Simple desde el primer partido.</h2>
-        </div>
-      </div>
+      <h2>Del acta al banquillo en tres pasos.</h2>
       <div class="three-steps">
-        <article class="step reveal" style="--d:0ms">
-          <span class="step-badge">01</span>
-          <div>
-            <h3>Sube el acta FBM</h3>
-            <p>Carga el Excel oficial en 2 segundos.</p>
-          </div>
+        <article class="step">
+          <span class="step-num">Paso 1</span>
+          <h3>Sube el acta FBM</h3>
+          <p>Carga el Excel oficial del partido en segundos y deja calculadas las medias y cuotas de tiro.</p>
         </article>
-        <article class="step reveal" style="--d:70ms">
-          <span class="step-badge">02</span>
-          <div>
-            <h3>Apunta el Directo</h3>
-            <p>Robos, pérdidas y rebotes con un dedo.</p>
-          </div>
+        <article class="step">
+          <span class="step-num">Paso 2</span>
+          <h3>Apunta el Directo</h3>
+          <p>Registra robos, pérdidas, rebotes y mapa de tiro desde la banda sin depender de cobertura.</p>
         </article>
-        <article class="step reveal" style="--d:140ms">
-          <span class="step-badge">03</span>
-          <div>
-            <h3>Entiende y comparte</h3>
-            <p>Gráficas listas y enlace privado al equipo.</p>
-          </div>
+        <article class="step">
+          <span class="step-num">Paso 3</span>
+          <h3>Comparte con tu cuerpo técnico</h3>
+          <p>Envía un enlace privado de Editor o Lector para mantener el seguimiento sincronizado.</p>
         </article>
       </div>
     </div>
   </section>
 
-  <section class="section" id="funciones">
+  <section class="section section-alt" id="funciones">
     <div class="wrap">
-      <div class="section-head reveal">
-        <div>
-          <span class="kicker">La app por dentro</span>
-          <h2>Pulsa para ver en grande.</h2>
-        </div>
-      </div>
+      <h2>Cuatro vistas para todo el partido.</h2>
       <div class="gallery">
-        <article class="shot reveal" style="--d:0ms">
-          <button class="shot-trigger" type="button" data-zoom="landing/equipo.webp" data-caption="Equipo · Balance, medias y evolución del marcador">
+        <article class="shot">
+          <button class="shot-trigger" type="button" data-zoom="landing/equipo.webp" data-caption="Equipo: balance, medias y evolución del marcador">
             <div class="shot-frame">
               <img loading="lazy" src="landing/equipo.webp" width="780" height="1688" alt="Resumen de equipo con balance y evolución de marcador">
             </div>
           </button>
           <div class="shot-body">
             <h3>Equipo</h3>
-            <p>Balance y marcador.</p>
+            <p>Balance y evolución de marcador.</p>
           </div>
         </article>
-        <article class="shot reveal" style="--d:60ms">
-          <button class="shot-trigger" type="button" data-zoom="landing/directo.webp" data-caption="Directo · Botones táctiles por cuarto en pista">
+        <article class="shot">
+          <button class="shot-trigger" type="button" data-zoom="landing/directo.webp" data-caption="Directo: botones táctiles por cuarto en pista">
             <div class="shot-frame">
               <img loading="lazy" src="landing/directo.webp" width="780" height="1688" alt="Pantalla táctil de Directo para pista">
             </div>
           </button>
           <div class="shot-body">
             <h3>Directo</h3>
-            <p>Contadores táctiles.</p>
+            <p>Contadores táctiles por cuarto.</p>
           </div>
         </article>
-        <article class="shot reveal" style="--d:120ms">
-          <button class="shot-trigger" type="button" data-zoom="landing/jugadora.webp" data-caption="Ficha individual · Cuotas y evolución partido a partido">
+        <article class="shot">
+          <button class="shot-trigger" type="button" data-zoom="landing/jugadora.webp" data-caption="Ficha individual: cuotas y evolución partido a partido">
             <div class="shot-frame">
               <img loading="lazy" src="landing/jugadora.webp" width="780" height="1688" alt="Ficha individual con cuotas y gráfica de evolución">
             </div>
           </button>
           <div class="shot-body">
             <h3>Jugadores</h3>
-            <p>Cuotas y evolución.</p>
+            <p>Cuotas, minutos y progresión.</p>
           </div>
         </article>
-        <article class="shot reveal" style="--d:180ms">
-          <button class="shot-trigger" type="button" data-zoom="landing/compartir.webp" data-caption="Compartir · Enlaces privados de Editor o Lector">
+        <article class="shot">
+          <button class="shot-trigger" type="button" data-zoom="landing/compartir.webp" data-caption="Compartir: enlaces privados de Editor o Lector">
             <div class="shot-frame">
               <img loading="lazy" src="landing/compartir.webp" width="780" height="1688" alt="Opciones para compartir equipo como Editor o Lector">
             </div>
           </button>
           <div class="shot-body">
             <h3>Compartir</h3>
-            <p>Editor o Lector.</p>
+            <p>Acceso de Editor o Lector.</p>
           </div>
         </article>
       </div>
@@ -947,103 +992,81 @@ html[data-theme="dark"] .theme-moon { display: none; }
 
   <section class="section">
     <div class="wrap">
-      <div class="section-head reveal">
-        <div>
-          <span class="kicker">Incluido gratis</span>
-          <h2>Todo lo que necesitas en pista.</h2>
-        </div>
-      </div>
+      <h2>Pensada para pabellones sin cobertura.</h2>
       <div class="benefits">
-        <article class="benefit reveal" style="--d:0ms">
-          <span class="benefit-badge" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
-          </span>
+        <article class="benefit">
+          <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
           <div>
-            <h3>Acta + Directo</h3>
-            <p>Todo unido sin pisar datos.</p>
+            <h3>Acta y Directo unidos</h3>
+            <p>Combina el Excel oficial y tus eventos en pista sin sobrescribir datos.</p>
           </div>
         </article>
-        <article class="benefit reveal" style="--d:50ms">
-          <span class="benefit-badge" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
-          </span>
+        <article class="benefit">
+          <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
           <div>
             <h3>Mapas de tiro</h3>
-            <p>Ataque y defensa táctil.</p>
+            <p>Registra lanzamientos en ataque y defensa con un toque sobre la pista.</p>
           </div>
         </article>
-        <article class="benefit reveal" style="--d:100ms">
-          <span class="benefit-badge" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
-          </span>
+        <article class="benefit">
+          <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
           <div>
-            <h3>Multiequipo</h3>
-            <p>Equipos aislados en 1 toque.</p>
+            <h3>Varios equipos</h3>
+            <p>Cambia de equipo en un toque con datos e historial aislados.</p>
           </div>
         </article>
-        <article class="benefit reveal" style="--d:150ms">
-          <span class="benefit-badge" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-          </span>
+        <article class="benefit">
+          <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
           <div>
-            <h3>Privada</h3>
-            <p>Primero en tu dispositivo.</p>
+            <h3>Privacidad local</h3>
+            <p>Tus estadísticas viven en tu dispositivo sin cuentas ni rastreadores.</p>
           </div>
         </article>
-        <article class="benefit reveal" style="--d:200ms">
-          <span class="benefit-badge" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.82a15 15 0 0 1 20 0M5 12.86a10 10 0 0 1 14 0M8.5 16.43a5 5 0 0 1 7 0M12 20h.01"/></svg>
-          </span>
+        <article class="benefit">
+          <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.82a15 15 0 0 1 20 0M5 12.86a10 10 0 0 1 14 0M8.5 16.43a5 5 0 0 1 7 0M12 20h.01"/></svg>
           <div>
-            <h3>Sin cobertura</h3>
-            <p>Funciona en cualquier pabellón.</p>
+            <h3>Trabajo sin red</h3>
+            <p>Funciona instalada como aplicación en cualquier pabellón sin cobertura.</p>
           </div>
         </article>
-        <article class="benefit reveal" style="--d:250ms">
-          <span class="benefit-badge" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          </span>
+        <article class="benefit">
+          <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <div>
-            <h3>Editor y Lector</h3>
-            <p>Enlaces revocables al instante.</p>
+            <h3>Enlaces revocables</h3>
+            <p>Invita a ayudantes como Editores o a familias como Lectores.</p>
           </div>
         </article>
       </div>
     </div>
   </section>
 
-  <section class="section" id="preguntas">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <div>
-          <span class="kicker">Dudas rápidas</span>
-          <h2>Respuestas en 10 segundos.</h2>
-        </div>
-      </div>
-      <div class="faq reveal">
+  <section class="section section-alt" id="preguntas">
+    <div class="wrap faq-layout">
+      <h2>Preguntas frecuentes.</h2>
+      <div class="faq-list">
         <details>
-          <summary>¿Cómo la instalo en iPhone?</summary>
+          <summary>¿Cómo la instalo en iPhone o iPad?</summary>
           <p>Abre esta web en Safari, pulsa Compartir y elige «Añadir a pantalla de inicio».</p>
         </details>
         <details>
-          <summary>¿Y si abrí el enlace desde WhatsApp o Instagram?</summary>
-          <p>Pulsa el menú superior → «Abrir en Chrome» o «Abrir en Safari» y luego toca Instalar gratis.</p>
+          <summary>¿Qué hago si abrí el enlace desde WhatsApp o Instagram?</summary>
+          <p>Pulsa el menú superior, elige «Abrir en Chrome» o «Abrir en Safari» y después toca Instalar gratis.</p>
         </details>
         <details>
           <summary>¿Es gratis y privada?</summary>
-          <p>Sí, 100 % gratis, sin registro ni anuncios. Tus datos viven en tu dispositivo y solo se sincronizan si creas un enlace privado.</p>
+          <p>Sí, es gratis, sin registro ni anuncios. Tus datos se guardan en tu dispositivo y solo se sincronizan si creas un enlace privado.</p>
         </details>
       </div>
     </div>
   </section>
 
-  <section class="wrap final reveal">
-    <div>
-      <h2>Lista para el próximo partido.</h2>
-      <p>Instálala en 1 toque o pruébala ahora mismo.</p>
-    </div>
-    <div class="cta-row">
-      <button class="btn primary install-button" id="installBottom" type="button">
+  <section class="final">
+    <div class="wrap final-inner">
+      <div>
+        <h2>Lista para el próximo partido.</h2>
+        <p>Instálala en tu móvil o pruébala directamente en el navegador.</p>
+      </div>
+      <button class="btn-primary install-button" id="installBottom" type="button">
         <i aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 4v12M7 11l5 5 5-5M5 20h14"/>
@@ -1051,20 +1074,19 @@ html[data-theme="dark"] .theme-moon { display: none; }
         </i>
         <b>Instalar gratis</b>
       </button>
-      <a class="btn" href="./?from=landing">Abrir en el navegador</a>
     </div>
   </section>
 </main>
 
 <footer class="footer">
-  <div class="wrap">
+  <div class="wrap footer-inner">
     <span>Estadísticas v12.3 · Baloncesto</span>
-    <span>Gratis · Sin rastreadores</span>
+    <span>Gratis y sin rastreadores</span>
   </div>
 </footer>
 
 <div class="mobile-bar">
-  <button class="btn primary install-button" id="installSticky" type="button">
+  <button class="btn-primary install-button" id="installSticky" type="button">
     <i aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 4v12M7 11l5 5 5-5M5 20h14"/>
@@ -1077,7 +1099,7 @@ html[data-theme="dark"] .theme-moon { display: none; }
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Captura ampliada">
   <div class="lightbox-card">
     <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Cerrar captura">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <path d="M18 6L6 18M6 6l12 12"/>
       </svg>
     </button>
@@ -1113,27 +1135,27 @@ function setButtons(label, icon = '↓') {
 function showHelp(kind) {
   let html = '';
   if (kind === 'ios') {
-    html = '<strong>En Safari: Compartir → Añadir a pantalla de inicio</strong>' +
-      '<div class="visual-steps">' +
-      '<span class="step-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg> Compartir</span>' +
+    html = '<strong>En Safari: Compartir y Añadir a pantalla de inicio</strong>' +
+      '<div class="install-help-steps">' +
+      '<span class="install-help-step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg> Compartir</span>' +
       '<span>→</span>' +
-      '<span class="step-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg> Añadir a inicio</span>' +
-      '</div><span>Apple exige confirmar este paso desde Safari.</span>';
+      '<span class="install-help-step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg> Añadir a inicio</span>' +
+      '</div><span class="install-help-note">Apple exige confirmar este paso desde Safari.</span>';
   } else if (kind === 'inapp') {
     html = '<strong>Abre esta página en Chrome o Safari</strong>' +
-      '<div class="visual-steps">' +
-      '<span class="step-chip">Menú ⋮</span><span>→</span>' +
-      '<span class="step-chip">Abrir en navegador</span>' +
-      '</div><span>El navegador interno bloquea la instalación directa.</span>';
+      '<div class="install-help-steps">' +
+      '<span class="install-help-step">Menú ⋮</span><span>→</span>' +
+      '<span class="install-help-step">Abrir en navegador</span>' +
+      '</div><span class="install-help-note">El navegador interno bloquea la instalación directa.</span>';
   } else if (kind === 'firefox') {
     html = '<strong>Abre el menú de tu navegador</strong>' +
-      '<span>Busca «Instalar» o «Añadir a pantalla de inicio». Si no aparece, ábrela en Chrome o Edge.</span>';
+      '<span class="install-help-note">Busca «Instalar» o «Añadir a pantalla de inicio». Si no aparece, ábrela en Chrome o Edge.</span>';
   } else {
-    html = '<strong>Menú del navegador → Instalar aplicación</strong>' +
-      '<div class="visual-steps">' +
-      '<span class="step-chip">Menú ⋮</span><span>→</span>' +
-      '<span class="step-chip">Instalar app</span>' +
-      '</div><span>Confirma la instalación desde el menú del navegador.</span>';
+    html = '<strong>Menú del navegador e Instalar aplicación</strong>' +
+      '<div class="install-help-steps">' +
+      '<span class="install-help-step">Menú ⋮</span><span>→</span>' +
+      '<span class="install-help-step">Instalar app</span>' +
+      '</div><span class="install-help-note">Confirma la instalación desde el menú del navegador.</span>';
   }
   help.innerHTML = html;
   help.classList.add('show');
@@ -1182,11 +1204,12 @@ document.getElementById('theme').addEventListener('click', () => {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
   localStorage.setItem('estadisticas_landing_theme', next);
-  document.querySelector('meta[name="theme-color"]').content = next === 'dark' ? '#090b10' : '#f7f6f2';
+  document.querySelector('meta[name="theme-color"]').content = next === 'dark' ? '#07101e' : '#0a1628';
 });
 
-// Interactive Hero Simulator (tabs + tap + touch swipe)
+// Interactive Hero Stage (segmented tabs + keyboard + tap + swipe)
 const previewImg = document.getElementById('heroPreviewImg');
+const simTitle = document.getElementById('simTitle');
 const simCaption = document.getElementById('simCaption');
 const simFrame = document.getElementById('simFrame');
 const previewTabs = [...document.querySelectorAll('.preview-tab')];
@@ -1196,16 +1219,23 @@ function selectTab(index) {
   currentTab = (index + previewTabs.length) % previewTabs.length;
   const tab = previewTabs[currentTab];
   previewTabs.forEach((t, i) => t.setAttribute('aria-selected', i === currentTab ? 'true' : 'false'));
+  simTitle.textContent = tab.dataset.title || '';
   simCaption.textContent = tab.dataset.caption || '';
   previewImg.classList.add('switching');
   setTimeout(() => {
     previewImg.src = tab.dataset.preview;
     previewImg.alt = tab.dataset.alt || '';
     previewImg.classList.remove('switching');
-  }, 110);
+  }, 90);
 }
 
-previewTabs.forEach((tab, idx) => tab.addEventListener('click', () => selectTab(idx)));
+previewTabs.forEach((tab, idx) => {
+  tab.addEventListener('click', () => selectTab(idx));
+  tab.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') { e.preventDefault(); selectTab(idx + 1); previewTabs[currentTab].focus(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); selectTab(idx - 1); previewTabs[currentTab].focus(); }
+  });
+});
 
 let touchStartX = 0;
 simFrame.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].clientX; }, { passive: true });
@@ -1242,34 +1272,28 @@ lightboxClose.addEventListener('click', closeLightbox);
 lightbox.addEventListener('click', event => { if (event.target === lightbox) closeLightbox(); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox(); });
 
-// Scroll reveal + progress bar + smart mobile sticky bar
-const scrollBar = document.getElementById('scrollBar');
-window.addEventListener('scroll', () => {
-  const h = document.documentElement.scrollHeight - window.innerHeight;
-  if (h > 0 && scrollBar) scrollBar.style.width = Math.min(100, (window.scrollY / h) * 100) + '%';
-}, { passive: true });
+// Header scrolled state + mobile sticky CTA
+const siteHeader = document.getElementById('siteHeader');
+const heroEl = document.getElementById('hero');
+const heroInstallBtn = document.getElementById('install');
+const mobileBar = document.querySelector('.mobile-bar');
 
-if ('IntersectionObserver' in window) {
-  const revObs = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('in');
-        revObs.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.12 });
-  document.querySelectorAll('.reveal').forEach(el => revObs.observe(el));
+function updateHeader() {
+  if (!heroEl || !siteHeader) return;
+  const pastHero = heroEl.getBoundingClientRect().bottom <= 64;
+  const inHeroScroll = !pastHero && window.scrollY > 24;
+  siteHeader.classList.toggle('scrolled', pastHero);
+  siteHeader.classList.toggle('hero-scrolled', inHeroScroll);
+}
 
-  const heroInstallBtn = document.getElementById('install');
-  const mobileBar = document.querySelector('.mobile-bar');
-  if (heroInstallBtn && mobileBar) {
-    new IntersectionObserver(entries => {
-      const out = !entries[0].isIntersecting && entries[0].boundingClientRect.top < 0;
-      mobileBar.classList.toggle('visible', out);
-    }, { threshold: 0 }).observe(heroInstallBtn);
-  }
-} else {
-  document.querySelectorAll('.reveal').forEach(el => el.classList.add('in'));
+window.addEventListener('scroll', updateHeader, { passive: true });
+updateHeader();
+
+if ('IntersectionObserver' in window && heroInstallBtn && mobileBar) {
+  new IntersectionObserver(entries => {
+    const out = !entries[0].isIntersecting && entries[0].boundingClientRect.top < 0;
+    mobileBar.classList.toggle('visible', out);
+  }, { threshold: 0 }).observe(heroInstallBtn);
 }
 
 if ('serviceWorker' in navigator) {
